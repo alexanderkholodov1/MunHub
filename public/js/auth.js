@@ -1,6 +1,9 @@
 /**
- * MuNRa Auth System v3.0
+ * MuNRa Auth System v4.0
  * Firebase Authentication + User Management + Profile Sharing + i18n
+ * 
+ * SECURITY: Roles are stored in Firebase database, NOT hardcoded.
+ * To make a user admin, set their role in Firebase: users/{uid}/role = 'admin'
  */
 
 // Auth state
@@ -9,8 +12,8 @@ let currentUser = null;
 let currentUserData = null;
 let isRegistering = false; // Flag to prevent race condition
 
-// Admin UID
-const ADMIN_UID = "0SwKcsurbUZ7rqVL9iDI9QfrSwn1";
+// REMOVED: Hardcoded ADMIN_UID - roles are now read from database only
+// To set up initial admin: Manually set users/{uid}/role to 'admin' in Firebase Console
 
 // i18n - Translations
 const translations = {
@@ -290,12 +293,12 @@ async function loadUserData(uid) {
         if (snapshot.exists()) {
             return snapshot.val();
         } else {
-            // User data doesn't exist yet - this shouldn't happen if registration worked
-            // But as fallback, create with Firebase Auth displayName
+            // User data doesn't exist yet - create with default 'user' role
+            // Admins must be set manually in Firebase Console for security
             const defaultData = {
                 email: currentUser.email,
                 displayName: currentUser.displayName || currentUser.email.split('@')[0],
-                role: uid === ADMIN_UID ? 'admin' : 'user',
+                role: 'user', // Default role - admins set manually in Firebase Console
                 createdAt: Date.now()
             };
             await firebase.database().ref(`users/${uid}`).set(defaultData);
@@ -347,6 +350,10 @@ function updateUIForLoggedInUser(user, userData) {
     if (addProfileBtn) addProfileBtn.style.display = 'flex';
     if (manageProfilesBtn) manageProfilesBtn.style.display = 'flex';
     
+    // Show serial terminal button for logged in users
+    const serialTerminalBtn = document.getElementById('serialTerminalBtn');
+    if (serialTerminalBtn) serialTerminalBtn.style.display = 'flex';
+    
     // Close auth modal if open
     const authModal = document.getElementById('authModal');
     if (authModal) authModal.classList.remove('active');
@@ -367,6 +374,10 @@ function updateUIForLoggedOutUser() {
     const manageProfilesBtn = document.getElementById('manageProfilesBtn');
     if (addProfileBtn) addProfileBtn.style.display = 'none';
     if (manageProfilesBtn) manageProfilesBtn.style.display = 'none';
+    
+    // HIDE serial terminal button for guests
+    const serialTerminalBtn = document.getElementById('serialTerminalBtn');
+    if (serialTerminalBtn) serialTerminalBtn.style.display = 'none';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -738,18 +749,22 @@ async function loadAdminUsers() {
         tbody.innerHTML = '';
         
         Object.entries(users).forEach(([uid, user]) => {
+            // Protect admins - they can only be demoted by another admin
+            const isProtectedAdmin = user.role === 'admin' && currentUserData?.role !== 'admin';
+            const isSelf = uid === currentUser?.uid;
+            
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${user.email || 'N/A'}</td>
                 <td>${user.displayName || 'N/A'}</td>
                 <td>
-                    <select class="role-select" data-uid="${uid}" ${uid === ADMIN_UID ? 'disabled' : ''}>
+                    <select class="role-select" data-uid="${uid}" ${isSelf ? 'disabled' : ''}>
                         <option value="user" ${user.role === 'user' ? 'selected' : ''}>${t('user')}</option>
                         <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>${t('admin')}</option>
                     </select>
                 </td>
                 <td>
-                    ${uid !== ADMIN_UID ? `<button class="btn-small btn-danger" onclick="deleteUser('${uid}')">${t('delete')}</button>` : `<span class="text-muted">${t('protected')}</span>`}
+                    ${!isSelf ? `<button class="btn-small btn-danger" onclick="deleteUser('${uid}')">${t('delete')}</button>` : `<span class="text-muted">${t('protected')}</span>`}
                 </td>
             `;
             tbody.appendChild(row);

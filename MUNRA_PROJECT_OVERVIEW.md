@@ -96,19 +96,20 @@ munra-4.0/
 ├── public/
 │   ├── index.html              # Main application page
 │   ├── css/
-│   │   └── styles.css          # All styling
+│   │   └── main.css            # All styling
 │   └── js/
-│       ├── config.js           # Constants and validation rules
-│       ├── firebase-client.js  # Firebase auth & database
-│       ├── serial-reader.js    # Web Serial API for detector
-│       ├── data-processor.js   # Parse and aggregate data
-│       ├── charts.js           # Chart.js wrapper for graphs
-│       ├── ui.js               # DOM manipulation and events
-│       ├── admin.js            # Admin panel functionality
-│       └── app.js              # Main orchestration
+│       ├── auth.js             # Firebase auth & user management
+│       ├── serial-reader.js    # Web Serial API for detector (NEW!)
+│       └── app.js              # Main orchestration & charts
 ├── firebase.json               # Firebase hosting config
+├── database.rules.json         # Firebase security rules (UPDATED!)
 ├── .firebaserc                 # Firebase project config
-└── README.md                   # Complete documentation
+├── .gitignore                  # Excludes credentials (NEW!)
+├── .github/
+│   └── workflows/
+│       └── firebase-deploy.yml # CI/CD pipeline (NEW!)
+├── FIREBASE_DEPLOYMENT.md      # Deployment instructions (NEW!)
+└── MUNRA_PROJECT_OVERVIEW.md   # This documentation
 ```
 
 ### Technology Stack
@@ -219,51 +220,76 @@ Check `hasRealtimeData()` before enabling these buttons.
 - Public/private profile visibility
 - Mobile responsive design
 
-### ❌ Critical Issues to Fix
+### ✅ Recently Fixed (February 2026)
+
+#### 1. Security Hardening
+**Status**: ✅ FIXED
+
+**What was done**:
+- Removed hardcoded `ADMIN_UID` from auth.js - roles now read from database only
+- Implemented proper Firebase database security rules with role-based access control
+- Added `.gitignore` to prevent committing sensitive files (firebase_credentials.json)
+- Created `FIREBASE_DEPLOYMENT.md` with secure deployment instructions
+
+**New Security Rules**:
+- Public profiles: Anyone can read
+- Private profiles: Only owner, shared users, and admins can read
+- Write access: Only authenticated users with proper permissions
+- Admin role: Must be set manually in Firebase Console
+
+#### 2. Web Serial API Implementation
+**Status**: ✅ IMPLEMENTED
+
+**What was done**:
+- Created `serial-reader.js` with full Web Serial API support
+- Browser-based serial terminal with connect/disconnect/record controls
+- Support for multiple data formats (key-value, CSV, JSON)
+- Proper data validation with configured ranges
+- Minute-by-minute averaging (CRITICAL: averages, not sums!)
+- Real-time data with optional storage (expensive)
+
+**UI Flow**:
+1. User clicks serial terminal button (visible when logged in)
+2. Modal shows connection controls and profile selector
+3. User connects to serial port and starts recording
+4. Data displayed in real-time terminal view
+5. Data saved to Firebase with proper averaging
+
+#### 3. Automatic Database Cleanup
+**Status**: ✅ IMPLEMENTED
+
+**What was done**:
+- Added `startRealtimeDataCleanup()` function that runs every minute
+- Automatically deletes real-time data older than 5 minutes
+- Runs in background even without active detector connections
+- Prevents database growth from accumulating old real-time records
+
+#### 4. CI/CD Pipeline
+**Status**: ✅ IMPLEMENTED
+
+**What was done**:
+- Created `.github/workflows/firebase-deploy.yml`
+- Automatic deployment on push to main/master
+- Preview deployments for pull requests
+- Database rules deployment included
+
+### ⚠️ Known Issues (May Need Verification)
 
 #### 1. Real-time Data Not Displayed (1m and 5m views)
-**Status**: Data is being stored but not rendered
+**Status**: Needs verification after deployment
 
-**Current problem**:
-- Real-time data fills the database (32 MB from 1 day!)
-- Charts remain empty in 1m and 5m views
-- No automatic cleanup running
+**Current state**:
+- Cleanup mechanism now implemented
+- Data should display but needs testing with actual detector
 
-**Required fix**:
-```javascript
-// Implement vertical "candle" bars for real-time data
-// Enable only when user opts in for real-time recording
-// Auto-delete data older than 5 minutes
-// For 5m view: show both candles AND minute-averaged curve
-```
+#### 2. 5-Minute View Showing Too Many Points
+**Status**: Needs verification
 
-#### 2. Excessive Database Growth
-**Status**: 23 MB after 1 day of operation
+**Issue**: May still show too many points instead of minute averages
+- Implementation exists but needs real-world testing
 
-**Problem**: No cleanup mechanism for old real-time data
-
-**Required fix**:
-- Implement continuous background cleanup loop
-- Check age of all realtime records
-- Delete records older than 5 minutes
-- Stop loop when all real-time data is cleaned
-- This must run automatically, even without active detectors
-
-#### 3. 5-Minute View Showing Too Many Points
-**Status**: Shows 1000+ points instead of 5
-
-**Problem**: Displaying every real-time event instead of minute averages
-
-**Required fix**:
-```javascript
-// 5m view must show:
-// 1. Vertical bars (candles) for real-time data
-// 2. Smooth curve with EXACTLY 5 points (one per minute)
-// NOT: thousands of points at the same timestamp
-```
-
-#### 4. Admin Panel Incomplete
-**Status**: Basic functionality exists, but needs expansion
+#### 3. Admin Panel Incomplete
+**Status**: Partial - Basic functionality exists
 
 **Missing features**:
 - Database size display in UI
@@ -274,16 +300,6 @@ Check `hasRealtimeData()` before enabling these buttons.
 - Real-time data cleanup status
 - Memory usage warnings
 
-#### 5. No Direct Browser Serial Connection
-**Status**: Still requires local Python app
-
-**Goal**: Replace with Web Serial API directly in browser
-- Open terminal in new browser tab
-- Read `/dev/ttyACM0` directly
-- Display raw terminal output
-- Process data in real-time
-- Write to Firebase from browser
-
 ---
 
 ## Pending Features & Future Development
@@ -291,19 +307,17 @@ Check `hasRealtimeData()` before enabling these buttons.
 ### High Priority (Version 4.0)
 
 #### 1. **Browser-Based Serial Reader**
-Replace local Python app with Web Serial API:
-- New tab with terminal display
-- Direct `/dev/ttyACM0` connection
-- Real-time processing
-- User-selectable profile for data writing
-- Optional real-time recording toggle
+**Status**: ✅ IMPLEMENTED (serial-reader.js)
 
-**UI Flow**:
-1. User clicks "Start Recording"
-2. Modal asks: "Which profile?" (dropdown)
-3. Modal asks: "Enable real-time data?" (checkbox)
-4. Opens terminal window
-5. Starts reading and processing data
+Features implemented:
+- Serial terminal modal with connect/disconnect controls
+- Direct serial port connection via Web Serial API
+- Real-time data display in terminal view
+- Profile selector for data writing
+- Optional real-time recording toggle
+- Multiple data format parsing (key-value, CSV, JSON)
+- Data validation before storage
+- Minute-by-minute averaging
 
 #### 2. **Enhanced Admin Panel**
 Move ALL local app functionality to admin panel:
@@ -332,6 +346,8 @@ Move ALL local app functionality to admin panel:
 - Detailed descriptions
 
 #### 5. **Accurate vs Stacked View Modes**
+**Status**: ✅ IMPLEMENTED
+
 Global toggle for all charts:
 
 **ACCURATE mode**:
@@ -347,13 +363,18 @@ Global toggle for all charts:
 - Adjusts if less data than requested range
 
 #### 6. **Custom Time Range**
-Replace "All" button with "CUSTOM":
-- Date range picker
+**Status**: ✅ IMPLEMENTED
+
+Features:
+- Date range picker modal
 - Respects Accurate/Stacked modes
 - Shows exact session boundaries (Accurate)
 - Shows continuous data flow (Stacked)
 
 #### 7. **Multi-Language Support**
+**Status**: ✅ IMPLEMENTED (English and Spanish)
+
+Features:
 - English (default)
 - Spanish
 - Language selector in settings
@@ -1041,15 +1062,29 @@ function aggregateMinute(events) {
 - Chart.js: https://www.chartjs.org/docs/
 
 ### Project Repository
-- GitHub: (To be added - currently in development)
+- GitHub: https://github.com/alexanderkholodov1/CosmicRay
 - License: Open Source (MIT or similar)
 - Contributors: Open to community contributions
 
 ---
 
-**Last Updated**: February 2026
-**Version**: 4.0 (In Development)
-**Status**: Active Development
+**Last Updated**: February 3, 2026
+**Version**: 4.0 
+**Status**: Active Development - Security & Serial API improvements implemented
+
+---
+
+## Recent Changes Log
+
+### February 3, 2026
+- ✅ Fixed security vulnerability: Removed hardcoded admin UID
+- ✅ Implemented proper Firebase database security rules
+- ✅ Added `.gitignore` to exclude credentials from repository
+- ✅ Created Web Serial API implementation (serial-reader.js)
+- ✅ Added automatic real-time data cleanup (5 minute retention)
+- ✅ Created GitHub Actions workflow for CI/CD deployment
+- ✅ Added deployment documentation (FIREBASE_DEPLOYMENT.md)
+- ✅ Updated this documentation to reflect current state
 
 ---
 

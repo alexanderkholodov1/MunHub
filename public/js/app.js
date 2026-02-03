@@ -804,13 +804,13 @@ function applyFirebaseConfig() {
         initFirebase(url);
         setTimeout(() => {
             if (db) {
-                resultEl.textContent = '✓ Connected successfully!';
+                resultEl.textContent = '[OK] Connected successfully!';
                 resultEl.className = 'connection-result success';
                 updateStorageStats();
             }
         }, 1000);
     } catch (e) {
-        resultEl.textContent = '✗ Connection failed: ' + e.message;
+        resultEl.textContent = '[FAIL] Connection failed: ' + e.message;
         resultEl.className = 'connection-result error';
     }
 }
@@ -842,13 +842,13 @@ function applyFirebaseConfigUser() {
         initFirebase(url);
         setTimeout(() => {
             if (db) {
-                resultEl.textContent = '✓ Connected successfully!';
+                resultEl.textContent = '[OK] Connected successfully!';
                 resultEl.className = 'connection-result success';
                 updateStorageStats();
             }
         }, 1000);
     } catch (e) {
-        resultEl.textContent = '✗ Connection failed: ' + e.message;
+        resultEl.textContent = '[FAIL] Connection failed: ' + e.message;
         resultEl.className = 'connection-result error';
     }
 }
@@ -862,10 +862,10 @@ function showMigrateDbModal() {
     modal.id = 'migrateDbModal';
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 600px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
-            <h2 style="margin-bottom: 10px; color: var(--text-primary);">🔄 Database Migration</h2>
+            <h2 style="margin-bottom: 10px; color: var(--text-primary);">[Sync]  Database Migration</h2>
             
             <div style="background: #f8d7da; border: 2px solid #f5c2c7; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <h3 style="color: #842029; margin: 0 0 10px 0;">⚠️ CRITICAL OPERATION WARNING</h3>
+                <h3 style="color: #842029; margin: 0 0 10px 0;">[WARNING]  CRITICAL OPERATION WARNING</h3>
                 <p style="color: #842029; font-size: 13px; margin: 0;">
                     This operation will <strong>COPY ALL DATA</strong> from the current database to a new Firebase database.
                     This includes:
@@ -914,7 +914,7 @@ function showMigrateDbModal() {
                 </button>
                 <button onclick="startMigration()" id="startMigrateBtn"
                         style="padding: 10px 20px; border: none; border-radius: 8px; background: #dc3545; color: white; cursor: pointer; font-weight: 600;">
-                    🚀 Start Migration
+                     Start Migration
                 </button>
             </div>
         </div>
@@ -936,15 +936,15 @@ async function startMigration() {
     }
     
     // Multiple confirmations
-    if (!confirm('⚠️ FIRST CONFIRMATION:\n\nYou are about to migrate ALL data to:\n' + destUrl + '\n\nAre you sure you want to continue?')) {
+    if (!confirm('[WARNING]  FIRST CONFIRMATION:\n\nYou are about to migrate ALL data to:\n' + destUrl + '\n\nAre you sure you want to continue?')) {
         return;
     }
     
-    if (!confirm('⚠️ SECOND CONFIRMATION:\n\nThis action CANNOT be undone. All data will be COPIED to the new database.\n\nProceed with migration?')) {
+    if (!confirm('[WARNING]  SECOND CONFIRMATION:\n\nThis action CANNOT be undone. All data will be COPIED to the new database.\n\nProceed with migration?')) {
         return;
     }
     
-    const finalConfirm = prompt('⚠️ FINAL CONFIRMATION:\n\nType "MIGRATE" to confirm you understand this operation:');
+    const finalConfirm = prompt('[WARNING]  FINAL CONFIRMATION:\n\nType "MIGRATE" to confirm you understand this operation:');
     if (finalConfirm !== 'MIGRATE') {
         showToast('Migration cancelled', 'info');
         return;
@@ -1011,7 +1011,7 @@ async function startMigration() {
         await destApp.delete();
         
         progressBar.style.width = '100%';
-        statusText.textContent = '✅ Migration completed successfully!';
+        statusText.textContent = '[OK]  Migration completed successfully!';
         statusText.style.color = '#2ea043';
         
         showToast('Migration completed successfully!', 'success');
@@ -1024,7 +1024,7 @@ async function startMigration() {
         
     } catch (e) {
         console.error('Migration error:', e);
-        statusText.textContent = '❌ Migration failed: ' + e.message;
+        statusText.textContent = '[ERROR]  Migration failed: ' + e.message;
         statusText.style.color = '#dc3545';
         showToast('Migration failed: ' + e.message, 'error');
         document.getElementById('startMigrateBtn').disabled = false;
@@ -1061,7 +1061,7 @@ function loadProfiles() {
             }
             
             // Add visibility indicator
-            const visIcon = profile.visibility === 'private' ? '🔒 ' : '';
+            const visIcon = profile.visibility === 'private' ? '[Private]  ' : '';
             select.innerHTML += `<option value="${id}">${visIcon}${name}</option>`;
         });
         
@@ -1105,7 +1105,7 @@ function showCreateProfileModal() {
     modal.id = 'createProfileModal';
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 400px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
-            <h2 style="margin-bottom: 20px; color: var(--text-primary);">➕ Create New Profile</h2>
+            <h2 style="margin-bottom: 20px; color: var(--text-primary);"> Create New Profile</h2>
             
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">Profile Name:</label>
@@ -1127,8 +1127,8 @@ function showCreateProfileModal() {
                 <select id="newProfileVisibility" 
                         style="width: 100%; padding: 10px; border: 1px solid var(--border-color); 
                                border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px;">
-                    <option value="private" selected>🔒 Private (only you can see)</option>
-                    <option value="public">🌍 Public (everyone can see)</option>
+                    <option value="private" selected>[Private]  Private (only you can see)</option>
+                    <option value="public">[Public]  Public (everyone can see)</option>
                 </select>
             </div>
             
@@ -1168,7 +1168,7 @@ async function createNewProfile() {
         statusDiv.style.display = 'block';
         statusDiv.style.background = '#ff4444';
         statusDiv.style.color = 'white';
-        statusDiv.textContent = '❌ Profile name is required';
+        statusDiv.textContent = '[ERROR]  Profile name is required';
         return;
     }
     
@@ -1183,7 +1183,7 @@ async function createNewProfile() {
         statusDiv.style.display = 'block';
         statusDiv.style.background = '#ff4444';
         statusDiv.style.color = 'white';
-        statusDiv.textContent = '❌ A profile with this ID already exists';
+        statusDiv.textContent = '[ERROR]  A profile with this ID already exists';
         return;
     }
     
@@ -1223,7 +1223,7 @@ async function createNewProfile() {
         await db.ref(`profiles/${profileId}`).set(profileData);
         
         statusDiv.style.background = '#4CAF50';
-        statusDiv.textContent = '✅ Profile created successfully!';
+        statusDiv.textContent = '[OK]  Profile created successfully!';
         
         // Reload profiles and select the new one
         setTimeout(() => {
@@ -1240,7 +1240,7 @@ async function createNewProfile() {
     } catch (error) {
         console.error('Error creating profile:', error);
         statusDiv.style.background = '#ff4444';
-        statusDiv.textContent = '❌ Error: ' + error.message;
+        statusDiv.textContent = '[ERROR]  Error: ' + error.message;
     }
 }
 
@@ -1278,7 +1278,7 @@ function showManageProfilesModal() {
             name = profile.meta.name;
         }
         const isSelected = id === currentProfile;
-        const visIcon = profile.visibility === 'private' ? '🔒' : '🌐';
+        const visIcon = profile.visibility === 'private' ? '[Private] ' : '[Public] ';
         const currentVis = profile.visibility === 'private' ? 'Private' : 'Public';
         const newVis = profile.visibility === 'private' ? 'PUBLIC' : 'PRIVATE';
         const visButtonColor = profile.visibility === 'private' ? '#e5a00d' : '#2ea043'; // Yellow for going public (warning), green for going private (safe)
@@ -1301,12 +1301,12 @@ function showManageProfilesModal() {
                         </button>
                         <button onclick="toggleSharePanel('${id}')" 
                                 style="padding: 6px 12px; border: none; border-radius: 6px; background: #7b2cbf; color: white; cursor: pointer; font-size: 12px;">
-                            👥 Share
+                             Share
                         </button>
                         <button onclick="deleteProfile('${id}', '${name.replace(/'/g, "\\'")}')" 
                                 style="padding: 6px 12px; border: none; border-radius: 6px; background: #f85149; color: white; cursor: pointer; font-size: 12px;"
                                 ${isSelected ? 'disabled title="Cannot delete selected profile"' : ''}>
-                            🗑️
+                            
                         </button>
                     </div>
                 </div>
@@ -1342,7 +1342,7 @@ function showManageProfilesModal() {
     
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 700px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
-            <h2 style="margin-bottom: 20px; color: var(--text-primary);">👤 Manage My Profiles</h2>
+            <h2 style="margin-bottom: 20px; color: var(--text-primary);"> Manage My Profiles</h2>
             
             <div style="max-height: 500px; overflow-y: auto; margin-bottom: 20px;">
                 ${profilesHtml}
@@ -1399,7 +1399,7 @@ async function loadSharedUsersList(profileId) {
                             <span style="font-size: 11px; color: var(--text-secondary);">${access === 'edit' ? 'Can edit' : 'View only'}</span>
                             <button onclick="removeProfileShare('${profileId}', '${uid}')" 
                                     style="padding: 2px 6px; border: none; border-radius: 4px; background: #f85149; color: white; cursor: pointer; font-size: 11px;">
-                                ✕
+                                X
                             </button>
                         </div>
                     </div>
@@ -1502,14 +1502,14 @@ function confirmVisibilityChange(profileId, currentVisibility) {
     // Different messages for public vs private
     let warningMessage;
     if (newVisibility === 'public') {
-        warningMessage = `⚠️ WARNING: You are about to make "${profileName}" PUBLIC.\n\n` +
+        warningMessage = `[WARNING]  WARNING: You are about to make "${profileName}" PUBLIC.\n\n` +
                         `This means:\n` +
                         `• ANYONE can view this profile\n` +
                         `• The data will be visible to all users\n` +
                         `• Search engines may index it\n\n` +
                         `Are you sure you want to make this profile PUBLIC?`;
     } else {
-        warningMessage = `🔒 You are about to make "${profileName}" PRIVATE.\n\n` +
+        warningMessage = `[Private]  You are about to make "${profileName}" PRIVATE.\n\n` +
                         `This means:\n` +
                         `• Only you and people you share with can view it\n` +
                         `• Other users will no longer see this profile\n\n` +
@@ -1560,7 +1560,7 @@ async function deleteProfile(profileId, profileName) {
         await db.ref(`profiles/${profileId}`).remove();
         
         statusDiv.style.background = '#4CAF50';
-        statusDiv.textContent = '✅ Profile deleted!';
+        statusDiv.textContent = '[OK]  Profile deleted!';
         
         // If this was the current profile, clear selection
         if (currentProfile === profileId) {
@@ -1581,7 +1581,7 @@ async function deleteProfile(profileId, profileName) {
     } catch (error) {
         console.error('Error deleting profile:', error);
         statusDiv.style.background = '#f85149';
-        statusDiv.textContent = '❌ Error: ' + error.message;
+        statusDiv.textContent = '[ERROR]  Error: ' + error.message;
     }
 }
 
@@ -1725,7 +1725,7 @@ function showUploadProgress(filename) {
             overflow-y: auto;
         ">
             <h2 style="color: #00d4ff; margin: 0 0 20px 0; font-size: 18px;">
-                📤 Procesando: ${filename}
+                [Upload]  Procesando: ${filename}
             </h2>
             <div id="uploadSteps" style="font-family: monospace; font-size: 13px; line-height: 1.8;">
                 <div class="step" data-step="read">⏳ Leyendo archivo...</div>
@@ -1815,7 +1815,7 @@ function showUploadResult(success, message, details = null) {
             border: 1px solid ${success ? '#00ff88' : '#ff4444'};
         `;
         resultDiv.innerHTML = `
-            <div style="font-size: 24px; margin-bottom: 10px;">${success ? '✅' : '❌'}</div>
+            <div style="font-size: 24px; margin-bottom: 10px;">${success ? '[OK] ' : '[ERROR] '}</div>
             <div style="color: ${success ? '#00ff88' : '#ff4444'}; font-size: 14px; font-weight: bold;">
                 ${message}
             </div>
@@ -1853,21 +1853,21 @@ async function processUpload(content, filename) {
     const lines = content.trim().split('\n').filter(l => l.trim() && !l.startsWith('#'));
     const totalLines = lines.length;
     
-    addStep('✅', `Archivo leído: ${totalLines.toLocaleString()} líneas`, 'success');
+    addStep('[OK] ', `Archivo leído: ${totalLines.toLocaleString()} líneas`, 'success');
     updateProgress(10, '10%');
     
     // Small delay for UI update
     await new Promise(r => setTimeout(r, 100));
     
     // Detect format
-    addStep('🔍', 'Detectando formato de datos...');
+    addStep('[Search] ', 'Detectando formato de datos...');
     
     const firstLine = lines[0].trim();
     const parts = firstLine.split(/\s+/);
     
     // Check if JSON
     if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
-        addStep('📋', 'Formato detectado: JSON');
+        addStep('[Clipboard] ', 'Formato detectado: JSON');
         await processJSONUpload(content, filename);
         return;
     }
@@ -1879,7 +1879,7 @@ async function processUpload(content, filename) {
         return;
     }
     
-    addStep('✅', `Formato detectado: Eventos MuNRa (${parts.length} columnas)`, 'success');
+    addStep('[OK] ', `Formato detectado: Eventos MuNRa (${parts.length} columnas)`, 'success');
     updateProgress(15, '15%');
     
     // Extract date from filename
@@ -1888,18 +1888,18 @@ async function processUpload(content, filename) {
     if (dateMatch) {
         const [_, day, month, year] = dateMatch;
         baseDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 0, 0);
-        addStep('📅', `Fecha extraída del nombre: ${day}/${month}/${year}`, 'success');
+        addStep('[Date] ', `Fecha extraída del nombre: ${day}/${month}/${year}`, 'success');
     } else {
         baseDate = new Date();
         baseDate.setHours(0, 0, 0, 0);
-        addStep('⚠️', `No se encontró fecha en el nombre, usando hoy: ${baseDate.toLocaleDateString()}`, 'pending');
+        addStep('[WARNING] ', `No se encontró fecha en el nombre, usando hoy: ${baseDate.toLocaleDateString()}`, 'pending');
     }
     
     updateProgress(20, '20%');
     await new Promise(r => setTimeout(r, 100));
     
     // Parse all events and find timestamp range
-    addStep('📊', 'Analizando rango de timestamps...');
+    addStep('[Stats] ', 'Analizando rango de timestamps...');
     
     let minTs = Infinity, maxTs = -Infinity;
     let validEvents = 0;
@@ -1925,17 +1925,17 @@ async function processUpload(content, filename) {
     }
     
     const tsRange = maxTs - minTs;
-    addStep('✅', `Rango de timestamps: ${minTs.toLocaleString()} → ${maxTs.toLocaleString()}`, 'success');
-    addStep('✅', `Eventos válidos: ${validEvents.toLocaleString()}`, 'success');
+    addStep('[OK] ', `Rango de timestamps: ${minTs.toLocaleString()} → ${maxTs.toLocaleString()}`, 'success');
+    addStep('[OK] ', `Eventos válidos: ${validEvents.toLocaleString()}`, 'success');
     if (invalidLines > 0) {
-        addStep('⚠️', `Líneas ignoradas: ${invalidLines.toLocaleString()}`, 'pending');
+        addStep('[WARNING] ', `Líneas ignoradas: ${invalidLines.toLocaleString()}`, 'pending');
     }
     
     updateProgress(30, '30%');
     await new Promise(r => setTimeout(r, 100));
     
     // Aggregate events by minute
-    addStep('⚙️', 'Agregando eventos por minuto...');
+    addStep('[Process] ', 'Agregando eventos por minuto...');
     
     const baseTimestamp = Math.floor(baseDate.getTime() / 1000);
     const minuteData = {};
@@ -2001,12 +2001,12 @@ async function processUpload(content, filename) {
     updateProgress(70, '70%');
     
     const minuteCount = Object.keys(minuteData).length;
-    addStep('✅', `Agregación completada: ${processedCount.toLocaleString()} eventos → ${minuteCount.toLocaleString()} minutos`, 'success');
+    addStep('[OK] ', `Agregación completada: ${processedCount.toLocaleString()} eventos → ${minuteCount.toLocaleString()} minutos`, 'success');
     
     await new Promise(r => setTimeout(r, 100));
     
     // Convert to final format
-    addStep('🔄', 'Preparando datos para subir...');
+    addStep('[Sync] ', 'Preparando datos para subir...');
     
     const data = Object.values(minuteData).map(m => ({
         ts: m.ts,
@@ -2035,7 +2035,7 @@ async function processUpload(content, filename) {
         String(date.getMinutes()).padStart(2, '0') +
         String(date.getSeconds()).padStart(2, '0');
     
-    addStep('📁', `Session ID: ${sessionId}`);
+    addStep('[File] ', `Session ID: ${sessionId}`);
     
     // Prepare minutes object
     const minutes = {};
@@ -2046,7 +2046,7 @@ async function processUpload(content, filename) {
     updateProgress(80, '80%');
     
     // Upload to Firebase
-    addStep('☁️', 'Subiendo a Firebase...');
+    addStep('[Cloud] ', 'Subiendo a Firebase...');
     
     try {
         const sessionRef = db.ref(`profiles/${currentProfile}/sessions/${sessionId}`);
@@ -2062,10 +2062,10 @@ async function processUpload(content, filename) {
         });
         
         updateProgress(90, '90%');
-        addStep('✅', 'Datos subidos a Firebase', 'success');
+        addStep('[OK] ', 'Datos subidos a Firebase', 'success');
         
         // Verify upload
-        addStep('🔍', 'Verificando subida...');
+        addStep('[Search] ', 'Verificando subida...');
         
         const verifySnapshot = await sessionRef.once('value');
         const verifyData = verifySnapshot.val();
@@ -2075,7 +2075,7 @@ async function processUpload(content, filename) {
             updateProgress(100, '100%');
             
             if (uploadedMinutes === minuteCount) {
-                addStep('✅', `Verificación exitosa: ${uploadedMinutes} minutos en Firebase`, 'success');
+                addStep('[OK] ', `Verificación exitosa: ${uploadedMinutes} minutos en Firebase`, 'success');
                 
                 const firstDate = new Date(data[0].ts * 1000);
                 const lastDate = new Date(data[data.length - 1].ts * 1000);
@@ -2089,7 +2089,7 @@ async function processUpload(content, filename) {
                     • Archivo: ${filename}
                 `);
             } else {
-                addStep('⚠️', `Advertencia: Se subieron ${uploadedMinutes} de ${minuteCount} minutos`, 'pending');
+                addStep('[WARNING] ', `Advertencia: Se subieron ${uploadedMinutes} de ${minuteCount} minutos`, 'pending');
                 showUploadResult(true, 'SUBIDA PARCIAL', `Se verificaron ${uploadedMinutes} de ${minuteCount} minutos esperados.`);
             }
         } else {
@@ -2097,7 +2097,7 @@ async function processUpload(content, filename) {
         }
         
     } catch (uploadErr) {
-        addStep('❌', `Error: ${uploadErr.message}`, 'error');
+        addStep('[ERROR] ', `Error: ${uploadErr.message}`, 'error');
         showUploadResult(false, 'ERROR AL SUBIR', uploadErr.message);
     }
 }
@@ -2109,10 +2109,10 @@ async function processJSONUpload(content, filename) {
         
         if (json.minutes && typeof json.minutes === 'object') {
             data = Object.values(json.minutes);
-            addStep('✅', `JSON con ${data.length} minutos`, 'success');
+            addStep('[OK] ', `JSON con ${data.length} minutos`, 'success');
         } else if (Array.isArray(json)) {
             data = json;
-            addStep('✅', `JSON array con ${data.length} entradas`, 'success');
+            addStep('[OK] ', `JSON array con ${data.length} entradas`, 'success');
         } else {
             data = [json];
         }
@@ -2136,7 +2136,7 @@ async function processJSONUpload(content, filename) {
             return;
         }
         
-        addStep('✅', `Entradas válidas: ${validData.length}`, 'success');
+        addStep('[OK] ', `Entradas válidas: ${validData.length}`, 'success');
         
         // Create session and upload
         const firstTs = validData[0].ts;
@@ -2148,7 +2148,7 @@ async function processJSONUpload(content, filename) {
             String(date.getMinutes()).padStart(2, '0') +
             String(date.getSeconds()).padStart(2, '0');
         
-        addStep('📁', `Session ID: ${sessionId}`);
+        addStep('[File] ', `Session ID: ${sessionId}`);
         
         const minutes = {};
         validData.forEach(entry => {
@@ -2156,7 +2156,7 @@ async function processJSONUpload(content, filename) {
         });
         
         updateProgress(70, '70%');
-        addStep('☁️', 'Subiendo a Firebase...');
+        addStep('[Cloud] ', 'Subiendo a Firebase...');
         
         const sessionRef = db.ref(`profiles/${currentProfile}/sessions/${sessionId}`);
         await sessionRef.set({
@@ -2169,12 +2169,12 @@ async function processJSONUpload(content, filename) {
         });
         
         updateProgress(90, '90%');
-        addStep('🔍', 'Verificando...');
+        addStep('[Search] ', 'Verificando...');
         
         const verify = await sessionRef.once('value');
         if (verify.val() && verify.val().minutes) {
             updateProgress(100, '100%');
-            addStep('✅', 'Verificación exitosa', 'success');
+            addStep('[OK] ', 'Verificación exitosa', 'success');
             showUploadResult(true, 'SUBIDA COMPLETADA', `${validData.length} minutos subidos como ${sessionId}`);
         } else {
             showUploadResult(false, 'ERROR: Verificación fallida');
@@ -2205,7 +2205,7 @@ function showError(message) {
         box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     `;
     errorDiv.innerHTML = `
-        <div style="color: #ff4444; font-size: 24px; margin-bottom: 10px;">⚠️ Error</div>
+        <div style="color: #ff4444; font-size: 24px; margin-bottom: 10px;">[WARNING]  Error</div>
         <div style="color: #fff; font-size: 14px; margin-bottom: 20px;">${message}</div>
         <button onclick="this.parentElement.remove()" style="
             background: #ff4444;
@@ -2278,7 +2278,7 @@ async function processProfileJSON(content, filename) {
     let profileData;
     try {
         profileData = JSON.parse(content);
-        addStep('✅', 'JSON válido', 'success');
+        addStep('[OK] ', 'JSON válido', 'success');
     } catch (err) {
         showUploadResult(false, 'ERROR: JSON inválido', err.message);
         return;
@@ -2299,11 +2299,11 @@ async function processProfileJSON(content, filename) {
         }
         profileId = inputId.toLowerCase().replace(/[^a-z0-9]/g, '_');
         profileContent = profileData;
-        addStep('📁', `Importing as profile: ${profileId}`, 'success');
+        addStep('[File] ', `Importing as profile: ${profileId}`, 'success');
     } else {
         // Multiple profiles format (like Firebase export)
         const profileKeys = Object.keys(profileData);
-        addStep('📁', `Found ${profileKeys.length} profile(s) in file`, 'success');
+        addStep('[File] ', `Found ${profileKeys.length} profile(s) in file`, 'success');
         
         if (profileKeys.length === 1) {
             profileId = profileKeys[0];
@@ -2322,7 +2322,7 @@ async function processProfileJSON(content, filename) {
                 let totalMinutes = 0;
                 
                 for (const pid of profileKeys) {
-                    addStep('📤', `Uploading profile: ${pid}...`);
+                    addStep('[Upload] ', `Uploading profile: ${pid}...`);
                     try {
                         await db.ref(`profiles/${pid}`).set(profileData[pid]);
                         const sessions = profileData[pid].sessions || {};
@@ -2331,9 +2331,9 @@ async function processProfileJSON(content, filename) {
                             sum + (s.minutes ? Object.keys(s.minutes).length : 0), 0);
                         totalSessions += sessionCount;
                         totalMinutes += minuteCount;
-                        addStep('✅', `${pid}: ${sessionCount} sessions, ${minuteCount} minutes`, 'success');
+                        addStep('[OK] ', `${pid}: ${sessionCount} sessions, ${minuteCount} minutes`, 'success');
                     } catch (err) {
-                        addStep('❌', `${pid}: Error - ${err.message}`, 'error');
+                        addStep('[ERROR] ', `${pid}: Error - ${err.message}`, 'error');
                     }
                 }
                 
@@ -2364,7 +2364,7 @@ async function processProfileJSON(content, filename) {
         }
     }
     
-    addStep('📊', `Profile contains: ${sessionCount} sessions, ${totalMinutes} minutes`, 'success');
+    addStep('[Stats] ', `Profile contains: ${sessionCount} sessions, ${totalMinutes} minutes`, 'success');
     updateProgress(50, '50%');
     
     // Check if profile already exists
@@ -2375,11 +2375,11 @@ async function processProfileJSON(content, filename) {
             closeUploadModal();
             return;
         }
-        addStep('⚠️', 'Overwriting existing profile', 'pending');
+        addStep('[WARNING] ', 'Overwriting existing profile', 'pending');
     }
     
     // Upload to Firebase
-    addStep('📤', 'Uploading to Firebase...');
+    addStep('[Upload] ', 'Uploading to Firebase...');
     updateProgress(60, '60%');
     
     try {
@@ -2396,7 +2396,7 @@ async function processProfileJSON(content, filename) {
         updateProgress(90, '90%');
         
         // Verify
-        addStep('🔍', 'Verifying upload...');
+        addStep('[Search] ', 'Verifying upload...');
         const verifyRef = await db.ref(`profiles/${profileId}/sessions`).once('value');
         const verifiedSessions = verifyRef.val();
         const verifiedCount = verifiedSessions ? Object.keys(verifiedSessions).length : 0;

@@ -1,0 +1,15 @@
+Database: https://munra-1-default-rtdb.firebaseio.com/
+Website: https://munra-1.web.app/
+
+> Backup database: https://munra-backup-default-rtdb.firebaseio.com/
+
+Version: v1.0
+
+
+
+Para tener eventos coincidentes = 1, necesitas DOS detectores MuNRa conectados entre sí por cable Ethernet. Si solo tienes un detector, TODOS los eventos tendrán Coincident = 0, lo cual es correcto.
+
+
+
+MuNRa GitHub Documentation: https://gitmilab.redclara.net/muografia/escaramujo/munra_como_usar/-/tree/main?ref_type=heads
+

@@ -1,0 +1,94 @@
+Quiero hacer la version MuNRa-3 de este proyecto.
+
+Hay muchas cosas que no me gustan, mientras otras estan en un muy buen camino. Hay que hacer los siguientes pasos:
+
+* AI-for-AI prompt:
+**Prompt:**
+
+Actúa como un diseñador de software y desarrollador web especializado en la creación de aplicaciones científicas. Tu objetivo es rediseñar una plataforma web para visualizar datos de un detector de partículas, siguiendo las instrucciones y requisitos detallados a continuación. Asegúrate de que el resultado final sea escalable, eficiente y fácil de usar.
+
+1. **Rediseño de la página web:**
+   - Dividir la pantalla en 4 secciones iguales, cada una con gráficos para Event Rate, SiPM Signal intensity, Temperature and Pressure, y Muon Rate.
+   - Incluir un botón para cambiar gráficas de manera modular, permitiendo la sustitución de Muon Rate por cualquier otra gráfica útil cuando no se disponga de datos.
+   - Implementar un selector de intervalo de tiempo para los gráficos: 1m, 5m, 15m, 30m, 1h, 6h, 12h, 24h, 3d, 7d, 14d, 30d, y CUSTOM.
+   - Los gráficos deben mostrar todos los datos tomados cada minuto, sin simplificación, incluso en intervalos más largos.
+   - Para intervalos de 1m y 5m, habilitar la opción de mostrar datos en tiempo real solo si el usuario lo selecciona. En modo ACCURATE, el eje X debe ser preciso y avanzar con el tiempo. En modo STACKED, los datos deben apilarse.
+   - Para 5m, incluir tanto las barras verticales de datos en tiempo real como la curva de datos simplificados de registros por minuto.
+   - Asegurarse de que el almacenamiento de datos en tiempo real no exceda los 5 minutos, mientras que los registros por minuto se almacenan indefinidamente.
+
+2. **Funcionalidad de visualización Accurate y Stacked:**
+   - Implementar un switch para alternar entre estos modos para todas las gráficas.
+   - En modo ACCURATE, mostrar datos exactamente en el tiempo que fueron tomados; en modo STACKED, generar una curva continua sin interrupciones.
+
+3. **Cambio del botón All a CUSTOM:**
+   - Permitir a los usuarios seleccionar periodos de tiempo personalizados, manteniendo las funcionalidades de Accurate y Stacked en este modo.
+
+4. **Arquitectura de la página web:**
+   - Crear una estructura responsiva y adaptativa para funcionar en dispositivos móviles y de escritorio.
+   - Asegurarse de que la página sea liviana, actualice los datos en tiempo real y sea fácil de navegar.
+
+5. **Organización y arquitectura del proyecto (App, Web, Database):**
+   - Reorganizar el código en GitHub para que sea modular, legible y escalable.
+   - Optimizar recursos de memoria y evitar conexiones innecesarias.
+   - Implementar un manejo avanzado de errores y avisos relacionados con el uso de memoria y registros.
+
+6. **Firebase y manejo de datos:**
+   - Revisar la base de datos en Firebase, asegurando que solo se almacene lo necesario y que el formato sea eficiente.
+   - Implementar la funcionalidad de subir archivos de sesiones o perfiles a la base de datos, con un sistema de merge similar al de Git.
+
+7. **Visualización de gráficos:**
+   - Rediseñar la sección visual de la página para que los gráficos tengan un aspecto más científico y profesional.
+   - Considerar la escalabilidad del sistema para que funcione con múltiples detectores simultáneamente, y tener en mente la futura implementación de un sistema de login.
+
+Asegúrate de seguir cada uno de estos pasos de manera minuciosa, implementando todas las funcionalidades solicitadas y optimizando donde sea necesario.
+
+
+* MI PROPIO PROMPT DESCRIPTIVO COMPLETO:
+
+1) REDISENO DE LA PAGINA WEB: Arreglar la visualizacion de datos en la pagina web, que esta completamente desajustada e infuncional. Aparte, no hay icono de pestaña ni logotipo, haz alguno. Te voy a describir detalladamente como debe ser:
+Deben haber 4 graficas que dividan la pantalla en 4 partes iguales. Debe haber una grafica para Event Rate, SiPM Signal intensity, Temperature and Pressure, Muon Rate. Pero debe haber un boton de cambiar esa grafica por otra, un tipo de puzzle modular, donde yo puedo reemplazar Muon Rate por otra grafica util a partir de los datos, para que la visualizacion sea ajustable y no ocupar espacio con graficas vacias, como Muon generalmente estara siempre vacio.
+
+Para las 4 graficas hay como seleccionar el intervalo deseado: 1m, 5m, 15m, 30m, 1h, 6h, 12h, 24h, 3d, 7d, 14d, 30d, CUSTOM. En estos graficos se puede ver la curva de datos variable (los datos se toman cada minuto). NO SE DEBE SIMPLIFICAR LA INFORMACION AL AUMENTAR EL TIEMPO!!!!!!!!!!!! Si se toman cada 1 minuto, entonces se debe mostrar cada registro SEA EN EL INTERVALO QUE SEA. Los datos pareceran oscilaciones, entonces mientras mas subo el tiempo mostrado, menor debe ser el periodo, y eso es el punto! Ver el comportamiento PRECISO, EXACTO, CIENTIFICAMENTE CORRECTO, y no simplificar nada!!
+
+Ahora, TODO INTERVALO MAYOR A 5M SIN INCLUIR SOLO MOSTRARA REGISTROS TOMADOS CADA MINUTO. Esto se hace para minimizar el espacio en la base de datos, para que de toda la informacion que saca el detector se resuma en cada minuto; de eso se encarga la aplicacion en el computador y manda los registros a la base de datos en linea en Firebase, lo cual luego se muestra EN TIEMPO REAL en la pagina web, minuto por minuto. Las curvas deben mostrar el comportamiento, deben ser algo suaves, pero aun asi que se lea bien los puntos precisos de toma de datos. Al apuntar con tu mouse en algun punto en particular, se debe poder ver el dato exacto que este punto representa.
+
+Ahora, para 1m y 5m hay una funcionalidad especial, y quiero QUE PRESTES MUCHA ATENCION A MIS INSTRUCCIONES PORQUE LO HAS ARRUINADO EN LAS ANTERIORES ITERACIONES DE MIS PROMPTS.
+- Si el usuario, al empezar a tomar datos, selecciono la opcion de mostrar los datos en tiempo real (es algo opcional), SOLO AHI debes habilitar el boton 1m y 5m: En modo ACCURATE, la grafica debe mostrar un eje X PRECISO, ABSOLUTO, que vaya avanzando JUNTO CON EL TIEMPO y no cambie de tamaño; en modo STACKED debe caber todos los datos que existen hasta rellenar el 1m o 5m (ahi si es variable el eje X, para tener una vision continua a pesar de que no necesariamente la toma de datos lo sea). Tanto 1m como 5m debe avanzar JUNTO CON EL TIEMPO REAL, los labels deben cambiar y tienes que mostrar lo mas cercano al tiempo real, que implica (para Signal intensity) tener precision menor a un segundo, porque te pueden llegar varios eventos en menos de un segundo Y LO TIENES QUE MOSTRAR TODO. La representacion en 1m y 5m sera en tiempo real de todos los datos que te llegan en la terminal.
+Entonces en 1m debes poder ver TODOS LOS DATOS, tal cual estan saliendo desde la terminal conectada al detector de particulas. No se deben ver como curvas (como en la visualizacion de los datos en 15m para arriba), sino como "velas", barras verticales que muestran los datos exactos, lo mas cercano a tiempo real posible. Entonces en SiMP debes poder ver CADA BARRA de CADA DATO DE LA TERMINAL QUE VIENEN EN TIEMPO REAL. Para la cantidad de señales recibidas, en la primera grafica de Event Rate, lo puedes simplificar a unos segundos, para que la grafica haga sentido. Pero la intensidad de la señal en mV lo debes mostrar EXACTAMENTE COMO TE VIENE EN LA TERMINAL, TODOS LOS DATOS ABSOLUTAMENTE. Puedes no hacer mucho espaciado entre barras verticales, para que todos entren.
+
+Asi, en 1m y 5m siempre debes poder ver las "velas" de datos en tiempo real, tal cual te llegan desde la terminal conectada al detector.
+
+Ahora, para 5m hay otro detalle muy importante: para 5m, APARTE DE MOSTRAR LAS BARRAS VERTICALES EN TIEMPO REAL, se deben mostrar el otro tipo de registros que toma la base de datos, los de cada minuto. Entonces, 5m es una mezcla entre 1m y 15m! Debe mostrar las BARRAS VERTICALES de datos en tiempo real, y LA CURVA DE DATOS SIMPLIFICADOS, que se muestran en el resto de intervalos mas grandes del tiempo. Esto se hace para comparar la precision y ver como estuvo en tiempo real y compararlo con la grafica que se pasa a largo plazo a la base de datos.
+
+Como te das cuenta, almacenar los datos en tiempo real es muy costoso a nivel de espacio, entonces estos se deben sobreescribir continuamente, almacenando la informacion MAXIMO DE LOS ULTIMOS 5m. Asi como las graficas de 1m y 5m avanzan dinamicamente con el tiempo constantemente (donde el lado mas derecho de la grafica es AHORA), asi cuando los datos sean mas antiguos que 5m y desaparezcan del rango de la grafica, se deben borrar de la base de datos, para no ocupar espacio. LA SOBREESCRITU DE DATOS SOLO APLICA AL MODO PRECISO, MODO EN TIEMPO REAL QUE AFECTA 1m y 5m; LOS REGISTROS TOMADOS CADA MINUTO JAMAS SE DEBEN BORRAR, ESTOS SE ALMACENAN INDEFINIDDAMENTE PARA QUE LO USEN LOS CIENTIFICOS.
+Asi, te resumo que: 1m solo muestra barras verticales en tiempo real; 5m muestra las barras en tiempo real Y la curva de datos simplificados de registros de cada minuto (asi que, logicamente, deben haber 5 bolitas cada minuto que se unnan con una curva; 5 BOLITAS, NO MAS, PORQUE NO HAY MAS DATOS, LA IMPLEMENTACION ACTUAL DE ESTA FUNCIONALIDAD ES COMPLETAMNETE DANADA, SE MUESTRAN MIL BOLAS DEL MISMO TIEMPO); todas las graifcas a partir de 15m en adelante van a mostrar datos simplificados de cada minutos, unidos con una curva suave que muestra el comportamiento; mientras mas aumentas el rango de datos mostrado, LOS DATOS NO SE DEBEN SIMPLIFICAR, debes mostrar TODA LA INFORMACION ALMACENADA QUE TIENES, por mas que eso ocupe mucho las graficas
+
+2) FUNCIONALIDAD DE VISUALIZACION ACCURATE y STACKED: debe haber un switch en la pantalla que cambie de modos de representacion de TODAS las graficas. Modo ACCURATE mostraria los datos EXACTAMENTE EN EL TIEMPO QUE FUERON TOMADOS. Esto debe aplicarse para todas las graficas; por ejemplo, en el modo ACCURATE, si hice 3 sesiones de tomas de datos, en la grafica de 24h voy a poder ver 3 curvas de datos, con una cierta separacion entre ellos determinada por la cantidad de tiempo que me demore en tomar los datos. Mientras, si estoy en modo STACKED, en la grafica voy a ver una curva continua, sin huecos entre las tomas (si no hay cantidad suficiente como para rellenar los 24 horas, para el caso, entonces muestra los datos que hay y ajusta el eje X en base a la cantidad de tiempo que hay disponible). Si hay mas de 24h (o el periodo que sea seleccionado) y estas en modo STACKED, muestra solo esa cantidad de datos apilados, sin huecos, y no mas.
+
+Entonces, para resumir: ACCURATE te va a mostrar un eje X exactamente del periodo que has seleccionado (24h, 7 dias, etc.), con las curvas de datos en el tiempo preciso que fueron tomados; STACKED te va a mostrar un eje X variable, no continuo, para generar una curva sin interrupciones; si no hay suficientes datos como para mostrar el intervalo de tiempo entero, entonces debes hacer un resize y mostrar lo que haya disponible, mostrando los labels en el eje X con los tiempos exactos que se hicieron las tomas, por mas que no sea continuo.
+
+3) El boton All debe ser cambiado, porque la cantidad de datos es INMENSA, estara corriendo 24/7 durante semanas, meses! No se va a ver nada ahi. Este modo se va a llamar CUSTOM, donde vas a poder seleccionar el periodo de tiempo que quieras. ESTO DEBE OBEDECER DE LA MISMA MANERA LOS MODOS ACCURATE Y STACKED. Entonces, por ejemplo si en Custom selecciono 10 dias, y el detector tomo datos en 5 sesiones, entonces debo ver 5 curvas EXACTAMENTE en los periodos de tiempo que sucedieron, con un hueco entre esas tomas (el tiempo que no se tomo nada); mientras, en modo STACKED debo poder ver todas las 5 sesiones juntas, formando una sola curva continua. Si, por alguna razon, no hay suficientes datos como para rellenar los 10 dias, entonces muestra la curva disponible que ocupe el grafico (por ejemplo 34 horas, entonces eso sera el eje X, que muestre las horas a los que se tomaron [es una grafica relativa, con eje X variable y no continuo]). 
+
+4) ARQUITECTURA DE LA PAGINA WEB: La pagina web es MUY desarreglada. Su estructura es tan rigida que en los dispositivos moviles es inusable, hay 0 responsiveness y adaptacion para las distintas pantallas. Debe funcionar para CUALQUIER dispositivo y pantalla (telefono, TABLET, computadora con pantallas grandes y pequeñas, etc.), el texto debe ser grande y legible, los numeros, cifras, graficas, deben ser muy visibles desde lejos, ya que la utilidad de la pagina es mostrar los datos 24/7 en un laboratorio, donde cualquier estudiante puede acercarse y ver los resultados. Usa las mejores practicas para compatibilidad con los dispositivos, la pagina debe ser liviana, actualizar los datos en tiempo real seamlessly, eficientemente, no consumir mucha memoria y que se cargue y se use facilmente en cualquier dispositivo.
+
++) ORGANZACION Y ARQUITECTURA DEL PROYECTO (APP, WEB, DATABASE): Durante todo el proceso, reorganizar la estructura del proyecto, tanto en el programa local/codigo GitHub, como en la base de datos, su organizacion y entries de los registros. El sistema debe ser escalable, modular, legible, facilmente modificable y siguiendo los estandares de open-source y codigo colaborativo desde repositorios de GitHub y manejo facil de branches. Ahora el codigo es un desorden, esta todo en un archivo de Python, con codigo basura, codigo viejo, deprecado, y lo que si funciona es altamente ineficiente. Debe optimizar maximamente los recursos de memoria en las bases de datos, evitar conexiones y llamados innecesarios (pero aun permitiendo conexion en tiempo real). Este codigo estara destinado para profesionales y aficionados que usaran este software para la investigacion, debe ser facilmente clonable, usable por personas que no saben de programacion (debe haber UN ARCHIVO para ejecutar TODO el programa, pero internamente debe ser modular desde muchas funciones y bloques de codigo organizados); y potencialmente, alguien puede aportar mejorando el codigo, por lo cual debe ser legible, modificable y modular, para que las personas puedan hacer sus branches en GitHub.
+
+Actualmente, el programa local cuando se descargan todas las dependencias pesa 150 MBs, eso es demasiado! Hazlo lo mas ligero posible, si puedes evitar usar algo, mejor evitarlo, debe ser optimizado, ligero, y con la cantidad menor posible de archivos.
+
+Aparte de eso, debe haber un MANEJO MUY DETALLADO Y DEBUGGEABLE DE ERRORES. Debe haber una descripcion clara de errores que se pueden crear y se debe manejarlo muy claro, para que los programadores puedan arreglar cosas. Deben salir avisos de manejo ineficiente de memoria, debe haber el contador del almacenamiento de la memoria en la base de datos total, debe avisar si algo va fuera de control, debe avisar si hay registros REALTIME mas antiguos que 5m (lo cual no puede pasar), debe avisar si hay algo corrupto o no se registro alguno de los campos en la base de datos, etc. Todo el manejo que puedes imaginar, muy avanzado y elaborado para evitar cualquier problema a corto o largo plazo.
+
+Revisa la base de datos en Firebase, revisa que se use solo lo necesario, que el formato sea adecuado y eficiente, no se ocupe mucha memoria, sea optimizado. Va a haber dos tipos de registros: simplificados, que se toman cada minuto, que se almacenan PARA SIEMPRE; y en tiempo real, que almacenan TODA LA INFORMACION TAL CUAL VIENE DE LA TERMINAL CONECTADA AL DETECTOR, estos datos pueden ser maximo de 5m de antiguedad despues de lo cual se van a borrar dinamicamente, asi se almacenan continuamente maximo 5m del tiempo real y mas alla de los 5m se borran.
+
+Finalmente, revisa la funcionalidad de Upload archivos de SESIONES O PERFILES enteros a la base de datos. Tengo un archivo de una sesion que corrio y tomo datos durante 3 dias, entonces debe haber un boton donde lo pueda subir al perfil actual y eso va a completar la base de datos. COMENTARIO: si durante este periodo ya existen datos, debe haber un manejo estilo MERGE del sistema de Git, donde el usuario podria elegir con datos DE QUE SESION QUEDARSE. Un PERFIL debe ser un archivo que comprenda en el todas las sesiones guardadas (no hace falta separarlas por sesiones, puedes directo hacer un archivo que tenga esos datos anotados). Debe haber un boton para agregar un archivo de tipo Perfil y ponerle un nombre en el sistema. Como te das cuenta, debe funcionar la posibilidad de DESCARGAR ciertas sesiones y ciertos PERFILES.
+
+Considera que, para optimizar la base de datos, debe haber una funcionalidad de merging de sesiones dentro de un solo perfil, para no almacenarlos como conjuntos separados y, por ejemplo para sesiones muy antiguas, poderlas unir a partir de un cierto nivel de antiguedad en un solo conjunto continuo de registros.
+
+Rediseña un poco la parte visual de la pagina, se ve muy IA. Las graficas no se ven muy cientificas, considera que no estan ahi por decoracion y cumplen la funcion de visualizar los datos.
+
+Considera que este sistema debe ser ESCALABLE, debe funcionar para DECENAS, CIENTOS DE DETECTORES, ubicadas en distintas partes del mundo y tomando datos SIMULTANEAMENTE, escribiendo todo EN UNA SOLA BASE DE DATOS, VISUALIZADO EN UNA SOLA PAGINA WEB, donde tambien en un futuro quiero implementar un sistema de LOGIN, que te pueda facilitar el manejo de datos, el upload de datos, la conexion facil a la base de datos (porque se requieren permisos, que se pueden comprobar teniendo el login). Pero todavia no lo vamos a hacer, deja el sistema de cuentas para despues, pero tenlo en mente para que algun dia lo podamos hacer para que este programa sea usado por toda la comunidad cientifica internacional.
+
+Te di todas las instrucciones, continua hasta terminar TODAS Y CADA UNA de los pedidos que hice. Debes implementar absolutamente todo y hacerlo de la manera mas eficiente posible; si hay algo que consideras ineficiente, te dejo ajustarlo para que siga las mejores pracitcas y sea lo mas conveniente posible, pero debe ser lo mas cercano a lo que pedi o tiene que seguir la idea.
+
+Si te olvides el funcionamiento o el proposito del detector, puedes ver la documentacion en GitHub del creador: MuNRa GitHub Documentation: https://gitmilab.redclara.net/muografia/escaramujo/munra_como_usar/-/tree/main?ref_type=heads
+
+No te olvides de hacer una documentacion muy completa de todo el proceso, para que cualquier persona sepa el proposito del proyecto y COMO HACER CADA PASO necesario para que funcione, desde el inicio hasta el final, considerando los distintos plataformas, OSs y otros usos alternativos que le pueden dar.

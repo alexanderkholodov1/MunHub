@@ -32,6 +32,7 @@ let chartTypes = { events: 'line', sipm: 'line', temp: 'line', deadtime: 'line' 
 // ═══════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     loadPreferences();
+    loadChartTypePreferences(); // Load saved chart type preferences
     initFirebase();
     initCharts();
     setupEventListeners();
@@ -97,6 +98,65 @@ function initFirebase(url = null) {
         console.error('Firebase init error:', e);
         setConnectionStatus('error', 'Connection failed');
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PERFORMANCE OPTIMIZATION - Data Downsampling
+// Uses LTTB (Largest-Triangle-Three-Buckets) algorithm for best visual quality
+// ═══════════════════════════════════════════════════════════════════════════════
+function downsampleData(data, targetPoints) {
+    if (data.length <= targetPoints) return data;
+    
+    // Keep first and last points always
+    const result = [data[0]];
+    const bucketSize = (data.length - 2) / (targetPoints - 2);
+    
+    let lastSelectedIndex = 0;
+    
+    for (let i = 0; i < targetPoints - 2; i++) {
+        // Calculate bucket boundaries
+        const rangeStart = Math.floor((i + 1) * bucketSize) + 1;
+        const rangeEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1, data.length - 1);
+        
+        // Calculate average point in next bucket for triangle calculation
+        let avgX = 0, avgY = 0, avgCount = 0;
+        const nextBucketStart = rangeEnd;
+        const nextBucketEnd = Math.min(Math.floor((i + 3) * bucketSize) + 1, data.length);
+        
+        for (let j = nextBucketStart; j < nextBucketEnd; j++) {
+            avgX += data[j].timestamp;
+            avgY += (data[j].ec || 0); // Use event count for selection criteria
+            avgCount++;
+        }
+        if (avgCount > 0) {
+            avgX /= avgCount;
+            avgY /= avgCount;
+        }
+        
+        // Find point in current bucket with largest triangle area
+        let maxArea = -1;
+        let maxAreaIndex = rangeStart;
+        const lastPoint = data[lastSelectedIndex];
+        
+        for (let j = rangeStart; j < rangeEnd; j++) {
+            // Calculate triangle area
+            const area = Math.abs(
+                (lastPoint.timestamp - avgX) * ((data[j].ec || 0) - (lastPoint.ec || 0)) -
+                (lastPoint.timestamp - data[j].timestamp) * (avgY - (lastPoint.ec || 0))
+            );
+            
+            if (area > maxArea) {
+                maxArea = area;
+                maxAreaIndex = j;
+            }
+        }
+        
+        result.push(data[maxAreaIndex]);
+        lastSelectedIndex = maxAreaIndex;
+    }
+    
+    result.push(data[data.length - 1]);
+    return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -350,6 +410,16 @@ function updateCharts() {
         chartData = dataWithGaps;
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PERFORMANCE OPTIMIZATION: Downsample data if too many points
+    // This prevents browser freezing with hundreds/thousands of data points
+    // ═══════════════════════════════════════════════════════════════════════════
+    const MAX_DATA_POINTS = 500; // Maximum points to render for performance
+    if (chartData.length > MAX_DATA_POINTS) {
+        chartData = downsampleData(chartData, MAX_DATA_POINTS);
+        console.log(`Performance: Downsampled ${filteredData.length} points to ${chartData.length}`);
+    }
+    
     // Prepare data points - use virtualTs in STACKED mode, real timestamp in ACCURATE
     const getX = (d) => isStackedMode ? d.virtualTs : (d.timestamp * 1000);
     const getY = (d, field) => d.isGap ? null : (d[field] || 0);
@@ -569,7 +639,10 @@ function setupEventListeners() {
     document.getElementById('profileSelect').addEventListener('change', (e) => {
         currentProfile = e.target.value;
         localStorage.setItem('munra_profile', currentProfile);
-        if (currentProfile) subscribeToProfile();
+        if (currentProfile) {
+            trackRecentProfile(currentProfile); // Track for recent profiles list
+            subscribeToProfile();
+        }
     });
     
     // Add Profile button
@@ -638,32 +711,82 @@ function updateModeLabels() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CHART TYPE CYCLING
+// CHART TYPE CYCLING - Now includes 5 types: line, line-only, smooth, bar, scatter
 // ═══════════════════════════════════════════════════════════════════════════════
 function cycleChartType(chartName) {
-    const types = ['line', 'bar', 'scatter'];
-    const currentType = chartTypes[chartName];
+    // Extended chart types:
+    // 'line' - standard line with dots
+    // 'line-only' - line without dots (clean line)
+    // 'smooth' - curved/bezier line without dots
+    // 'bar' - bar chart
+    // 'scatter' - scatter plot (dots only)
+    const types = ['line', 'line-only', 'smooth', 'bar', 'scatter'];
+    const currentType = chartTypes[chartName] || 'line';
     const nextIndex = (types.indexOf(currentType) + 1) % types.length;
     const newType = types[nextIndex];
     chartTypes[chartName] = newType;
     
+    // Save preference to localStorage
+    localStorage.setItem(`munra_chartType_${chartName}`, newType);
+    
     const chart = charts[chartName];
     if (chart) {
         chart.data.datasets.forEach(ds => {
-            ds.type = newType;
+            // Reset to line type for all variants
+            ds.type = (newType === 'bar') ? 'bar' : (newType === 'scatter') ? 'scatter' : 'line';
+            
             if (newType === 'scatter') {
+                // Scatter: dots only, no line
                 ds.pointRadius = 4;
                 ds.showLine = false;
+                ds.tension = 0;
             } else if (newType === 'bar') {
+                // Bar chart
                 ds.pointRadius = 0;
+                ds.showLine = true;
+                ds.tension = 0;
+            } else if (newType === 'line-only') {
+                // Line without dots - clean line
+                ds.pointRadius = 0;
+                ds.showLine = true;
+                ds.tension = 0;
+                ds.borderWidth = 2;
+            } else if (newType === 'smooth') {
+                // Smooth curved line without dots
+                ds.pointRadius = 0;
+                ds.showLine = true;
+                ds.tension = 0.4; // Bezier curve tension for smooth lines
+                ds.borderWidth = 2;
             } else {
+                // Standard line with dots
                 ds.pointRadius = 2;
                 ds.showLine = true;
+                ds.tension = 0;
+                ds.borderWidth = 1.5;
             }
         });
         chart.update();
-        showToast(`Chart type: ${newType}`, 'success');
+        
+        // Human-readable chart type names
+        const typeNames = {
+            'line': 'Line + Dots',
+            'line-only': 'Line Only',
+            'smooth': 'Smooth Curve',
+            'bar': 'Bar Chart',
+            'scatter': 'Scatter'
+        };
+        showToast(`Chart: ${typeNames[newType] || newType}`, 'success');
     }
+}
+
+// Load saved chart type preferences on startup
+function loadChartTypePreferences() {
+    ['events', 'sipm', 'temp', 'deadtime'].forEach(chartName => {
+        const saved = localStorage.getItem(`munra_chartType_${chartName}`);
+        if (saved) {
+            chartTypes[chartName] = saved;
+        }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1039,8 +1162,17 @@ function loadProfiles() {
         const select = document.getElementById('profileSelect');
         select.innerHTML = '<option value="">Select Profile</option>';
         
-        // Filter profiles based on user access
-        const accessibleProfiles = {};
+        // Get current user ID for categorization
+        const currentUserId = typeof currentUser !== 'undefined' && currentUser ? currentUser.uid : null;
+        
+        // Categorize profiles into folders
+        const recentProfiles = [];    // Recently accessed (from localStorage)
+        const myProfiles = [];        // User owns these
+        const sharedProfiles = [];    // Shared with user
+        const publicProfiles = [];    // Public profiles
+        
+        // Get recently accessed profiles from localStorage
+        const recentIds = JSON.parse(localStorage.getItem('munra_recent_profiles') || '[]');
         
         Object.keys(allProfiles).forEach(id => {
             const profile = allProfiles[id];
@@ -1050,8 +1182,6 @@ function loadProfiles() {
                 return; // Skip this profile
             }
             
-            accessibleProfiles[id] = profile;
-            
             // Handle both structures: profile.name or profile.meta.name
             let name = id;
             if (profile.name) {
@@ -1060,13 +1190,94 @@ function loadProfiles() {
                 name = profile.meta.name;
             }
             
-            // Add visibility indicator
-            const visIcon = profile.visibility === 'private' ? '[Private]  ' : '';
-            select.innerHTML += `<option value="${id}">${visIcon}${name}</option>`;
+            const profileInfo = { id, name, profile };
+            
+            // Categorize based on ownership and visibility
+            const isOwner = currentUserId && profile.ownerUid === currentUserId;
+            const isShared = currentUserId && profile.sharedWith && profile.sharedWith[currentUserId];
+            const isPublic = profile.visibility !== 'private';
+            
+            if (isOwner) {
+                myProfiles.push(profileInfo);
+            } else if (isShared) {
+                sharedProfiles.push(profileInfo);
+            } else if (isPublic) {
+                publicProfiles.push(profileInfo);
+            }
+            
+            // Check if recently accessed
+            if (recentIds.includes(id)) {
+                recentProfiles.push(profileInfo);
+            }
         });
         
-        // Update allProfiles to only contain accessible ones for other functions
-        // But keep the original for reference
+        // Sort each category alphabetically
+        const sortByName = (a, b) => a.name.localeCompare(b.name);
+        myProfiles.sort(sortByName);
+        sharedProfiles.sort(sortByName);
+        publicProfiles.sort(sortByName);
+        
+        // Sort recent by recency (most recent first)
+        recentProfiles.sort((a, b) => recentIds.indexOf(a.id) - recentIds.indexOf(b.id));
+        
+        // Build optgroups for organized dropdown
+        // Recent Profiles (if any)
+        if (recentProfiles.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = '-- Recent --';
+            recentProfiles.slice(0, 5).forEach(({ id, name }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // My Profiles
+        if (myProfiles.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = '-- My Profiles --';
+            myProfiles.forEach(({ id, name }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // Shared with Me
+        if (sharedProfiles.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = '-- Shared with Me --';
+            sharedProfiles.forEach(({ id, name }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // Public Profiles
+        if (publicProfiles.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = '-- Public Profiles --';
+            publicProfiles.forEach(({ id, name }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // Build accessible profiles map for other functions
+        const accessibleProfiles = {};
+        [...myProfiles, ...sharedProfiles, ...publicProfiles].forEach(({ id, profile }) => {
+            accessibleProfiles[id] = profile;
+        });
         
         // Restore saved profile (only if accessible)
         const saved = localStorage.getItem('munra_profile');
@@ -1075,7 +1286,8 @@ function loadProfiles() {
             select.value = saved;
             subscribeToProfile();
         } else if (Object.keys(accessibleProfiles).length > 0) {
-            currentProfile = Object.keys(accessibleProfiles)[0];
+            // Prefer user's own profile first, then shared, then public
+            currentProfile = myProfiles[0]?.id || sharedProfiles[0]?.id || publicProfiles[0]?.id;
             select.value = currentProfile;
             subscribeToProfile();
         } else {
@@ -1088,6 +1300,19 @@ function loadProfiles() {
         console.error('Load profiles error:', err);
         setConnectionStatus('error', 'Error loading');
     });
+}
+
+// Track recent profile access
+function trackRecentProfile(profileId) {
+    if (!profileId) return;
+    let recent = JSON.parse(localStorage.getItem('munra_recent_profiles') || '[]');
+    // Remove if already exists
+    recent = recent.filter(id => id !== profileId);
+    // Add to front
+    recent.unshift(profileId);
+    // Keep only last 10
+    recent = recent.slice(0, 10);
+    localStorage.setItem('munra_recent_profiles', JSON.stringify(recent));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1289,22 +1514,26 @@ function showManageProfilesModal() {
         
         profilesHtml += `
             <div class="profile-item" style="background: var(--bg-tertiary); border-radius: 8px; border: 1px solid ${isSelected ? '#00d4ff' : 'var(--border-color)'}; margin-bottom: 12px; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; flex-wrap: wrap; gap: 8px;">
                     <div>
                         <div style="font-weight: 500; color: var(--text-primary);">${visIcon} ${name}</div>
                         <div style="font-size: 11px; color: var(--text-secondary);">ID: ${id} | Currently: <strong>${currentVis}</strong>${sharedText}</div>
                     </div>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+                        <button onclick="showRenameProfileModal('${id}', '${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" 
+                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #0d6efd; color: white; cursor: pointer; font-size: 11px; font-weight: 500;">
+                            Rename ID
+                        </button>
                         <button onclick="confirmVisibilityChange('${id}', '${profile.visibility || 'public'}')" 
                                 style="padding: 6px 12px; border: none; border-radius: 6px; background: ${visButtonColor}; color: white; cursor: pointer; font-size: 11px; font-weight: 500;">
-                            Change to ${newVis}
+                            Set ${newVis}
                         </button>
                         <button onclick="toggleSharePanel('${id}')" 
-                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #7b2cbf; color: white; cursor: pointer; font-size: 12px;">
-                             Share
+                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #7b2cbf; color: white; cursor: pointer; font-size: 11px;">
+                            Share
                         </button>
-                        <button onclick="deleteProfile('${id}', '${name.replace(/'/g, "\\'")}')" 
-                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #f85149; color: white; cursor: pointer; font-size: 12px;"
+                        <button onclick="deleteProfile('${id}', '${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" 
+                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #f85149; color: white; cursor: pointer; font-size: 11px;"
                                 ${isSelected ? 'disabled title="Cannot delete selected profile"' : ''}>
                             Delete
                         </button>
@@ -1342,7 +1571,7 @@ function showManageProfilesModal() {
     
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 700px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
-            <h2 style="margin-bottom: 20px; color: var(--text-primary);"> Manage My Profiles</h2>
+            <h2 style="margin-bottom: 20px; color: var(--text-primary);">Manage My Profiles</h2>
             
             <div style="max-height: 500px; overflow-y: auto; margin-bottom: 20px;">
                 ${profilesHtml}
@@ -2607,5 +2836,173 @@ async function cleanupProfileRealtimeData(profileId, cutoffTime) {
             console.error(`[Cleanup] Error cleaning ${profileId}:`, error);
         }
         return 0;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROFILE ID RENAMING - Migrate profile to new ID
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Show modal to rename profile ID
+ * This will migrate ALL data from old ID to new ID
+ */
+function showRenameProfileModal(oldId, profileName) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'renameProfileModal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
+            <h2 style="margin-bottom: 15px; color: var(--text-primary);">Rename Profile ID</h2>
+            
+            <div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;">
+                <strong>[WARNING]</strong> This will migrate ALL data (sessions, minutes, realtime) to the new profile ID. The old ID will be deleted.
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">Profile Name:</label>
+                <input type="text" value="${profileName}" disabled
+                       style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 14px;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">Current ID:</label>
+                <input type="text" value="${oldId}" disabled
+                       style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 14px;">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">New Profile ID:</label>
+                <input type="text" id="newProfileIdInput" placeholder="Enter new ID (lowercase, no spaces)"
+                       style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px;">
+                <small style="color: var(--text-secondary); font-size: 11px;">Only lowercase letters, numbers, and underscores allowed</small>
+            </div>
+            
+            <div id="renameStatus" style="margin-bottom: 15px; padding: 10px; border-radius: 8px; display: none;"></div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="closeRenameProfileModal()" 
+                        style="padding: 10px 20px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-size: 14px;">
+                    Cancel
+                </button>
+                <button onclick="executeProfileRename('${oldId}')" 
+                        style="padding: 10px 20px; border: none; border-radius: 8px; background: #0d6efd; color: white; cursor: pointer; font-weight: 600; font-size: 14px;">
+                    Rename Profile
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('newProfileIdInput').focus();
+}
+
+function closeRenameProfileModal() {
+    const modal = document.getElementById('renameProfileModal');
+    if (modal) modal.remove();
+}
+
+/**
+ * Execute the profile rename (data migration)
+ */
+async function executeProfileRename(oldId) {
+    const newIdInput = document.getElementById('newProfileIdInput');
+    const statusDiv = document.getElementById('renameStatus');
+    
+    let newId = newIdInput.value.trim().toLowerCase();
+    
+    // Validate new ID
+    if (!newId) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#ff4444';
+        statusDiv.style.color = 'white';
+        statusDiv.textContent = '[ERROR] New ID is required';
+        return;
+    }
+    
+    // Sanitize: only allow lowercase letters, numbers, underscores
+    newId = newId.replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+    newIdInput.value = newId;
+    
+    if (newId === oldId) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#ff4444';
+        statusDiv.style.color = 'white';
+        statusDiv.textContent = '[ERROR] New ID must be different from current ID';
+        return;
+    }
+    
+    // Check if new ID already exists
+    if (allProfiles[newId]) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#ff4444';
+        statusDiv.style.color = 'white';
+        statusDiv.textContent = '[ERROR] A profile with this ID already exists';
+        return;
+    }
+    
+    // Confirm with user
+    if (!confirm(`Are you sure you want to rename profile "${oldId}" to "${newId}"?\n\nThis will migrate ALL data and delete the old profile ID.`)) {
+        return;
+    }
+    
+    statusDiv.style.display = 'block';
+    statusDiv.style.background = '#2196F3';
+    statusDiv.style.color = 'white';
+    statusDiv.textContent = 'Migrating profile data...';
+    
+    try {
+        // Step 1: Get all data from old profile
+        statusDiv.textContent = 'Reading profile data...';
+        const oldProfileSnap = await db.ref(`profiles/${oldId}`).once('value');
+        const oldProfileData = oldProfileSnap.val();
+        
+        if (!oldProfileData) {
+            throw new Error('Could not read old profile data');
+        }
+        
+        // Step 2: Copy data to new profile ID
+        statusDiv.textContent = 'Copying data to new ID...';
+        await db.ref(`profiles/${newId}`).set(oldProfileData);
+        
+        // Step 3: Verify copy was successful
+        statusDiv.textContent = 'Verifying migration...';
+        const newProfileSnap = await db.ref(`profiles/${newId}`).once('value');
+        if (!newProfileSnap.exists()) {
+            throw new Error('Failed to verify new profile data');
+        }
+        
+        // Step 4: Delete old profile
+        statusDiv.textContent = 'Removing old profile...';
+        await db.ref(`profiles/${oldId}`).remove();
+        
+        // Step 5: Update local state
+        statusDiv.style.background = '#4CAF50';
+        statusDiv.textContent = '[OK] Profile renamed successfully!';
+        
+        // Update current profile if it was the renamed one
+        if (currentProfile === oldId) {
+            currentProfile = newId;
+            localStorage.setItem('munra_profile', newId);
+        }
+        
+        // Update recent profiles
+        let recent = JSON.parse(localStorage.getItem('munra_recent_profiles') || '[]');
+        recent = recent.map(id => id === oldId ? newId : id);
+        localStorage.setItem('munra_recent_profiles', JSON.stringify(recent));
+        
+        showToast('Profile renamed successfully!', 'success');
+        
+        // Reload profiles and close modals
+        setTimeout(() => {
+            closeRenameProfileModal();
+            closeManageProfilesModal();
+            loadProfiles();
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Profile rename error:', error);
+        statusDiv.style.background = '#ff4444';
+        statusDiv.textContent = '[ERROR] ' + error.message;
+        showToast('Failed to rename profile: ' + error.message, 'error');
     }
 }

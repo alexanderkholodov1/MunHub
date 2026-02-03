@@ -1089,3 +1089,82 @@ function aggregateMinute(events) {
 ---
 
 *This document should be updated whenever significant changes are made to the project architecture, requirements, or implementation details.*
+
+---
+
+## Recent Changes Log (Continued)
+
+### February 3, 2026 - Major Feature Update
+
+#### Performance Optimizations (PENDING USER VERIFICATION)
+- ✅ Implemented LTTB (Largest-Triangle-Three-Buckets) data downsampling algorithm
+- ✅ Charts now automatically downsample to max 500 points for performance
+- ✅ Prevents browser freezing with hundreds/thousands of data points
+- ✅ Admin panel now loads users and profiles in parallel (was sequential)
+- ✅ Added 30-second caching for admin panel data
+- ✅ Added loading indicators for admin panel tables
+- ⏳ **NEEDS VERIFICATION**: Test with large datasets (500+ records)
+
+#### New Chart Types (PENDING USER VERIFICATION)  
+- ✅ Added "Line Only" chart type (line without point markers)
+- ✅ Added "Smooth Curve" chart type (bezier interpolation)
+- ✅ Chart types now saved to localStorage per chart
+- ✅ 5 total chart types: Line+Dots, Line Only, Smooth, Bar, Scatter
+- ⏳ **NEEDS VERIFICATION**: Cycle through all types and verify visual appearance
+
+#### Profile Folder Organization (PENDING USER VERIFICATION)
+- ✅ Main profile dropdown now organized into optgroups:
+  - "Recent" - Last 5 accessed profiles
+  - "My Profiles" - Profiles user owns
+  - "Shared with Me" - Profiles shared with user
+  - "Public Profiles" - All public profiles
+- ✅ Profiles sorted alphabetically within each category
+- ✅ Recent profiles tracked in localStorage
+- ⏳ **NEEDS VERIFICATION**: Create multiple profiles and verify organization
+
+#### Profile ID Renaming Feature (PENDING USER VERIFICATION)
+- ✅ Added "Rename ID" button in Manage Profiles modal
+- ✅ Migrates ALL data (sessions, minutes, realtime) to new profile ID
+- ✅ Deletes old profile after successful migration
+- ✅ Validates new ID (lowercase, no spaces, no duplicates)
+- ✅ Updates localStorage references automatically
+- ⏳ **NEEDS VERIFICATION**: Rename a profile with data and verify integrity
+
+#### Admin Panel Speed Improvements (PENDING USER VERIFICATION)
+- ✅ Parallel loading of users and profiles (was sequential)
+- ✅ Data caching for 30 seconds to avoid repeated queries
+- ✅ Loading indicators shown while data loads
+- ✅ Error states displayed in table instead of just toast
+- ⏳ **NEEDS VERIFICATION**: Open admin panel and measure load time
+
+---
+
+## Verification Checklist for User
+
+Before considering these features complete, please verify:
+
+### Performance
+- [ ] Load a profile with 500+ data points - does the browser freeze?
+- [ ] Switch between time ranges (1h, 24h, ALL) - are transitions smooth?
+- [ ] Open admin panel - does it load in under 3 seconds?
+
+### Chart Types  
+- [ ] Click "Change Chart Type" button - cycles through all 5 types?
+- [ ] Refresh page - does chart type preference persist?
+- [ ] "Line Only" shows clean line without dots?
+- [ ] "Smooth Curve" shows bezier-interpolated curves?
+
+### Profile Organization
+- [ ] Profile dropdown shows optgroup headers (Recent, My Profiles, etc.)?
+- [ ] Recently accessed profiles appear in "Recent" section?
+- [ ] Your own profiles appear in "My Profiles" section?
+
+### Profile Renaming
+- [ ] "Rename ID" button visible in Manage Profiles?
+- [ ] Renaming a profile migrates all data correctly?
+- [ ] Old profile ID is deleted after rename?
+- [ ] New profile works normally after rename?
+
+---
+
+*Please mark items as verified or report issues.*

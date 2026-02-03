@@ -4,6 +4,14 @@
  * Reads data directly from particle detector via USB serial port.
  * Uses the Web Serial API available in Chrome/Edge browsers.
  * 
+ * SCIENTIFIC INTEGRITY NOTE:
+ * This system NEVER discards or modifies data received from the detector.
+ * High-intensity cosmic ray signals can legitimately reach ~1V from SiPM.
+ * All measurements are preserved exactly as received for scientific accuracy.
+ * 
+ * If extreme values persist for extended periods, users are NOTIFIED
+ * (not blocked) so they can check for potential system issues.
+ * 
  * Data Format from Detector (example line):
  * TRG 1 CH 1 ADC 245 TEMP 22.5 PRES 101320 DT 0.15 CNT 1234 TIME 1704067261234
  * 
@@ -43,13 +51,26 @@ let minuteData = {
     deadtimeCount: 0
 };
 
-// Validation rules
-const VALIDATION_RULES = {
-    sipm: { min: 0, max: 500, unit: 'mV' },          // SiPM signal 0-500mV
-    temp: { min: -40, max: 85, unit: '°C' },         // Temperature -40 to 85°C
-    pressure: { min: 80000, max: 120000, unit: 'Pa' }, // Pressure 80-120 kPa
-    deadtime: { min: 0, max: 1, unit: 'ratio' }      // Deadtime 0-1
+// Warning thresholds for extreme values (NOTIFICATION only - NO data discarding)
+// SCIENTIFIC NOTE: These thresholds are for WARNINGS only. All data is preserved
+// regardless of values. High-intensity cosmic ray signals can reach ~1V from SiPM.
+const WARNING_THRESHOLDS = {
+    sipm: { typical_max: 500, extreme_max: 1000, unit: 'mV' },  // SiPM signal - warn above 500mV, extreme above 1000mV
+    temp: { min: -40, max: 85, unit: '°C' },                     // Temperature -40 to 85°C
+    pressure: { min: 80000, max: 120000, unit: 'Pa' },           // Pressure 80-120 kPa
+    deadtime: { min: 0, max: 1, unit: 'ratio' }                  // Deadtime 0-1
 };
+
+// Extreme value tracking for prolonged anomaly detection
+let extremeValueTracker = {
+    sipm: { startTime: null, count: 0 },
+    temp: { startTime: null, count: 0 },
+    pressure: { startTime: null, count: 0 }
+};
+const EXTREME_VALUE_NOTIFICATION_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes of continuous extreme values
+const EXTREME_VALUE_COUNT_THRESHOLD = 50; // Minimum count before notification
+let lastExtremeNotificationTime = 0;
+const EXTREME_NOTIFICATION_COOLDOWN_MS = 10 * 60 * 1000; // Only notify every 10 minutes
 
 // Terminal output element
 let terminalOutput = null;
@@ -263,13 +284,11 @@ function processDataLine(line, enableRealtime) {
     
     if (!parsedData) return;
     
-    // Validate data
-    if (!validateData(parsedData)) {
-        console.warn('Data validation failed:', parsedData);
-        return;
-    }
+    // Check for extreme values - WARN but DO NOT DISCARD data
+    // SCIENTIFIC INTEGRITY: All data must be preserved regardless of values
+    checkExtremeValues(parsedData);
     
-    // Aggregate for minute data
+    // Aggregate for minute data - ALL DATA IS PROCESSED
     aggregateData(parsedData);
     
     // Check if minute changed
@@ -371,42 +390,153 @@ function parseCSVLine(line) {
 }
 
 /**
- * Validate data against rules
+ * Check for extreme values and track prolonged anomalies
+ * 
+ * CRITICAL SCIENTIFIC NOTE: This function ONLY logs warnings and tracks patterns.
+ * It NEVER discards or modifies data. All measurements are preserved exactly as received.
+ * 
+ * High-intensity cosmic ray signals can legitimately reach ~1V from SiPM.
+ * Prolonged extreme values (over 5 minutes) MAY indicate a system error and will
+ * trigger a user notification suggesting they contact administrators.
  */
-function validateData(data) {
-    // SiPM must be in valid range
+function checkExtremeValues(data) {
+    const now = Date.now();
+    let hasExtremeValue = false;
+    let extremeDetails = [];
+    
+    // Check SiPM - values above typical_max are notable, but NOT invalid
     if (data.sipm !== undefined && data.sipm !== null) {
-        if (data.sipm < VALIDATION_RULES.sipm.min || data.sipm > VALIDATION_RULES.sipm.max) {
-            console.warn(`SiPM out of range: ${data.sipm} (valid: ${VALIDATION_RULES.sipm.min}-${VALIDATION_RULES.sipm.max})`);
-            return false;
+        if (data.sipm > WARNING_THRESHOLDS.sipm.extreme_max) {
+            console.info(`⚡ High SiPM signal: ${data.sipm} mV (extreme, but data preserved)`);
+            trackExtremeValue('sipm', now);
+            hasExtremeValue = true;
+            extremeDetails.push(`SiPM: ${data.sipm} mV`);
+        } else if (data.sipm > WARNING_THRESHOLDS.sipm.typical_max) {
+            console.info(`📊 Notable SiPM signal: ${data.sipm} mV (above typical, data preserved)`);
+            trackExtremeValue('sipm', now);
+            hasExtremeValue = true;
+            extremeDetails.push(`SiPM: ${data.sipm} mV`);
+        } else {
+            // Reset tracker if value is normal
+            resetExtremeTracker('sipm');
+        }
+        
+        // Check for negative values (physically impossible but don't discard)
+        if (data.sipm < 0) {
+            console.warn(`⚠️ Negative SiPM value: ${data.sipm} mV - physically unusual, data preserved`);
         }
     }
     
-    // Temperature validation (if present)
+    // Check Temperature
     if (data.temp !== undefined && data.temp !== null) {
-        if (data.temp < VALIDATION_RULES.temp.min || data.temp > VALIDATION_RULES.temp.max) {
-            console.warn(`Temperature out of range: ${data.temp} (valid: ${VALIDATION_RULES.temp.min}-${VALIDATION_RULES.temp.max})`);
-            return false;
+        if (data.temp < WARNING_THRESHOLDS.temp.min || data.temp > WARNING_THRESHOLDS.temp.max) {
+            console.info(`🌡️ Unusual temperature: ${data.temp} °C (outside typical range, data preserved)`);
+            trackExtremeValue('temp', now);
+            hasExtremeValue = true;
+            extremeDetails.push(`Temp: ${data.temp} °C`);
+        } else {
+            resetExtremeTracker('temp');
         }
     }
     
-    // Pressure validation (if present)
+    // Check Pressure
     if (data.pressure !== undefined && data.pressure !== null) {
-        if (data.pressure < VALIDATION_RULES.pressure.min || data.pressure > VALIDATION_RULES.pressure.max) {
-            console.warn(`Pressure out of range: ${data.pressure} (valid: ${VALIDATION_RULES.pressure.min}-${VALIDATION_RULES.pressure.max})`);
-            return false;
+        if (data.pressure < WARNING_THRESHOLDS.pressure.min || data.pressure > WARNING_THRESHOLDS.pressure.max) {
+            console.info(`🔄 Unusual pressure: ${data.pressure} Pa (outside typical range, data preserved)`);
+            trackExtremeValue('pressure', now);
+            hasExtremeValue = true;
+            extremeDetails.push(`Pressure: ${data.pressure} Pa`);
+        } else {
+            resetExtremeTracker('pressure');
         }
     }
     
-    // Deadtime validation (if present)
+    // Check Deadtime (physically constrained 0-1, but still don't discard)
     if (data.deadtime !== undefined && data.deadtime !== null) {
-        if (data.deadtime < VALIDATION_RULES.deadtime.min || data.deadtime > VALIDATION_RULES.deadtime.max) {
-            console.warn(`Deadtime out of range: ${data.deadtime} (valid: ${VALIDATION_RULES.deadtime.min}-${VALIDATION_RULES.deadtime.max})`);
-            return false;
+        if (data.deadtime < 0 || data.deadtime > 1) {
+            console.warn(`⏱️ Unusual deadtime: ${data.deadtime} (outside 0-1 range, data preserved)`);
         }
     }
     
-    return true;
+    // Check for prolonged extreme values and notify user if needed
+    if (hasExtremeValue) {
+        checkProlongedExtremeValues(extremeDetails.join(', '));
+    }
+}
+
+/**
+ * Track the start time and count of extreme values
+ */
+function trackExtremeValue(type, now) {
+    if (!extremeValueTracker[type].startTime) {
+        extremeValueTracker[type].startTime = now;
+        extremeValueTracker[type].count = 1;
+    } else {
+        extremeValueTracker[type].count++;
+    }
+}
+
+/**
+ * Reset the extreme value tracker for a type
+ */
+function resetExtremeTracker(type) {
+    extremeValueTracker[type].startTime = null;
+    extremeValueTracker[type].count = 0;
+}
+
+/**
+ * Check if extreme values have persisted for too long and notify user
+ * This suggests a potential system error (not bad data)
+ */
+function checkProlongedExtremeValues(details) {
+    const now = Date.now();
+    
+    // Check each tracker for prolonged extreme values
+    for (const [type, tracker] of Object.entries(extremeValueTracker)) {
+        if (tracker.startTime && tracker.count >= EXTREME_VALUE_COUNT_THRESHOLD) {
+            const duration = now - tracker.startTime;
+            
+            if (duration >= EXTREME_VALUE_NOTIFICATION_THRESHOLD_MS) {
+                // Check cooldown to avoid spam
+                if (now - lastExtremeNotificationTime >= EXTREME_NOTIFICATION_COOLDOWN_MS) {
+                    lastExtremeNotificationTime = now;
+                    
+                    // Show notification to user
+                    showExtremeValueNotification(type, tracker.count, duration, details);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Show notification to user about prolonged extreme values
+ * This suggests they may want to check the system and report to administrators
+ */
+function showExtremeValueNotification(type, count, duration, details) {
+    const durationMinutes = Math.round(duration / 60000);
+    
+    const message = `⚠️ ATENCIÓN: Valores extremos detectados durante ${durationMinutes} minutos
+    
+📊 Tipo: ${type.toUpperCase()}
+📈 Lecturas extremas: ${count}
+📝 Últimos valores: ${details}
+
+ℹ️ Los datos NO han sido descartados (se preserva la integridad científica).
+
+Si esto no corresponde a un evento físico real, podría indicar un problema con el detector o la conexión.
+
+🔧 Sugerencia: Verifique el estado del detector. Si el problema persiste, considere reportarlo a los administradores del sistema.`;
+    
+    console.warn(message);
+    
+    // Show toast notification if function is available
+    if (typeof showToast === 'function') {
+        showToast(`⚠️ Extreme values detected for ${durationMinutes}+ min. Check detector status.`, 'warning');
+    }
+    
+    // Append to terminal
+    appendToTerminal(`[SYSTEM WARNING] Prolonged extreme ${type} values (${count} readings over ${durationMinutes} min). Data preserved but may indicate system issue.`);
 }
 
 /**

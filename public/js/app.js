@@ -37,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupEventListeners();
     setupCustomRangeListeners();
     startTimeAxisUpdate();
+    startRealtimeDataCleanup(); // Start automatic cleanup of old realtime data
 });
 
 function loadPreferences() {
@@ -580,6 +581,18 @@ function setupEventListeners() {
     document.getElementById('manageProfilesBtn').addEventListener('click', () => {
         showManageProfilesModal();
     });
+    
+    // Serial Terminal button (for connecting to detector)
+    const serialTerminalBtn = document.getElementById('serialTerminalBtn');
+    if (serialTerminalBtn) {
+        serialTerminalBtn.addEventListener('click', () => {
+            if (typeof showSerialTerminal === 'function') {
+                showSerialTerminal();
+            } else {
+                showToast('Serial terminal not available', 'error');
+            }
+        });
+    }
     
     // Chart type buttons - MUST WORK
     document.querySelectorAll('.chart-type-btn').forEach(btn => {
@@ -2520,4 +2533,79 @@ function showToast(message, type = 'info') {
     setTimeout(() => {
         toast.remove();
     }, 3000);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REALTIME DATA CLEANUP - Automatic deletion of old data
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Start automatic cleanup of realtime data older than 5 minutes
+ * This runs continuously in the background to prevent database growth
+ */
+function startRealtimeDataCleanup() {
+    // Run cleanup every minute
+    setInterval(cleanupAllRealtimeData, 60000);
+    
+    // Also run once on startup
+    setTimeout(cleanupAllRealtimeData, 5000);
+}
+
+/**
+ * Clean up realtime data for all profiles
+ */
+async function cleanupAllRealtimeData() {
+    if (!db) return;
+    
+    try {
+        const profilesSnap = await db.ref('profiles').once('value');
+        const profiles = profilesSnap.val();
+        
+        if (!profiles) return;
+        
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+        let totalCleaned = 0;
+        
+        for (const profileId of Object.keys(profiles)) {
+            const cleaned = await cleanupProfileRealtimeData(profileId, fiveMinutesAgo);
+            totalCleaned += cleaned;
+        }
+        
+        if (totalCleaned > 0) {
+            console.log(`[Cleanup] Removed ${totalCleaned} old realtime records`);
+        }
+    } catch (error) {
+        console.error('[Cleanup] Error during realtime data cleanup:', error);
+    }
+}
+
+/**
+ * Clean up realtime data for a specific profile
+ */
+async function cleanupProfileRealtimeData(profileId, cutoffTime) {
+    try {
+        const realtimeRef = db.ref(`profiles/${profileId}/realtime`);
+        const snapshot = await realtimeRef.orderByChild('ts').endAt(cutoffTime).once('value');
+        
+        if (!snapshot.exists()) return 0;
+        
+        const updates = {};
+        snapshot.forEach(child => {
+            updates[child.key] = null;
+        });
+        
+        const count = Object.keys(updates).length;
+        if (count > 0) {
+            await realtimeRef.update(updates);
+        }
+        
+        return count;
+    } catch (error) {
+        // Silently ignore permission errors (user may not have access)
+        if (!error.message.includes('permission_denied')) {
+            console.error(`[Cleanup] Error cleaning ${profileId}:`, error);
+        }
+        return 0;
+    }
 }

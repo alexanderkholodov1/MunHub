@@ -515,7 +515,7 @@ function checkExtremeValues(data) {
     // Check Temperature
     if (data.temp !== undefined && data.temp !== null) {
         if (data.temp < WARNING_THRESHOLDS.temp.min || data.temp > WARNING_THRESHOLDS.temp.max) {
-            recordExtreme('Temp', data.temp, 'C', `[WARN] Unusual temperature: ${data.temp} C (outside typical range, data preserved)`);
+            recordExtreme('Temp', data.temp, 'degC', `[WARN] Unusual temperature: ${data.temp} degC (outside typical range, data preserved)`);
         } else {
             resetExtremeTracker('temp');
         }

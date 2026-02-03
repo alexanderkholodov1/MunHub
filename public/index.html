@@ -334,14 +334,14 @@
                     <div id="adminDatabaseOptions" style="display: none;">
                         <div style="background: #f8d7da; border: 1px solid #f5c2c7; border-radius: 8px; padding: 10px; margin-bottom: 10px;">
                             <p style="color: #842029; font-size: 12px; margin: 0;">
-                                ⚠️ <strong>ADMIN WARNING:</strong> Changing the database URL will affect ALL users. 
+                                [WARNING] <strong>ADMIN WARNING:</strong> Changing the database URL will affect ALL users. 
                                 This is a critical operation.
                             </p>
                         </div>
                         <input type="text" id="firebaseUrl" placeholder="https://your-project.firebaseio.com/">
                         <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button class="btn btn-primary" id="applyFirebaseBtn">⚡ Apply & Connect</button>
-                            <button class="btn btn-secondary" id="migrateDbBtn" style="background: #6f42c1;">🔄 Migrate Database</button>
+                            <button class="btn btn-primary" id="applyFirebaseBtn"> Apply & Connect</button>
+                            <button class="btn btn-secondary" id="migrateDbBtn" style="background: #6f42c1;"> Migrate Database</button>
                         </div>
                         <div class="connection-result" id="connectionResult"></div>
                     </div>
@@ -353,21 +353,21 @@
                 <!-- Data Management - Only for logged in users -->
                 <div class="setting-group" id="dataManagementGroup">
                     <label>Data Management</label>
-                    <button class="btn btn-secondary" id="uploadSessionBtn">📤 Upload Session File</button>
+                    <button class="btn btn-secondary" id="uploadSessionBtn"> Upload Session File</button>
                     <input type="file" id="sessionFileInput" accept=".json,.jsonl,.csv,.txt,.log" style="display:none;">
-                    <button class="btn btn-secondary" id="uploadProfileBtn">📁 Upload Profile (ZIP)</button>
+                    <button class="btn btn-secondary" id="uploadProfileBtn"> Upload Profile (ZIP)</button>
                     <input type="file" id="profileFileInput" accept=".zip,.json" style="display:none;">
-                    <button class="btn btn-secondary" id="exportDataBtn">📥 Export All Data (CSV)</button>
+                    <button class="btn btn-secondary" id="exportDataBtn"> Export All Data (CSV)</button>
                 </div>
                 
                 <!-- CMD Session Linking - Only for logged in users -->
                 <div class="setting-group" id="cmdLinkGroup">
-                    <label>🔗 Link CMD Session</label>
+                    <label> Link CMD Session</label>
                     <p style="font-size: 0.85em; color: var(--text-secondary); margin: 5px 0 10px;">
                         Connect your Python CMD application to your web account
                     </p>
                     <button class="btn btn-secondary" onclick="showCmdLinkModal()" style="background: #198754;">
-                        🖥️ Link CMD / Terminal
+                         Link CMD / Terminal
                     </button>
                 </div>
                 

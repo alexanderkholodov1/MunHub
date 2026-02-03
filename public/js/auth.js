@@ -819,18 +819,18 @@ async function loadAdminProfiles() {
                 <td style="display: flex; gap: 4px; flex-wrap: wrap;">
                     <button class="btn-small btn-edit" data-profile="${name}" 
                             style="background: #e5a00d; color: white;">
-                        ✏️ Edit
+                        Edit Edit
                     </button>
                     <button class="btn-small btn-save" data-profile="${name}" 
                             style="background: #2ea043; color: white; display: none;">
-                        💾 Save
+                        Save Save
                     </button>
                     <button class="btn-small btn-cancel" data-profile="${name}" 
                             style="background: #6c757d; color: white; display: none;">
-                        ✕
+                        X
                     </button>
                     <button class="btn-small btn-danger btn-delete" data-profile="${name}">
-                        🗑️
+                        Delete
                     </button>
                 </td>
             `;
@@ -918,7 +918,7 @@ async function saveProfileChanges(profileName) {
     const newOwnerSearch = ownerInput ? ownerInput.value.trim() : '';
     
     // Show confirmation
-    let confirmMsg = `⚠️ You are about to save changes to profile "${profileName}":\n\n`;
+    let confirmMsg = `[WARNING]  You are about to save changes to profile "${profileName}":\n\n`;
     confirmMsg += `• Visibility: ${newVisibility}\n`;
     if (newOwnerSearch) {
         confirmMsg += `• New owner: ${newOwnerSearch}\n`;
@@ -1343,13 +1343,13 @@ function showCmdLinkModal() {
     if (!token) return;
     
     const role = currentUserData?.role || 'user';
-    const roleBadge = role === 'admin' ? '👑 ADMIN' : '👤 USER';
+    const roleBadge = role === 'admin' ? '[ADMIN] ADMIN' : '[USER] USER';
     
     const modalHtml = `
         <div id="cmdLinkModal" class="modal active" onclick="if(event.target === this) closeCmdLinkModal()">
             <div class="modal-content" style="max-width: 500px;">
                 <span class="close" onclick="closeCmdLinkModal()">&times;</span>
-                <h3>🔗 Link CMD Session</h3>
+                <h3> Link CMD Session</h3>
                 
                 <div style="margin: 20px 0;">
                     <p><strong>User:</strong> ${currentUser.email}</p>
@@ -1364,7 +1364,7 @@ function showCmdLinkModal() {
                     <div style="display: flex; gap: 10px;">
                         <input type="text" id="cmdTokenInput" value="${token}" readonly 
                                style="flex: 1; font-family: monospace; font-size: 0.85em;">
-                        <button onclick="copyCmdToken()" class="btn btn-primary">📋 Copy</button>
+                        <button onclick="copyCmdToken()" class="btn btn-primary">Copy Copy</button>
                     </div>
                 </div>
                 
@@ -1376,12 +1376,12 @@ function showCmdLinkModal() {
                     <div style="display: flex; gap: 10px;">
                         <input type="text" id="cmdAuthCode" placeholder="Enter code from CMD..." 
                                style="flex: 1; font-family: monospace;">
-                        <button onclick="confirmCmdAuthCode()" class="btn btn-success">✓ Link</button>
+                        <button onclick="confirmCmdAuthCode()" class="btn btn-success">[OK] Link</button>
                     </div>
                 </div>
                 
                 <div style="margin-top: 20px; padding: 10px; background: #fff3cd; border-radius: 4px; color: #856404;">
-                    ⚠️ Token expires in 24 hours. Keep it secure!
+                    [WARNING]  Token expires in 24 hours. Keep it secure!
                 </div>
                 
                 <div style="margin-top: 20px; text-align: right;">
@@ -1446,7 +1446,7 @@ async function confirmCmdAuthCode() {
             linkedBy: currentUser.uid
         });
         
-        showToast('✓ CMD session linked successfully!', 'success');
+        showToast('[OK] CMD session linked successfully!', 'success');
         closeCmdLinkModal();
         
         // Auto-delete after 5 minutes (code already used)

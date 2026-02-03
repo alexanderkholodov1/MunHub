@@ -749,22 +749,23 @@ async function loadAdminUsers() {
         tbody.innerHTML = '';
         
         Object.entries(users).forEach(([uid, user]) => {
-            // Protect admins - they can only be demoted by another admin
-            const isProtectedAdmin = user.role === 'admin' && currentUserData?.role !== 'admin';
+            // Protect users: can't modify self, admins can only be changed by admins
             const isSelf = uid === currentUser?.uid;
+            const isProtectedAdmin = user.role === 'admin' && currentUserData?.role !== 'admin';
+            const isDisabled = isSelf || isProtectedAdmin;
             
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${user.email || 'N/A'}</td>
                 <td>${user.displayName || 'N/A'}</td>
                 <td>
-                    <select class="role-select" data-uid="${uid}" ${isSelf ? 'disabled' : ''}>
+                    <select class="role-select" data-uid="${uid}" ${isDisabled ? 'disabled' : ''}>
                         <option value="user" ${user.role === 'user' ? 'selected' : ''}>${t('user')}</option>
                         <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>${t('admin')}</option>
                     </select>
                 </td>
                 <td>
-                    ${!isSelf ? `<button class="btn-small btn-danger" onclick="deleteUser('${uid}')">${t('delete')}</button>` : `<span class="text-muted">${t('protected')}</span>`}
+                    ${!isDisabled ? `<button class="btn-small btn-danger" onclick="deleteUser('${uid}')">${t('delete')}</button>` : `<span class="text-muted">${t('protected')}</span>`}
                 </td>
             `;
             tbody.appendChild(row);

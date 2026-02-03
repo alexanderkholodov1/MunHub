@@ -519,6 +519,7 @@ async function saveRealtimeData(data) {
 
 /**
  * Update latest data point for live display
+ * Note: Uses seconds for backward compatibility with existing app.js code
  */
 async function updateLatestData(data) {
     if (!recordingProfile) return;
@@ -527,7 +528,7 @@ async function updateLatestData(data) {
         await firebase.database()
             .ref(`profiles/${recordingProfile}/latest`)
             .set({
-                ts: Math.floor(data.timestamp / 1000),
+                ts: Math.floor(data.timestamp / 1000), // seconds for compatibility
                 sipm: data.sipm,
                 temp: data.temp,
                 pressure: data.pressure,
@@ -541,6 +542,7 @@ async function updateLatestData(data) {
 
 /**
  * Cleanup old real-time data (older than 5 minutes)
+ * Uses orderByChild('ts') for proper numeric comparison
  */
 async function cleanupRealtimeData(profileId) {
     if (!profileId) return;
@@ -549,7 +551,8 @@ async function cleanupRealtimeData(profileId) {
     
     try {
         const ref = firebase.database().ref(`profiles/${profileId}/realtime`);
-        const snapshot = await ref.orderByKey().endAt(fiveMinutesAgo.toString()).once('value');
+        // Use orderByChild('ts') for proper numeric comparison
+        const snapshot = await ref.orderByChild('ts').endAt(fiveMinutesAgo).once('value');
         
         const updates = {};
         snapshot.forEach(child => {

@@ -1,6 +1,5 @@
 # Firebase credentials (NEVER commit these!)
 firebase_credentials.json
-firebase_credentials.jsonZone.Identifier
 **/firebase_credentials.json
 *.pem
 *.key

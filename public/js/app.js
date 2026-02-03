@@ -1306,7 +1306,7 @@ function showManageProfilesModal() {
                         <button onclick="deleteProfile('${id}', '${name.replace(/'/g, "\\'")}')" 
                                 style="padding: 6px 12px; border: none; border-radius: 6px; background: #f85149; color: white; cursor: pointer; font-size: 12px;"
                                 ${isSelected ? 'disabled title="Cannot delete selected profile"' : ''}>
-                            
+                            Delete
                         </button>
                     </div>
                 </div>

@@ -404,18 +404,22 @@ function checkExtremeValues(data) {
     let hasExtremeValue = false;
     let extremeDetails = [];
     
+    /**
+     * Helper to track extreme values and build notification details
+     */
+    function recordExtreme(type, value, unit, message) {
+        console.info(message);
+        trackExtremeValue(type, now);
+        hasExtremeValue = true;
+        extremeDetails.push(`${type}: ${value} ${unit}`);
+    }
+    
     // Check SiPM - values above typical_max are notable, but NOT invalid
     if (data.sipm !== undefined && data.sipm !== null) {
         if (data.sipm > WARNING_THRESHOLDS.sipm.extreme_max) {
-            console.info(`⚡ High SiPM signal: ${data.sipm} mV (extreme, but data preserved)`);
-            trackExtremeValue('sipm', now);
-            hasExtremeValue = true;
-            extremeDetails.push(`SiPM: ${data.sipm} mV`);
+            recordExtreme('SiPM', data.sipm, 'mV', `⚡ High SiPM signal: ${data.sipm} mV (extreme, but data preserved)`);
         } else if (data.sipm > WARNING_THRESHOLDS.sipm.typical_max) {
-            console.info(`📊 Notable SiPM signal: ${data.sipm} mV (above typical, data preserved)`);
-            trackExtremeValue('sipm', now);
-            hasExtremeValue = true;
-            extremeDetails.push(`SiPM: ${data.sipm} mV`);
+            recordExtreme('SiPM', data.sipm, 'mV', `📊 Notable SiPM signal: ${data.sipm} mV (above typical, data preserved)`);
         } else {
             // Reset tracker if value is normal
             resetExtremeTracker('sipm');
@@ -430,10 +434,7 @@ function checkExtremeValues(data) {
     // Check Temperature
     if (data.temp !== undefined && data.temp !== null) {
         if (data.temp < WARNING_THRESHOLDS.temp.min || data.temp > WARNING_THRESHOLDS.temp.max) {
-            console.info(`🌡️ Unusual temperature: ${data.temp} °C (outside typical range, data preserved)`);
-            trackExtremeValue('temp', now);
-            hasExtremeValue = true;
-            extremeDetails.push(`Temp: ${data.temp} °C`);
+            recordExtreme('Temp', data.temp, '°C', `🌡️ Unusual temperature: ${data.temp} °C (outside typical range, data preserved)`);
         } else {
             resetExtremeTracker('temp');
         }
@@ -442,10 +443,7 @@ function checkExtremeValues(data) {
     // Check Pressure
     if (data.pressure !== undefined && data.pressure !== null) {
         if (data.pressure < WARNING_THRESHOLDS.pressure.min || data.pressure > WARNING_THRESHOLDS.pressure.max) {
-            console.info(`🔄 Unusual pressure: ${data.pressure} Pa (outside typical range, data preserved)`);
-            trackExtremeValue('pressure', now);
-            hasExtremeValue = true;
-            extremeDetails.push(`Pressure: ${data.pressure} Pa`);
+            recordExtreme('Pressure', data.pressure, 'Pa', `🔄 Unusual pressure: ${data.pressure} Pa (outside typical range, data preserved)`);
         } else {
             resetExtremeTracker('pressure');
         }
@@ -512,27 +510,33 @@ function checkProlongedExtremeValues(details) {
 /**
  * Show notification to user about prolonged extreme values
  * This suggests they may want to check the system and report to administrators
+ * 
+ * Message is bilingual (Spanish/English) since the user base includes Spanish speakers
  */
 function showExtremeValueNotification(type, count, duration, details) {
     const durationMinutes = Math.round(duration / 60000);
     
-    const message = `⚠️ ATENCIÓN: Valores extremos detectados durante ${durationMinutes} minutos
-    
-📊 Tipo: ${type.toUpperCase()}
-📈 Lecturas extremas: ${count}
-📝 Últimos valores: ${details}
+    // Bilingual console message
+    const message = `⚠️ WARNING / ADVERTENCIA: Extreme values detected / Valores extremos detectados
+Duration / Duración: ${durationMinutes} min
+Type / Tipo: ${type.toUpperCase()}
+Extreme readings / Lecturas extremas: ${count}
+Latest values / Últimos valores: ${details}
 
-ℹ️ Los datos NO han sido descartados (se preserva la integridad científica).
+ℹ️ Data has NOT been discarded (scientific integrity preserved).
+   Los datos NO han sido descartados (se preserva la integridad científica).
 
-Si esto no corresponde a un evento físico real, podría indicar un problema con el detector o la conexión.
+If this doesn't correspond to a real physical event, it may indicate a detector or connection issue.
+Si esto no corresponde a un evento físico real, podría indicar un problema con el detector.
 
-🔧 Sugerencia: Verifique el estado del detector. Si el problema persiste, considere reportarlo a los administradores del sistema.`;
+🔧 Suggestion: Check detector status. If the problem persists, consider reporting to system administrators.
+   Sugerencia: Verifique el estado del detector. Si persiste, reporte a los administradores.`;
     
     console.warn(message);
     
     // Show toast notification if function is available
     if (typeof showToast === 'function') {
-        showToast(`⚠️ Extreme values detected for ${durationMinutes}+ min. Check detector status.`, 'warning');
+        showToast(`⚠️ Extreme values for ${durationMinutes}+ min. Check detector / Verifique detector.`, 'warning');
     }
     
     // Append to terminal

@@ -1,99 +1,44 @@
 {
   "rules": {
-    // Users can only read/write their own user data
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
         ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
       },
-      // Allow reading user list for admins only
       ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
     },
-    
-    // Profiles: Public profiles readable by anyone, private only by owner/shared users
+
     "profiles": {
+      ".read": true,
+
       "$profileId": {
-        // Read access: public profiles (visibility != 'private') OR owner OR sharedWith OR admin
-        ".read": "data.child('visibility').val() !== 'private' || 
-                  (auth != null && (
-                    data.child('ownerUid').val() === auth.uid ||
-                    data.child('sharedWith/' + auth.uid).exists() ||
-                    root.child('users').child(auth.uid).child('role').val() === 'admin'
-                  ))",
-        
-        // Write access: owner OR sharedWith='edit' OR admin (never public write)
-        ".write": "auth != null && (
-                    data.child('ownerUid').val() === auth.uid ||
-                    data.child('sharedWith/' + auth.uid).val() === 'edit' ||
-                    root.child('users').child(auth.uid).child('role').val() === 'admin' ||
-                    !data.exists()
-                  )",
-        
-        // Sessions data - same rules as parent profile
+        ".read": "data.child('visibility').val() !== 'private' || (auth != null && (data.child('ownerUid').val() === auth.uid || data.child('sharedWith/' + auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'admin'))",
+
+        ".write": "auth != null && (data.child('ownerUid').val() === auth.uid || data.child('sharedWith/' + auth.uid).val() === 'edit' || root.child('users').child(auth.uid).child('role').val() === 'admin' || !data.exists())",
+
         "sessions": {
           "$sessionId": {
-            ".read": "root.child('profiles').child($profileId).child('visibility').val() !== 'private' || 
-                      (auth != null && (
-                        root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid ||
-                        root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).exists() ||
-                        root.child('users').child(auth.uid).child('role').val() === 'admin'
-                      ))",
-            ".write": "auth != null && (
-                        root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid ||
-                        root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).val() === 'edit' ||
-                        root.child('users').child(auth.uid).child('role').val() === 'admin'
-                      )"
+            ".read": "root.child('profiles').child($profileId).child('visibility').val() !== 'private' || (auth != null && (root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid || root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'admin'))",
+            ".write": "auth != null && (root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid || root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).val() === 'edit' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
           }
         },
-        
-        // Real-time data
+
         "realtime": {
-          ".read": "root.child('profiles').child($profileId).child('visibility').val() !== 'private' || 
-                    (auth != null && (
-                      root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid ||
-                      root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).exists() ||
-                      root.child('users').child(auth.uid).child('role').val() === 'admin'
-                    ))",
-          ".write": "auth != null && (
-                      root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid ||
-                      root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).val() === 'edit' ||
-                      root.child('users').child(auth.uid).child('role').val() === 'admin'
-                    )"
+          ".read": "root.child('profiles').child($profileId).child('visibility').val() !== 'private' || (auth != null && (root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid || root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'admin'))",
+          ".write": "auth != null && (root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid || root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).val() === 'edit' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
         },
-        
-        // Latest data
+
         "latest": {
-          ".read": "root.child('profiles').child($profileId).child('visibility').val() !== 'private' || 
-                    (auth != null && (
-                      root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid ||
-                      root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).exists() ||
-                      root.child('users').child(auth.uid).child('role').val() === 'admin'
-                    ))",
-          ".write": "auth != null && (
-                      root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid ||
-                      root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).val() === 'edit' ||
-                      root.child('users').child(auth.uid).child('role').val() === 'admin'
-                    )"
+          ".read": "root.child('profiles').child($profileId).child('visibility').val() !== 'private' || (auth != null && (root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid || root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'admin'))",
+          ".write": "auth != null && (root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid || root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).val() === 'edit' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
         }
-      },
-      
-      // Allow listing profiles (client will filter by visibility)
-      ".read": true
+      }
     },
-    
-    // Organizations
+
     "organizations": {
       "$orgId": {
-        ".read": "auth != null && (
-                    data.child('owner').val() === auth.uid ||
-                    data.child('members/' + auth.uid).exists() ||
-                    root.child('users').child(auth.uid).child('role').val() === 'admin'
-                  )",
-        ".write": "auth != null && (
-                    data.child('owner').val() === auth.uid ||
-                    root.child('users').child(auth.uid).child('role').val() === 'admin' ||
-                    !data.exists()
-                  )"
+        ".read": "auth != null && (data.child('owner').val() === auth.uid || data.child('members/' + auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        ".write": "auth != null && (data.child('owner').val() === auth.uid || root.child('users').child(auth.uid).child('role').val() === 'admin' || !data.exists())"
       }
     }
   }

@@ -116,16 +116,23 @@ async function connectSerialPort() {
 
 /**
  * Disconnect from serial port
+ * If recording is active, saves partial data first
  */
 async function disconnectSerialPort() {
     try {
+        // If we're recording, stop cleanly first (saves partial minute data)
+        if (isRecording) {
+            await stopRecording();
+        }
+        
         if (serialReader) {
-            await serialReader.cancel();
+            try { await serialReader.cancel(); } catch (e) { /* ignore */ }
+            try { serialReader.releaseLock(); } catch (e) { /* ignore */ }
             serialReader = null;
         }
         
         if (serialPort) {
-            await serialPort.close();
+            try { await serialPort.close(); } catch (e) { /* ignore */ }
             serialPort = null;
         }
         
@@ -136,6 +143,11 @@ async function disconnectSerialPort() {
         return true;
     } catch (error) {
         console.error('Serial disconnect error:', error);
+        // Still try to clean up state
+        isSerialConnected = false;
+        isRecording = false;
+        serialReader = null;
+        serialPort = null;
         throw error;
     }
 }
@@ -162,15 +174,27 @@ async function startRecording(profileId, enableRealtime = false) {
     recordingSession = sessionId;
     
     // Initialize session in Firebase
+    const user = firebase.auth().currentUser;
+    appendToTerminal(`[System] User: ${user ? user.email : 'NOT LOGGED IN'}`);
+    appendToTerminal(`[System] Profile: ${profileId}`);
+    appendToTerminal(`[System] Session: ${sessionId}`);
+    appendToTerminal(`[System] Writing to: profiles/${profileId}/sessions/${sessionId}/`);
+    
     await firebase.database().ref(`profiles/${profileId}/sessions/${sessionId}`).set({
         startTime: Date.now(),
         name: `Session ${new Date().toLocaleString()}`,
         status: 'recording'
     });
     
-    // Reset minute data
+    appendToTerminal('[OK] Session created in Firebase. Data will be saved every minute.');
+    appendToTerminal(`[System] Current minute boundary: ${new Date(Math.floor(Date.now() / 60000) * 60000).toLocaleTimeString()}`);
+    appendToTerminal(`[System] First save will happen at the next minute boundary.`);
+    
+    // Reset minute data and error counters
     resetMinuteData();
     currentMinute = Math.floor(Date.now() / 60000);
+    _latestWriteErrors = 0;
+    _lastLatestUpdate = 0;
     
     // Start reading
     readSerialLoop(enableRealtime);
@@ -183,66 +207,131 @@ async function startRecording(profileId, enableRealtime = false) {
  * Stop recording
  */
 async function stopRecording() {
+    const wasRecording = isRecording;
     isRecording = false;
+    
+    // Cancel the serial reader to unblock the read loop
+    if (serialReader) {
+        try { await serialReader.cancel(); } catch (e) { /* ignore */ }
+    }
     
     // Finalize current minute if there's data
     if (minuteData.eventCount > 0) {
-        await saveMinuteData();
+        appendToTerminal(`[System] Saving final minute data (${minuteData.eventCount} events)...`);
+        try {
+            await saveMinuteData();
+        } catch (e) {
+            appendToTerminal(`[Error] Failed to save final minute: ${e.message}`);
+        }
     }
     
     // Update session status
     if (recordingProfile && recordingSession) {
-        await firebase.database().ref(`profiles/${recordingProfile}/sessions/${recordingSession}`).update({
-            endTime: Date.now(),
-            status: 'completed'
-        });
+        try {
+            await firebase.database().ref(`profiles/${recordingProfile}/sessions/${recordingSession}`).update({
+                endTime: Date.now(),
+                status: 'completed'
+            });
+            appendToTerminal('[OK] Session marked as completed.');
+        } catch (e) {
+            appendToTerminal(`[Error] Could not update session status: ${e.message}`);
+        }
     }
     
+    // Reset recording state
     recordingProfile = null;
     recordingSession = null;
+    _latestWriteErrors = 0;
     
     console.log('Recording stopped');
 }
 
 /**
  * Main serial reading loop
+ * 
+ * Uses getReader() on the raw readable stream + TextDecoder instead of pipeTo,
+ * so the stream can be properly released when recording stops.
  */
 async function readSerialLoop(enableRealtime) {
-    if (!serialPort || !serialPort.readable) return;
-    
-    const decoder = new TextDecoderStream();
-    const inputDone = serialPort.readable.pipeTo(decoder.writable);
-    serialReader = decoder.readable.getReader();
+    if (!serialPort || !serialPort.readable) {
+        appendToTerminal('[Error] Serial port not readable — cannot start read loop.');
+        return;
+    }
+
+    // Use raw byte reader + TextDecoder instead of pipeTo/TextDecoderStream
+    // pipeTo locks the readable stream permanently — getReader can be released
+    const decoder = new TextDecoder();
+    serialReader = serialPort.readable.getReader();
     
     let buffer = '';
+    let linesProcessed = 0;
+    let linesParsed = 0;
+    let linesFailed = 0;
+    let exitReason = 'unknown';
+    
+    appendToTerminal('[System] Serial read loop started. Waiting for data...');
     
     try {
         while (isRecording) {
             const { value, done } = await serialReader.read();
             
-            if (done) break;
+            if (done) {
+                exitReason = 'stream ended (done=true)';
+                break;
+            }
             
             if (value) {
-                buffer += value;
+                // Decode raw bytes to text
+                buffer += decoder.decode(value, { stream: true });
                 
                 // Process complete lines
                 const lines = buffer.split('\n');
                 buffer = lines.pop(); // Keep incomplete line in buffer
                 
                 for (const line of lines) {
-                    if (line.trim()) {
-                        processDataLine(line.trim(), enableRealtime);
+                    const trimmed = line.trim();
+                    if (trimmed) {
+                        try {
+                            linesProcessed++;
+                            const wasParsed = processDataLine(trimmed, enableRealtime);
+                            if (wasParsed) linesParsed++;
+                            else linesFailed++;
+                        } catch (lineError) {
+                            linesFailed++;
+                            console.error('Error processing line:', trimmed, lineError);
+                        }
                     }
+                }
+                
+                // Log progress periodically (every 100 lines)
+                if (linesProcessed > 0 && linesProcessed % 100 === 0) {
+                    appendToTerminal(`[System] Progress: ${linesProcessed} lines received, ${linesParsed} parsed OK, ${linesFailed} skipped`);
                 }
             }
         }
+        if (isRecording) exitReason = 'stream ended'; else exitReason = 'recording stopped';
     } catch (error) {
+        exitReason = `error: ${error.message}`;
         if (error.name !== 'NetworkError' && error.message !== 'The device has been lost.') {
             console.error('Serial read error:', error);
+            appendToTerminal(`[Error] Serial read loop error: ${error.message}`);
         }
     } finally {
+        // ─── CRITICAL: Save any partial minute data before exiting ───
+        if (minuteData.eventCount > 0 && recordingProfile && recordingSession) {
+            appendToTerminal(`[System] Saving partial minute data (${minuteData.eventCount} events) before exit...`);
+            try {
+                await saveMinuteData();
+            } catch (saveErr) {
+                appendToTerminal(`[Error] Failed to save partial data: ${saveErr.message}`);
+            }
+        }
+        
+        appendToTerminal(`[System] Read loop ended: ${exitReason}. Total: ${linesProcessed} lines, ${linesParsed} parsed, ${linesFailed} skipped.`);
+        console.log('Serial read loop ended:', exitReason);
+        
         if (serialReader) {
-            serialReader.releaseLock();
+            try { serialReader.releaseLock(); } catch (e) { /* ignore */ }
             serialReader = null;
         }
     }
@@ -264,6 +353,20 @@ function processDataLine(line, enableRealtime) {
     // Update terminal display - show raw data exactly as received
     appendToTerminal(line);
     
+    // ─── Skip header / info lines ───────────────────────────────────
+    // The detector sends a header like:
+    //   "Event TimeStamp[ms] ADC1 ADC2 SiPM[mV] Pressure[Pa] Temp[C] DeadTime[us] Coe..."
+    // Also skip lines that are clearly NOT data (contain brackets, labels, etc.)
+    if (/^[A-Za-z]/.test(line) || line.includes('[') || line.includes('Event') || line.includes('TimeStamp')) {
+        // This is a header or info line — display it but don't parse as data
+        return false;
+    }
+    
+    // Skip empty or very short lines
+    if (line.length < 5 || !/\d/.test(line)) {
+        return false;
+    }
+    
     let parsedData = null;
     
     // Try different formats in order of priority
@@ -273,26 +376,31 @@ function processDataLine(line, enableRealtime) {
             parsedData = JSON.parse(line);
         } catch (e) {
             console.warn('Invalid JSON:', line);
-            return;
+            return false;
         }
-    } else if (line.includes('\t') || (line.includes('COSMIC') && !line.includes(','))) {
-        // TAB-separated format from MuNRa detector (PRIMARY format)
-        // Format: event_id \t timestamp \t adc \t sipm \t voltage \t pressure \t temp \t deadtime \t coincident \t COSMIC
+    } else if (/^\d+[\t ]+\d+[\t ]+\d+/.test(line)) {
+        // PRIMARY FORMAT: Space/tab-separated numeric data from MuNRa detector
+        // Lines starting with 3+ numbers separated by spaces/tabs
+        // Format: EventID Timestamp ADC1 ADC2 SiPM Pressure Temp DeadTime Coincident [COSMIC]
         parsedData = parseTabSeparatedLine(line);
-    } else if (line.includes('TRG') || line.includes('ADC')) {
+    } else if (line.includes('COSMIC')) {
+        // Contains COSMIC marker — try tab/space parser
+        parsedData = parseTabSeparatedLine(line);
+    } else if (line.includes('TRG') && /TRG\s+\d/.test(line)) {
         // Key-value format: "TRG 1 CH 1 ADC 245 TEMP 22.5 PRES 101320 DT 0.15"
+        // Must have "TRG" followed by a number to distinguish from headers
         parsedData = parseKeyValueLine(line);
-    } else if (line.includes(',')) {
-        // CSV format
+    } else if (line.includes(',') && /^\d/.test(line)) {
+        // CSV format (must start with a digit)
         parsedData = parseCSVLine(line);
-    } else {
-        // Try to parse as space-separated (fallback for simple numeric data)
+    } else if (/^\d+\s+\d+/.test(line)) {
+        // Fallback: lines starting with 2+ numbers
         parsedData = parseSpaceSeparatedLine(line);
     }
     
     if (!parsedData) {
-        console.warn('Could not parse data line:', line);
-        return;
+        // Don't warn on every unparsed line — just return false
+        return false;
     }
     
     // Check for extreme values - WARN but DO NOT DISCARD data
@@ -318,6 +426,8 @@ function processDataLine(line, enableRealtime) {
     
     // Update latest data
     updateLatestData(parsedData);
+    
+    return true; // Successfully processed
 }
 
 /**
@@ -379,42 +489,43 @@ function parseKeyValueLine(line) {
 }
 
 /**
- * Parse TAB-separated format line from MuNRa detector
+ * Parse TAB/SPACE-separated format line from MuNRa detector
  * This is the PRIMARY format from the actual cosmic ray detector
  * 
- * Format: event_id \t timestamp \t adc \t sipm_mV \t voltage_V \t pressure_Pa \t temp_C \t deadtime \t coincident \t COSMIC
- * Example: "9	332741	50	225	0.3	76363.0	28.1	44572	0	COSMIC"
+ * Actual format from detector (confirmed from hardware):
+ *   Event TimeStamp[ms] ADC1 ADC2 SiPM[mV] Pressure[Pa] Temp[C] DeadTime[us] Coincident COSMIC
+ *   Example: "270 111753 60 1881 0.9 76501.6 27.1 46100 0 COSMIC"
  * 
  * Column mapping:
- * [0] Event ID/counter
- * [1] Timestamp (internal ms counter from detector)
- * [2] ADC raw value
- * [3] SiPM signal in mV (already converted by detector)
- * [4] Voltage in Volts (convert to mV by * 1000)
- * [5] Pressure in Pascals
- * [6] Temperature in Celsius
- * [7] Dead time counter
- * [8] Coincident flag (0 or 1)
+ * [0] Event ID/counter            (270)
+ * [1] Timestamp ms (internal)     (111753)
+ * [2] ADC1 raw value              (60)
+ * [3] ADC2 raw value              (1881)
+ * [4] SiPM signal in mV           (0.9)
+ * [5] Pressure in Pascals         (76501.6)
+ * [6] Temperature in Celsius      (27.1)
+ * [7] Dead time in microseconds   (46100)
+ * [8] Coincident flag (0 or 1)    (0)
  * [9] "COSMIC" marker (optional)
  */
 function parseTabSeparatedLine(line) {
-    // Split by tab or multiple spaces
-    const parts = line.split(/\t+/).map(p => p.trim()).filter(p => p !== '');
+    // Split by tab(s) or multiple spaces — detector may send either
+    const parts = line.split(/[\t ]+/).map(p => p.trim()).filter(p => p !== '');
     
     if (parts.length < 7) {
         console.warn('Tab-separated line has insufficient columns:', parts.length, 'expected at least 7');
         return null;
     }
     
-    // Parse each column according to the detector format
+    // Parse each column according to the ACTUAL detector format
     const eventId = parseInt(parts[0]) || 0;
     const detectorTimestamp = parseInt(parts[1]) || 0;
-    const adcRaw = parseInt(parts[2]) || 0;
-    const sipmMv = parseFloat(parts[3]) || 0;           // Already in mV from detector
-    const voltageV = parseFloat(parts[4]) || 0;          // In Volts
-    const pressurePa = parseFloat(parts[5]) || 0;        // In Pascals
-    const tempC = parseFloat(parts[6]) || 0;             // In Celsius
-    const deadtimeCounter = parseInt(parts[7]) || 0;
+    const adc1 = parseInt(parts[2]) || 0;
+    const adc2 = parseInt(parts[3]) || 0;
+    const sipmMv = parseFloat(parts[4]) || 0;            // SiPM in mV
+    const pressurePa = parseFloat(parts[5]) || 0;        // Pressure in Pascals
+    const tempC = parseFloat(parts[6]) || 0;             // Temperature in Celsius
+    const deadtimeUs = parseInt(parts[7]) || 0;           // Deadtime in microseconds
     const coincident = parseInt(parts[8]) || 0;
     // parts[9] is "COSMIC" marker, we ignore it
     
@@ -422,12 +533,12 @@ function parseTabSeparatedLine(line) {
         timestamp: Date.now(),                           // Use current time for database
         eventId: eventId,
         detectorTimestamp: detectorTimestamp,
-        adcRaw: adcRaw,
-        sipm: sipmMv,                                    // SiPM already in mV
-        voltage: voltageV * 1000,                        // Convert V to mV for consistency
-        temp: tempC,
-        pressure: pressurePa,
-        deadtime: deadtimeCounter,
+        adc1: adc1,
+        adc2: adc2,
+        sipm: sipmMv,                                    // SiPM in mV (column 4)
+        temp: tempC,                                     // Temperature °C (column 6)
+        pressure: pressurePa,                            // Pressure Pa (column 5)
+        deadtime: deadtimeUs / 1000000,                  // Convert μs → ratio (0-1) for storage
         coincident: coincident,
         trg: 1                                           // Assume triggered if we received data
     };
@@ -683,9 +794,16 @@ function resetMinuteData() {
  * CRITICAL: Data is AVERAGED, not summed!
  */
 async function saveMinuteData() {
-    if (!recordingProfile || !recordingSession || minuteData.eventCount === 0) return;
+    if (!recordingProfile || !recordingSession) {
+        appendToTerminal('[Error] Cannot save: no recording profile/session active.');
+        return;
+    }
+    if (minuteData.eventCount === 0) {
+        return;
+    }
     
     const timestamp = currentMinute * 60; // Unix timestamp in seconds
+    const writePath = `profiles/${recordingProfile}/sessions/${recordingSession}/minutes/${timestamp}`;
     
     // Calculate AVERAGES (not sums!)
     const avgData = {
@@ -699,14 +817,19 @@ async function saveMinuteData() {
         dt: minuteData.deadtimeCount > 0 ? Math.round((minuteData.deadtimeSum / minuteData.deadtimeCount) * 1000) / 1000 : null  // Deadtime AVERAGE
     };
     
+    appendToTerminal(`[System] Writing minute to: ${writePath}`);
+    
     try {
         await firebase.database()
-            .ref(`profiles/${recordingProfile}/sessions/${recordingSession}/minutes/${timestamp}`)
+            .ref(writePath)
             .set(avgData);
         
-        console.log(`Minute data saved: ${new Date(timestamp * 1000).toLocaleTimeString()}`, avgData);
+        const timeStr = new Date(timestamp * 1000).toLocaleTimeString();
+        console.log(`Minute data saved: ${timeStr}`, avgData);
+        appendToTerminal(`[OK] ✓ Minute saved → ${timeStr} | ${avgData.ec} events, SiPM avg ${avgData.sm} mV, Temp ${avgData.tp}°C, Pressure ${avgData.pr} Pa`);
     } catch (error) {
         console.error('Error saving minute data:', error);
+        appendToTerminal(`[Error] Failed to save minute data: ${error.message}`);
     }
 }
 
@@ -736,8 +859,17 @@ async function saveRealtimeData(data) {
  * Update latest data point for live display
  * Note: Uses seconds for backward compatibility with existing app.js code
  */
+// Throttle latest data updates to max once per second (avoid flooding Firebase)
+let _lastLatestUpdate = 0;
+let _latestWriteErrors = 0;
+
 async function updateLatestData(data) {
     if (!recordingProfile) return;
+    
+    // Throttle: max 1 update per second
+    const now = Date.now();
+    if (now - _lastLatestUpdate < 1000) return;
+    _lastLatestUpdate = now;
     
     try {
         await firebase.database()
@@ -750,8 +882,18 @@ async function updateLatestData(data) {
                 deadtime: data.deadtime,
                 ec: minuteData.eventCount
             });
+        // Reset error counter on success
+        if (_latestWriteErrors > 0) {
+            appendToTerminal(`[OK] Firebase writes resumed after ${_latestWriteErrors} errors.`);
+            _latestWriteErrors = 0;
+        }
     } catch (error) {
-        console.error('Error updating latest data:', error);
+        _latestWriteErrors++;
+        // Log first error and then every 10th error (avoid spam but don't hide issues)
+        if (_latestWriteErrors === 1 || _latestWriteErrors % 10 === 0) {
+            console.error('Error updating latest data:', error);
+            appendToTerminal(`[Error] Firebase write failed (${_latestWriteErrors}x): ${error.message}`);
+        }
     }
 }
 
@@ -785,136 +927,53 @@ async function cleanupRealtimeData(profileId) {
 
 /**
  * Append line to terminal output display
+ * Sends to both the old terminalOutput element (if exists) and the
+ * in-chart terminal slot managed by ChartManager.
  */
 function appendToTerminal(line) {
-    if (!terminalOutput) return;
-    
-    const lineElement = document.createElement('div');
-    lineElement.className = 'terminal-line';
-    lineElement.textContent = `[${new Date().toLocaleTimeString()}] ${line}`;
-    
-    terminalOutput.appendChild(lineElement);
-    
-    // Auto-scroll to bottom
-    terminalOutput.scrollTop = terminalOutput.scrollHeight;
-    
-    // Limit lines to prevent memory issues
-    while (terminalOutput.children.length > 1000) {
-        terminalOutput.removeChild(terminalOutput.firstChild);
+    const ts = new Date().toLocaleTimeString();
+    const formattedLine = `[${ts}] ${line}`;
+
+    // In-chart terminal (via ChartManager)
+    if (typeof ChartManager !== 'undefined' && ChartManager.appendTerminalLine) {
+        let cls = '';
+        if (line.startsWith('[System]') || line.startsWith('[SYSTEM'))  cls = 'term-system';
+        else if (line.startsWith('[Error]')) cls = 'term-error';
+        else if (line.startsWith('[OK]') || line.startsWith('[Success]')) cls = 'term-good';
+        else cls = 'term-data';
+        const escaped = formattedLine.replace(/</g, '&lt;');
+        ChartManager.appendTerminalLine(`<span class="${cls}">${escaped}</span>`);
+    }
+
+    // Legacy terminalOutput element (standalone terminal.html or old modal)
+    if (terminalOutput) {
+        const lineElement = document.createElement('div');
+        lineElement.className = 'terminal-line';
+        lineElement.textContent = formattedLine;
+        terminalOutput.appendChild(lineElement);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        while (terminalOutput.children.length > 1000) {
+            terminalOutput.removeChild(terminalOutput.firstChild);
+        }
     }
 }
 
 /**
- * Show the serial terminal modal/window
+ * Show the detector setup modal (v4.2).
+ * The modal already exists in index.html — we just open it.
+ * If called from terminal.html (standalone), this is a no-op.
  */
 function showSerialTerminal() {
-    // Check if already exists
-    let modal = document.getElementById('serialTerminalModal');
-    if (modal) {
-        modal.classList.add('active');
-        return;
-    }
-    
-    // Create modal
-    modal = document.createElement('div');
-    modal.id = 'serialTerminalModal';
-    modal.className = 'modal';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width: 800px; width: 90%; max-height: 90vh;">
-            <div class="modal-header">
-                <h2>Serial Terminal - Detector Data</h2>
-                <button class="modal-close" onclick="hideSerialTerminal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <!-- Connection Status -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <div id="serialStatus" style="padding: 8px 15px; border-radius: 20px; background: #dc3545; color: white; font-size: 12px;">
-                        Disconnected
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button id="serialConnectBtn" class="btn btn-primary" onclick="handleSerialConnect()">
-                            Connect
-                        </button>
-                        <button id="serialDisconnectBtn" class="btn btn-secondary" onclick="handleSerialDisconnect()" disabled>
-                            Disconnect
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Recording Controls -->
-                <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
-                        <div>
-                            <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 5px;">Target Profile:</label>
-                            <select id="serialProfileSelect" style="padding: 8px; border-radius: 4px; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color);">
-                                <option value="">Select profile...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 5px;">
-                                <input type="checkbox" id="enableRealtimeCheck"> Enable Real-time Data (expensive)
-                            </label>
-                        </div>
-                        <button id="startRecordingBtn" class="btn btn-primary" onclick="handleStartRecording()" disabled>
-                            Start Recording
-                        </button>
-                        <button id="stopRecordingBtn" class="btn btn-secondary" onclick="handleStopRecording()" disabled>
-                            Stop
-                        </button>
-                    </div>
-                </div>
-                
-                <!-- Terminal Output -->
-                <div style="background: #0d1117; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; height: 350px; overflow-y: auto;" id="serialTerminalOutput">
-                    <div class="terminal-line" style="color: #8b949e;">[System] Terminal ready. Click 'Connect' to select serial port.</div>
-                </div>
-                
-                <!-- Stats -->
-                <div style="display: flex; gap: 20px; margin-top: 15px; font-size: 12px; color: var(--text-secondary);">
-                    <span>Events: <strong id="terminalEventCount">0</strong></span>
-                    <span>Last SiPM: <strong id="terminalLastSipm">-- mV</strong></span>
-                    <span>Last Temp: <strong id="terminalLastTemp">-- °C</strong></span>
-                    <span>Session: <strong id="terminalSession">None</strong></span>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    modal.classList.add('active');
-    
-    // Set terminal output reference
-    terminalOutput = document.getElementById('serialTerminalOutput');
-    
-    // Populate profile select
-    populateSerialProfileSelect();
-    
-    // Add styles for terminal lines
-    if (!document.getElementById('serialTerminalStyles')) {
-        const style = document.createElement('style');
-        style.id = 'serialTerminalStyles';
-        style.textContent = `
-            .terminal-line {
-                color: #58a6ff;
-                padding: 2px 0;
-                border-bottom: 1px solid rgba(255,255,255,0.05);
-            }
-            .terminal-line:nth-child(even) {
-                background: rgba(255,255,255,0.02);
-            }
-        `;
-        document.head.appendChild(style);
-    }
+    const modal = document.getElementById('detectorSetupModal');
+    if (modal) modal.classList.add('active');
 }
 
 /**
- * Hide serial terminal
+ * Hide detector setup modal (v4.2)
  */
 function hideSerialTerminal() {
-    const modal = document.getElementById('serialTerminalModal');
-    if (modal) {
-        modal.classList.remove('active');
-    }
+    const modal = document.getElementById('detectorSetupModal');
+    if (modal) modal.classList.remove('active');
 }
 
 /**

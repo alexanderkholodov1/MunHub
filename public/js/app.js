@@ -32,6 +32,7 @@ let chartTypes = { events: 'line', sipm: 'line', temp: 'line', deadtime: 'line' 
 // ═══════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
     loadPreferences();
+    loadChartTypePreferences(); // Load saved chart type preferences
     initFirebase();
     initCharts();
     setupEventListeners();
@@ -97,6 +98,65 @@ function initFirebase(url = null) {
         console.error('Firebase init error:', e);
         setConnectionStatus('error', 'Connection failed');
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PERFORMANCE OPTIMIZATION - Data Downsampling
+// Uses LTTB (Largest-Triangle-Three-Buckets) algorithm for best visual quality
+// ═══════════════════════════════════════════════════════════════════════════════
+function downsampleData(data, targetPoints) {
+    if (data.length <= targetPoints) return data;
+    
+    // Keep first and last points always
+    const result = [data[0]];
+    const bucketSize = (data.length - 2) / (targetPoints - 2);
+    
+    let lastSelectedIndex = 0;
+    
+    for (let i = 0; i < targetPoints - 2; i++) {
+        // Calculate bucket boundaries
+        const rangeStart = Math.floor((i + 1) * bucketSize) + 1;
+        const rangeEnd = Math.min(Math.floor((i + 2) * bucketSize) + 1, data.length - 1);
+        
+        // Calculate average point in next bucket for triangle calculation
+        let avgX = 0, avgY = 0, avgCount = 0;
+        const nextBucketStart = rangeEnd;
+        const nextBucketEnd = Math.min(Math.floor((i + 3) * bucketSize) + 1, data.length);
+        
+        for (let j = nextBucketStart; j < nextBucketEnd; j++) {
+            avgX += data[j].timestamp;
+            avgY += (data[j].ec || 0); // Use event count for selection criteria
+            avgCount++;
+        }
+        if (avgCount > 0) {
+            avgX /= avgCount;
+            avgY /= avgCount;
+        }
+        
+        // Find point in current bucket with largest triangle area
+        let maxArea = -1;
+        let maxAreaIndex = rangeStart;
+        const lastPoint = data[lastSelectedIndex];
+        
+        for (let j = rangeStart; j < rangeEnd; j++) {
+            // Calculate triangle area
+            const area = Math.abs(
+                (lastPoint.timestamp - avgX) * ((data[j].ec || 0) - (lastPoint.ec || 0)) -
+                (lastPoint.timestamp - data[j].timestamp) * (avgY - (lastPoint.ec || 0))
+            );
+            
+            if (area > maxArea) {
+                maxArea = area;
+                maxAreaIndex = j;
+            }
+        }
+        
+        result.push(data[maxAreaIndex]);
+        lastSelectedIndex = maxAreaIndex;
+    }
+    
+    result.push(data[data.length - 1]);
+    return result;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -350,6 +410,16 @@ function updateCharts() {
         chartData = dataWithGaps;
     }
     
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PERFORMANCE OPTIMIZATION: Downsample data if too many points
+    // This prevents browser freezing with hundreds/thousands of data points
+    // ═══════════════════════════════════════════════════════════════════════════
+    const MAX_DATA_POINTS = 500; // Maximum points to render for performance
+    if (chartData.length > MAX_DATA_POINTS) {
+        chartData = downsampleData(chartData, MAX_DATA_POINTS);
+        console.log(`Performance: Downsampled ${filteredData.length} points to ${chartData.length}`);
+    }
+    
     // Prepare data points - use virtualTs in STACKED mode, real timestamp in ACCURATE
     const getX = (d) => isStackedMode ? d.virtualTs : (d.timestamp * 1000);
     const getY = (d, field) => d.isGap ? null : (d[field] || 0);
@@ -569,7 +639,10 @@ function setupEventListeners() {
     document.getElementById('profileSelect').addEventListener('change', (e) => {
         currentProfile = e.target.value;
         localStorage.setItem('munra_profile', currentProfile);
-        if (currentProfile) subscribeToProfile();
+        if (currentProfile) {
+            trackRecentProfile(currentProfile); // Track for recent profiles list
+            subscribeToProfile();
+        }
     });
     
     // Add Profile button
@@ -638,32 +711,82 @@ function updateModeLabels() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CHART TYPE CYCLING
+// CHART TYPE CYCLING - Now includes 5 types: line, line-only, smooth, bar, scatter
 // ═══════════════════════════════════════════════════════════════════════════════
 function cycleChartType(chartName) {
-    const types = ['line', 'bar', 'scatter'];
-    const currentType = chartTypes[chartName];
+    // Extended chart types:
+    // 'line' - standard line with dots
+    // 'line-only' - line without dots (clean line)
+    // 'smooth' - curved/bezier line without dots
+    // 'bar' - bar chart
+    // 'scatter' - scatter plot (dots only)
+    const types = ['line', 'line-only', 'smooth', 'bar', 'scatter'];
+    const currentType = chartTypes[chartName] || 'line';
     const nextIndex = (types.indexOf(currentType) + 1) % types.length;
     const newType = types[nextIndex];
     chartTypes[chartName] = newType;
     
+    // Save preference to localStorage
+    localStorage.setItem(`munra_chartType_${chartName}`, newType);
+    
     const chart = charts[chartName];
     if (chart) {
         chart.data.datasets.forEach(ds => {
-            ds.type = newType;
+            // Reset to line type for all variants
+            ds.type = (newType === 'bar') ? 'bar' : (newType === 'scatter') ? 'scatter' : 'line';
+            
             if (newType === 'scatter') {
+                // Scatter: dots only, no line
                 ds.pointRadius = 4;
                 ds.showLine = false;
+                ds.tension = 0;
             } else if (newType === 'bar') {
+                // Bar chart
                 ds.pointRadius = 0;
+                ds.showLine = true;
+                ds.tension = 0;
+            } else if (newType === 'line-only') {
+                // Line without dots - clean line
+                ds.pointRadius = 0;
+                ds.showLine = true;
+                ds.tension = 0;
+                ds.borderWidth = 2;
+            } else if (newType === 'smooth') {
+                // Smooth curved line without dots
+                ds.pointRadius = 0;
+                ds.showLine = true;
+                ds.tension = 0.4; // Bezier curve tension for smooth lines
+                ds.borderWidth = 2;
             } else {
+                // Standard line with dots
                 ds.pointRadius = 2;
                 ds.showLine = true;
+                ds.tension = 0;
+                ds.borderWidth = 1.5;
             }
         });
         chart.update();
-        showToast(`Chart type: ${newType}`, 'success');
+        
+        // Human-readable chart type names
+        const typeNames = {
+            'line': 'Line + Dots',
+            'line-only': 'Line Only',
+            'smooth': 'Smooth Curve',
+            'bar': 'Bar Chart',
+            'scatter': 'Scatter'
+        };
+        showToast(`Chart: ${typeNames[newType] || newType}`, 'success');
     }
+}
+
+// Load saved chart type preferences on startup
+function loadChartTypePreferences() {
+    ['events', 'sipm', 'temp', 'deadtime'].forEach(chartName => {
+        const saved = localStorage.getItem(`munra_chartType_${chartName}`);
+        if (saved) {
+            chartTypes[chartName] = saved;
+        }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -804,13 +927,13 @@ function applyFirebaseConfig() {
         initFirebase(url);
         setTimeout(() => {
             if (db) {
-                resultEl.textContent = '✓ Connected successfully!';
+                resultEl.textContent = '[OK] Connected successfully!';
                 resultEl.className = 'connection-result success';
                 updateStorageStats();
             }
         }, 1000);
     } catch (e) {
-        resultEl.textContent = '✗ Connection failed: ' + e.message;
+        resultEl.textContent = '[FAIL] Connection failed: ' + e.message;
         resultEl.className = 'connection-result error';
     }
 }
@@ -842,13 +965,13 @@ function applyFirebaseConfigUser() {
         initFirebase(url);
         setTimeout(() => {
             if (db) {
-                resultEl.textContent = '✓ Connected successfully!';
+                resultEl.textContent = '[OK] Connected successfully!';
                 resultEl.className = 'connection-result success';
                 updateStorageStats();
             }
         }, 1000);
     } catch (e) {
-        resultEl.textContent = '✗ Connection failed: ' + e.message;
+        resultEl.textContent = '[FAIL] Connection failed: ' + e.message;
         resultEl.className = 'connection-result error';
     }
 }
@@ -862,10 +985,10 @@ function showMigrateDbModal() {
     modal.id = 'migrateDbModal';
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 600px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
-            <h2 style="margin-bottom: 10px; color: var(--text-primary);">🔄 Database Migration</h2>
+            <h2 style="margin-bottom: 10px; color: var(--text-primary);">[Sync]  Database Migration</h2>
             
             <div style="background: #f8d7da; border: 2px solid #f5c2c7; border-radius: 8px; padding: 15px; margin-bottom: 15px;">
-                <h3 style="color: #842029; margin: 0 0 10px 0;">⚠️ CRITICAL OPERATION WARNING</h3>
+                <h3 style="color: #842029; margin: 0 0 10px 0;">[WARNING]  CRITICAL OPERATION WARNING</h3>
                 <p style="color: #842029; font-size: 13px; margin: 0;">
                     This operation will <strong>COPY ALL DATA</strong> from the current database to a new Firebase database.
                     This includes:
@@ -914,7 +1037,7 @@ function showMigrateDbModal() {
                 </button>
                 <button onclick="startMigration()" id="startMigrateBtn"
                         style="padding: 10px 20px; border: none; border-radius: 8px; background: #dc3545; color: white; cursor: pointer; font-weight: 600;">
-                    🚀 Start Migration
+                     Start Migration
                 </button>
             </div>
         </div>
@@ -936,15 +1059,15 @@ async function startMigration() {
     }
     
     // Multiple confirmations
-    if (!confirm('⚠️ FIRST CONFIRMATION:\n\nYou are about to migrate ALL data to:\n' + destUrl + '\n\nAre you sure you want to continue?')) {
+    if (!confirm('[WARNING]  FIRST CONFIRMATION:\n\nYou are about to migrate ALL data to:\n' + destUrl + '\n\nAre you sure you want to continue?')) {
         return;
     }
     
-    if (!confirm('⚠️ SECOND CONFIRMATION:\n\nThis action CANNOT be undone. All data will be COPIED to the new database.\n\nProceed with migration?')) {
+    if (!confirm('[WARNING]  SECOND CONFIRMATION:\n\nThis action CANNOT be undone. All data will be COPIED to the new database.\n\nProceed with migration?')) {
         return;
     }
     
-    const finalConfirm = prompt('⚠️ FINAL CONFIRMATION:\n\nType "MIGRATE" to confirm you understand this operation:');
+    const finalConfirm = prompt('[WARNING]  FINAL CONFIRMATION:\n\nType "MIGRATE" to confirm you understand this operation:');
     if (finalConfirm !== 'MIGRATE') {
         showToast('Migration cancelled', 'info');
         return;
@@ -1011,7 +1134,7 @@ async function startMigration() {
         await destApp.delete();
         
         progressBar.style.width = '100%';
-        statusText.textContent = '✅ Migration completed successfully!';
+        statusText.textContent = '[OK]  Migration completed successfully!';
         statusText.style.color = '#2ea043';
         
         showToast('Migration completed successfully!', 'success');
@@ -1024,7 +1147,7 @@ async function startMigration() {
         
     } catch (e) {
         console.error('Migration error:', e);
-        statusText.textContent = '❌ Migration failed: ' + e.message;
+        statusText.textContent = '[ERROR]  Migration failed: ' + e.message;
         statusText.style.color = '#dc3545';
         showToast('Migration failed: ' + e.message, 'error');
         document.getElementById('startMigrateBtn').disabled = false;
@@ -1039,8 +1162,17 @@ function loadProfiles() {
         const select = document.getElementById('profileSelect');
         select.innerHTML = '<option value="">Select Profile</option>';
         
-        // Filter profiles based on user access
-        const accessibleProfiles = {};
+        // Get current user ID for categorization
+        const currentUserId = typeof currentUser !== 'undefined' && currentUser ? currentUser.uid : null;
+        
+        // Categorize profiles into folders
+        const recentProfiles = [];    // Recently accessed (from localStorage)
+        const myProfiles = [];        // User owns these
+        const sharedProfiles = [];    // Shared with user
+        const publicProfiles = [];    // Public profiles
+        
+        // Get recently accessed profiles from localStorage
+        const recentIds = JSON.parse(localStorage.getItem('munra_recent_profiles') || '[]');
         
         Object.keys(allProfiles).forEach(id => {
             const profile = allProfiles[id];
@@ -1050,8 +1182,6 @@ function loadProfiles() {
                 return; // Skip this profile
             }
             
-            accessibleProfiles[id] = profile;
-            
             // Handle both structures: profile.name or profile.meta.name
             let name = id;
             if (profile.name) {
@@ -1060,13 +1190,94 @@ function loadProfiles() {
                 name = profile.meta.name;
             }
             
-            // Add visibility indicator
-            const visIcon = profile.visibility === 'private' ? '🔒 ' : '';
-            select.innerHTML += `<option value="${id}">${visIcon}${name}</option>`;
+            const profileInfo = { id, name, profile };
+            
+            // Categorize based on ownership and visibility
+            const isOwner = currentUserId && profile.ownerUid === currentUserId;
+            const isShared = currentUserId && profile.sharedWith && profile.sharedWith[currentUserId];
+            const isPublic = profile.visibility !== 'private';
+            
+            if (isOwner) {
+                myProfiles.push(profileInfo);
+            } else if (isShared) {
+                sharedProfiles.push(profileInfo);
+            } else if (isPublic) {
+                publicProfiles.push(profileInfo);
+            }
+            
+            // Check if recently accessed
+            if (recentIds.includes(id)) {
+                recentProfiles.push(profileInfo);
+            }
         });
         
-        // Update allProfiles to only contain accessible ones for other functions
-        // But keep the original for reference
+        // Sort each category alphabetically
+        const sortByName = (a, b) => a.name.localeCompare(b.name);
+        myProfiles.sort(sortByName);
+        sharedProfiles.sort(sortByName);
+        publicProfiles.sort(sortByName);
+        
+        // Sort recent by recency (most recent first)
+        recentProfiles.sort((a, b) => recentIds.indexOf(a.id) - recentIds.indexOf(b.id));
+        
+        // Build optgroups for organized dropdown
+        // Recent Profiles (if any)
+        if (recentProfiles.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = '-- Recent --';
+            recentProfiles.slice(0, 5).forEach(({ id, name }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // My Profiles
+        if (myProfiles.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = '-- My Profiles --';
+            myProfiles.forEach(({ id, name }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // Shared with Me
+        if (sharedProfiles.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = '-- Shared with Me --';
+            sharedProfiles.forEach(({ id, name }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // Public Profiles
+        if (publicProfiles.length > 0) {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = '-- Public Profiles --';
+            publicProfiles.forEach(({ id, name }) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = name;
+                optgroup.appendChild(option);
+            });
+            select.appendChild(optgroup);
+        }
+        
+        // Build accessible profiles map for other functions
+        const accessibleProfiles = {};
+        [...myProfiles, ...sharedProfiles, ...publicProfiles].forEach(({ id, profile }) => {
+            accessibleProfiles[id] = profile;
+        });
         
         // Restore saved profile (only if accessible)
         const saved = localStorage.getItem('munra_profile');
@@ -1075,7 +1286,8 @@ function loadProfiles() {
             select.value = saved;
             subscribeToProfile();
         } else if (Object.keys(accessibleProfiles).length > 0) {
-            currentProfile = Object.keys(accessibleProfiles)[0];
+            // Prefer user's own profile first, then shared, then public
+            currentProfile = myProfiles[0]?.id || sharedProfiles[0]?.id || publicProfiles[0]?.id;
             select.value = currentProfile;
             subscribeToProfile();
         } else {
@@ -1088,6 +1300,19 @@ function loadProfiles() {
         console.error('Load profiles error:', err);
         setConnectionStatus('error', 'Error loading');
     });
+}
+
+// Track recent profile access
+function trackRecentProfile(profileId) {
+    if (!profileId) return;
+    let recent = JSON.parse(localStorage.getItem('munra_recent_profiles') || '[]');
+    // Remove if already exists
+    recent = recent.filter(id => id !== profileId);
+    // Add to front
+    recent.unshift(profileId);
+    // Keep only last 10
+    recent = recent.slice(0, 10);
+    localStorage.setItem('munra_recent_profiles', JSON.stringify(recent));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1105,7 +1330,7 @@ function showCreateProfileModal() {
     modal.id = 'createProfileModal';
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 400px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
-            <h2 style="margin-bottom: 20px; color: var(--text-primary);">➕ Create New Profile</h2>
+            <h2 style="margin-bottom: 20px; color: var(--text-primary);"> Create New Profile</h2>
             
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">Profile Name:</label>
@@ -1127,8 +1352,8 @@ function showCreateProfileModal() {
                 <select id="newProfileVisibility" 
                         style="width: 100%; padding: 10px; border: 1px solid var(--border-color); 
                                border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px;">
-                    <option value="private" selected>🔒 Private (only you can see)</option>
-                    <option value="public">🌍 Public (everyone can see)</option>
+                    <option value="private" selected>[Private]  Private (only you can see)</option>
+                    <option value="public">[Public]  Public (everyone can see)</option>
                 </select>
             </div>
             
@@ -1168,7 +1393,7 @@ async function createNewProfile() {
         statusDiv.style.display = 'block';
         statusDiv.style.background = '#ff4444';
         statusDiv.style.color = 'white';
-        statusDiv.textContent = '❌ Profile name is required';
+        statusDiv.textContent = '[ERROR]  Profile name is required';
         return;
     }
     
@@ -1183,7 +1408,7 @@ async function createNewProfile() {
         statusDiv.style.display = 'block';
         statusDiv.style.background = '#ff4444';
         statusDiv.style.color = 'white';
-        statusDiv.textContent = '❌ A profile with this ID already exists';
+        statusDiv.textContent = '[ERROR]  A profile with this ID already exists';
         return;
     }
     
@@ -1223,7 +1448,7 @@ async function createNewProfile() {
         await db.ref(`profiles/${profileId}`).set(profileData);
         
         statusDiv.style.background = '#4CAF50';
-        statusDiv.textContent = '✅ Profile created successfully!';
+        statusDiv.textContent = '[OK]  Profile created successfully!';
         
         // Reload profiles and select the new one
         setTimeout(() => {
@@ -1240,7 +1465,7 @@ async function createNewProfile() {
     } catch (error) {
         console.error('Error creating profile:', error);
         statusDiv.style.background = '#ff4444';
-        statusDiv.textContent = '❌ Error: ' + error.message;
+        statusDiv.textContent = '[ERROR]  Error: ' + error.message;
     }
 }
 
@@ -1278,7 +1503,7 @@ function showManageProfilesModal() {
             name = profile.meta.name;
         }
         const isSelected = id === currentProfile;
-        const visIcon = profile.visibility === 'private' ? '🔒' : '🌐';
+        const visIcon = profile.visibility === 'private' ? '[Private] ' : '[Public] ';
         const currentVis = profile.visibility === 'private' ? 'Private' : 'Public';
         const newVis = profile.visibility === 'private' ? 'PUBLIC' : 'PRIVATE';
         const visButtonColor = profile.visibility === 'private' ? '#e5a00d' : '#2ea043'; // Yellow for going public (warning), green for going private (safe)
@@ -1289,24 +1514,28 @@ function showManageProfilesModal() {
         
         profilesHtml += `
             <div class="profile-item" style="background: var(--bg-tertiary); border-radius: 8px; border: 1px solid ${isSelected ? '#00d4ff' : 'var(--border-color)'}; margin-bottom: 12px; overflow: hidden;">
-                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; flex-wrap: wrap; gap: 8px;">
                     <div>
                         <div style="font-weight: 500; color: var(--text-primary);">${visIcon} ${name}</div>
                         <div style="font-size: 11px; color: var(--text-secondary);">ID: ${id} | Currently: <strong>${currentVis}</strong>${sharedText}</div>
                     </div>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
+                        <button onclick="showRenameProfileModal('${id}', '${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" 
+                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #0d6efd; color: white; cursor: pointer; font-size: 11px; font-weight: 500;">
+                            Rename ID
+                        </button>
                         <button onclick="confirmVisibilityChange('${id}', '${profile.visibility || 'public'}')" 
                                 style="padding: 6px 12px; border: none; border-radius: 6px; background: ${visButtonColor}; color: white; cursor: pointer; font-size: 11px; font-weight: 500;">
-                            Change to ${newVis}
+                            Set ${newVis}
                         </button>
                         <button onclick="toggleSharePanel('${id}')" 
-                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #7b2cbf; color: white; cursor: pointer; font-size: 12px;">
-                            👥 Share
+                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #7b2cbf; color: white; cursor: pointer; font-size: 11px;">
+                            Share
                         </button>
-                        <button onclick="deleteProfile('${id}', '${name.replace(/'/g, "\\'")}')" 
-                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #f85149; color: white; cursor: pointer; font-size: 12px;"
+                        <button onclick="deleteProfile('${id}', '${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')" 
+                                style="padding: 6px 12px; border: none; border-radius: 6px; background: #f85149; color: white; cursor: pointer; font-size: 11px;"
                                 ${isSelected ? 'disabled title="Cannot delete selected profile"' : ''}>
-                            🗑️
+                            Delete
                         </button>
                     </div>
                 </div>
@@ -1342,7 +1571,7 @@ function showManageProfilesModal() {
     
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 700px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
-            <h2 style="margin-bottom: 20px; color: var(--text-primary);">👤 Manage My Profiles</h2>
+            <h2 style="margin-bottom: 20px; color: var(--text-primary);">Manage My Profiles</h2>
             
             <div style="max-height: 500px; overflow-y: auto; margin-bottom: 20px;">
                 ${profilesHtml}
@@ -1399,7 +1628,7 @@ async function loadSharedUsersList(profileId) {
                             <span style="font-size: 11px; color: var(--text-secondary);">${access === 'edit' ? 'Can edit' : 'View only'}</span>
                             <button onclick="removeProfileShare('${profileId}', '${uid}')" 
                                     style="padding: 2px 6px; border: none; border-radius: 4px; background: #f85149; color: white; cursor: pointer; font-size: 11px;">
-                                ✕
+                                X
                             </button>
                         </div>
                     </div>
@@ -1502,14 +1731,14 @@ function confirmVisibilityChange(profileId, currentVisibility) {
     // Different messages for public vs private
     let warningMessage;
     if (newVisibility === 'public') {
-        warningMessage = `⚠️ WARNING: You are about to make "${profileName}" PUBLIC.\n\n` +
+        warningMessage = `[WARNING]  WARNING: You are about to make "${profileName}" PUBLIC.\n\n` +
                         `This means:\n` +
                         `• ANYONE can view this profile\n` +
                         `• The data will be visible to all users\n` +
                         `• Search engines may index it\n\n` +
                         `Are you sure you want to make this profile PUBLIC?`;
     } else {
-        warningMessage = `🔒 You are about to make "${profileName}" PRIVATE.\n\n` +
+        warningMessage = `[Private]  You are about to make "${profileName}" PRIVATE.\n\n` +
                         `This means:\n` +
                         `• Only you and people you share with can view it\n` +
                         `• Other users will no longer see this profile\n\n` +
@@ -1560,7 +1789,7 @@ async function deleteProfile(profileId, profileName) {
         await db.ref(`profiles/${profileId}`).remove();
         
         statusDiv.style.background = '#4CAF50';
-        statusDiv.textContent = '✅ Profile deleted!';
+        statusDiv.textContent = '[OK]  Profile deleted!';
         
         // If this was the current profile, clear selection
         if (currentProfile === profileId) {
@@ -1581,7 +1810,7 @@ async function deleteProfile(profileId, profileName) {
     } catch (error) {
         console.error('Error deleting profile:', error);
         statusDiv.style.background = '#f85149';
-        statusDiv.textContent = '❌ Error: ' + error.message;
+        statusDiv.textContent = '[ERROR]  Error: ' + error.message;
     }
 }
 
@@ -1725,7 +1954,7 @@ function showUploadProgress(filename) {
             overflow-y: auto;
         ">
             <h2 style="color: #00d4ff; margin: 0 0 20px 0; font-size: 18px;">
-                📤 Procesando: ${filename}
+                [Upload]  Procesando: ${filename}
             </h2>
             <div id="uploadSteps" style="font-family: monospace; font-size: 13px; line-height: 1.8;">
                 <div class="step" data-step="read">⏳ Leyendo archivo...</div>
@@ -1815,7 +2044,7 @@ function showUploadResult(success, message, details = null) {
             border: 1px solid ${success ? '#00ff88' : '#ff4444'};
         `;
         resultDiv.innerHTML = `
-            <div style="font-size: 24px; margin-bottom: 10px;">${success ? '✅' : '❌'}</div>
+            <div style="font-size: 24px; margin-bottom: 10px;">${success ? '[OK] ' : '[ERROR] '}</div>
             <div style="color: ${success ? '#00ff88' : '#ff4444'}; font-size: 14px; font-weight: bold;">
                 ${message}
             </div>
@@ -1853,21 +2082,21 @@ async function processUpload(content, filename) {
     const lines = content.trim().split('\n').filter(l => l.trim() && !l.startsWith('#'));
     const totalLines = lines.length;
     
-    addStep('✅', `Archivo leído: ${totalLines.toLocaleString()} líneas`, 'success');
+    addStep('[OK] ', `Archivo leído: ${totalLines.toLocaleString()} líneas`, 'success');
     updateProgress(10, '10%');
     
     // Small delay for UI update
     await new Promise(r => setTimeout(r, 100));
     
     // Detect format
-    addStep('🔍', 'Detectando formato de datos...');
+    addStep('[Search] ', 'Detectando formato de datos...');
     
     const firstLine = lines[0].trim();
     const parts = firstLine.split(/\s+/);
     
     // Check if JSON
     if (content.trim().startsWith('{') || content.trim().startsWith('[')) {
-        addStep('📋', 'Formato detectado: JSON');
+        addStep('[Clipboard] ', 'Formato detectado: JSON');
         await processJSONUpload(content, filename);
         return;
     }
@@ -1879,7 +2108,7 @@ async function processUpload(content, filename) {
         return;
     }
     
-    addStep('✅', `Formato detectado: Eventos MuNRa (${parts.length} columnas)`, 'success');
+    addStep('[OK] ', `Formato detectado: Eventos MuNRa (${parts.length} columnas)`, 'success');
     updateProgress(15, '15%');
     
     // Extract date from filename
@@ -1888,18 +2117,18 @@ async function processUpload(content, filename) {
     if (dateMatch) {
         const [_, day, month, year] = dateMatch;
         baseDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), 0, 0, 0);
-        addStep('📅', `Fecha extraída del nombre: ${day}/${month}/${year}`, 'success');
+        addStep('[Date] ', `Fecha extraída del nombre: ${day}/${month}/${year}`, 'success');
     } else {
         baseDate = new Date();
         baseDate.setHours(0, 0, 0, 0);
-        addStep('⚠️', `No se encontró fecha en el nombre, usando hoy: ${baseDate.toLocaleDateString()}`, 'pending');
+        addStep('[WARNING] ', `No se encontró fecha en el nombre, usando hoy: ${baseDate.toLocaleDateString()}`, 'pending');
     }
     
     updateProgress(20, '20%');
     await new Promise(r => setTimeout(r, 100));
     
     // Parse all events and find timestamp range
-    addStep('📊', 'Analizando rango de timestamps...');
+    addStep('[Stats] ', 'Analizando rango de timestamps...');
     
     let minTs = Infinity, maxTs = -Infinity;
     let validEvents = 0;
@@ -1925,17 +2154,17 @@ async function processUpload(content, filename) {
     }
     
     const tsRange = maxTs - minTs;
-    addStep('✅', `Rango de timestamps: ${minTs.toLocaleString()} → ${maxTs.toLocaleString()}`, 'success');
-    addStep('✅', `Eventos válidos: ${validEvents.toLocaleString()}`, 'success');
+    addStep('[OK] ', `Rango de timestamps: ${minTs.toLocaleString()} → ${maxTs.toLocaleString()}`, 'success');
+    addStep('[OK] ', `Eventos válidos: ${validEvents.toLocaleString()}`, 'success');
     if (invalidLines > 0) {
-        addStep('⚠️', `Líneas ignoradas: ${invalidLines.toLocaleString()}`, 'pending');
+        addStep('[WARNING] ', `Líneas ignoradas: ${invalidLines.toLocaleString()}`, 'pending');
     }
     
     updateProgress(30, '30%');
     await new Promise(r => setTimeout(r, 100));
     
     // Aggregate events by minute
-    addStep('⚙️', 'Agregando eventos por minuto...');
+    addStep('[Process] ', 'Agregando eventos por minuto...');
     
     const baseTimestamp = Math.floor(baseDate.getTime() / 1000);
     const minuteData = {};
@@ -2001,12 +2230,12 @@ async function processUpload(content, filename) {
     updateProgress(70, '70%');
     
     const minuteCount = Object.keys(minuteData).length;
-    addStep('✅', `Agregación completada: ${processedCount.toLocaleString()} eventos → ${minuteCount.toLocaleString()} minutos`, 'success');
+    addStep('[OK] ', `Agregación completada: ${processedCount.toLocaleString()} eventos → ${minuteCount.toLocaleString()} minutos`, 'success');
     
     await new Promise(r => setTimeout(r, 100));
     
     // Convert to final format
-    addStep('🔄', 'Preparando datos para subir...');
+    addStep('[Sync] ', 'Preparando datos para subir...');
     
     const data = Object.values(minuteData).map(m => ({
         ts: m.ts,
@@ -2035,7 +2264,7 @@ async function processUpload(content, filename) {
         String(date.getMinutes()).padStart(2, '0') +
         String(date.getSeconds()).padStart(2, '0');
     
-    addStep('📁', `Session ID: ${sessionId}`);
+    addStep('[File] ', `Session ID: ${sessionId}`);
     
     // Prepare minutes object
     const minutes = {};
@@ -2046,7 +2275,7 @@ async function processUpload(content, filename) {
     updateProgress(80, '80%');
     
     // Upload to Firebase
-    addStep('☁️', 'Subiendo a Firebase...');
+    addStep('[Cloud] ', 'Subiendo a Firebase...');
     
     try {
         const sessionRef = db.ref(`profiles/${currentProfile}/sessions/${sessionId}`);
@@ -2062,10 +2291,10 @@ async function processUpload(content, filename) {
         });
         
         updateProgress(90, '90%');
-        addStep('✅', 'Datos subidos a Firebase', 'success');
+        addStep('[OK] ', 'Datos subidos a Firebase', 'success');
         
         // Verify upload
-        addStep('🔍', 'Verificando subida...');
+        addStep('[Search] ', 'Verificando subida...');
         
         const verifySnapshot = await sessionRef.once('value');
         const verifyData = verifySnapshot.val();
@@ -2075,7 +2304,7 @@ async function processUpload(content, filename) {
             updateProgress(100, '100%');
             
             if (uploadedMinutes === minuteCount) {
-                addStep('✅', `Verificación exitosa: ${uploadedMinutes} minutos en Firebase`, 'success');
+                addStep('[OK] ', `Verificación exitosa: ${uploadedMinutes} minutos en Firebase`, 'success');
                 
                 const firstDate = new Date(data[0].ts * 1000);
                 const lastDate = new Date(data[data.length - 1].ts * 1000);
@@ -2089,7 +2318,7 @@ async function processUpload(content, filename) {
                     • Archivo: ${filename}
                 `);
             } else {
-                addStep('⚠️', `Advertencia: Se subieron ${uploadedMinutes} de ${minuteCount} minutos`, 'pending');
+                addStep('[WARNING] ', `Advertencia: Se subieron ${uploadedMinutes} de ${minuteCount} minutos`, 'pending');
                 showUploadResult(true, 'SUBIDA PARCIAL', `Se verificaron ${uploadedMinutes} de ${minuteCount} minutos esperados.`);
             }
         } else {
@@ -2097,7 +2326,7 @@ async function processUpload(content, filename) {
         }
         
     } catch (uploadErr) {
-        addStep('❌', `Error: ${uploadErr.message}`, 'error');
+        addStep('[ERROR] ', `Error: ${uploadErr.message}`, 'error');
         showUploadResult(false, 'ERROR AL SUBIR', uploadErr.message);
     }
 }
@@ -2109,10 +2338,10 @@ async function processJSONUpload(content, filename) {
         
         if (json.minutes && typeof json.minutes === 'object') {
             data = Object.values(json.minutes);
-            addStep('✅', `JSON con ${data.length} minutos`, 'success');
+            addStep('[OK] ', `JSON con ${data.length} minutos`, 'success');
         } else if (Array.isArray(json)) {
             data = json;
-            addStep('✅', `JSON array con ${data.length} entradas`, 'success');
+            addStep('[OK] ', `JSON array con ${data.length} entradas`, 'success');
         } else {
             data = [json];
         }
@@ -2136,7 +2365,7 @@ async function processJSONUpload(content, filename) {
             return;
         }
         
-        addStep('✅', `Entradas válidas: ${validData.length}`, 'success');
+        addStep('[OK] ', `Entradas válidas: ${validData.length}`, 'success');
         
         // Create session and upload
         const firstTs = validData[0].ts;
@@ -2148,7 +2377,7 @@ async function processJSONUpload(content, filename) {
             String(date.getMinutes()).padStart(2, '0') +
             String(date.getSeconds()).padStart(2, '0');
         
-        addStep('📁', `Session ID: ${sessionId}`);
+        addStep('[File] ', `Session ID: ${sessionId}`);
         
         const minutes = {};
         validData.forEach(entry => {
@@ -2156,7 +2385,7 @@ async function processJSONUpload(content, filename) {
         });
         
         updateProgress(70, '70%');
-        addStep('☁️', 'Subiendo a Firebase...');
+        addStep('[Cloud] ', 'Subiendo a Firebase...');
         
         const sessionRef = db.ref(`profiles/${currentProfile}/sessions/${sessionId}`);
         await sessionRef.set({
@@ -2169,12 +2398,12 @@ async function processJSONUpload(content, filename) {
         });
         
         updateProgress(90, '90%');
-        addStep('🔍', 'Verificando...');
+        addStep('[Search] ', 'Verificando...');
         
         const verify = await sessionRef.once('value');
         if (verify.val() && verify.val().minutes) {
             updateProgress(100, '100%');
-            addStep('✅', 'Verificación exitosa', 'success');
+            addStep('[OK] ', 'Verificación exitosa', 'success');
             showUploadResult(true, 'SUBIDA COMPLETADA', `${validData.length} minutos subidos como ${sessionId}`);
         } else {
             showUploadResult(false, 'ERROR: Verificación fallida');
@@ -2205,7 +2434,7 @@ function showError(message) {
         box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     `;
     errorDiv.innerHTML = `
-        <div style="color: #ff4444; font-size: 24px; margin-bottom: 10px;">⚠️ Error</div>
+        <div style="color: #ff4444; font-size: 24px; margin-bottom: 10px;">[WARNING]  Error</div>
         <div style="color: #fff; font-size: 14px; margin-bottom: 20px;">${message}</div>
         <button onclick="this.parentElement.remove()" style="
             background: #ff4444;
@@ -2278,7 +2507,7 @@ async function processProfileJSON(content, filename) {
     let profileData;
     try {
         profileData = JSON.parse(content);
-        addStep('✅', 'JSON válido', 'success');
+        addStep('[OK] ', 'JSON válido', 'success');
     } catch (err) {
         showUploadResult(false, 'ERROR: JSON inválido', err.message);
         return;
@@ -2299,11 +2528,11 @@ async function processProfileJSON(content, filename) {
         }
         profileId = inputId.toLowerCase().replace(/[^a-z0-9]/g, '_');
         profileContent = profileData;
-        addStep('📁', `Importing as profile: ${profileId}`, 'success');
+        addStep('[File] ', `Importing as profile: ${profileId}`, 'success');
     } else {
         // Multiple profiles format (like Firebase export)
         const profileKeys = Object.keys(profileData);
-        addStep('📁', `Found ${profileKeys.length} profile(s) in file`, 'success');
+        addStep('[File] ', `Found ${profileKeys.length} profile(s) in file`, 'success');
         
         if (profileKeys.length === 1) {
             profileId = profileKeys[0];
@@ -2322,7 +2551,7 @@ async function processProfileJSON(content, filename) {
                 let totalMinutes = 0;
                 
                 for (const pid of profileKeys) {
-                    addStep('📤', `Uploading profile: ${pid}...`);
+                    addStep('[Upload] ', `Uploading profile: ${pid}...`);
                     try {
                         await db.ref(`profiles/${pid}`).set(profileData[pid]);
                         const sessions = profileData[pid].sessions || {};
@@ -2331,9 +2560,9 @@ async function processProfileJSON(content, filename) {
                             sum + (s.minutes ? Object.keys(s.minutes).length : 0), 0);
                         totalSessions += sessionCount;
                         totalMinutes += minuteCount;
-                        addStep('✅', `${pid}: ${sessionCount} sessions, ${minuteCount} minutes`, 'success');
+                        addStep('[OK] ', `${pid}: ${sessionCount} sessions, ${minuteCount} minutes`, 'success');
                     } catch (err) {
-                        addStep('❌', `${pid}: Error - ${err.message}`, 'error');
+                        addStep('[ERROR] ', `${pid}: Error - ${err.message}`, 'error');
                     }
                 }
                 
@@ -2364,7 +2593,7 @@ async function processProfileJSON(content, filename) {
         }
     }
     
-    addStep('📊', `Profile contains: ${sessionCount} sessions, ${totalMinutes} minutes`, 'success');
+    addStep('[Stats] ', `Profile contains: ${sessionCount} sessions, ${totalMinutes} minutes`, 'success');
     updateProgress(50, '50%');
     
     // Check if profile already exists
@@ -2375,11 +2604,11 @@ async function processProfileJSON(content, filename) {
             closeUploadModal();
             return;
         }
-        addStep('⚠️', 'Overwriting existing profile', 'pending');
+        addStep('[WARNING] ', 'Overwriting existing profile', 'pending');
     }
     
     // Upload to Firebase
-    addStep('📤', 'Uploading to Firebase...');
+    addStep('[Upload] ', 'Uploading to Firebase...');
     updateProgress(60, '60%');
     
     try {
@@ -2396,7 +2625,7 @@ async function processProfileJSON(content, filename) {
         updateProgress(90, '90%');
         
         // Verify
-        addStep('🔍', 'Verifying upload...');
+        addStep('[Search] ', 'Verifying upload...');
         const verifyRef = await db.ref(`profiles/${profileId}/sessions`).once('value');
         const verifiedSessions = verifyRef.val();
         const verifiedCount = verifiedSessions ? Object.keys(verifiedSessions).length : 0;
@@ -2607,5 +2836,173 @@ async function cleanupProfileRealtimeData(profileId, cutoffTime) {
             console.error(`[Cleanup] Error cleaning ${profileId}:`, error);
         }
         return 0;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PROFILE ID RENAMING - Migrate profile to new ID
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Show modal to rename profile ID
+ * This will migrate ALL data from old ID to new ID
+ */
+function showRenameProfileModal(oldId, profileName) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.id = 'renameProfileModal';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 450px; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; padding: 24px;">
+            <h2 style="margin-bottom: 15px; color: var(--text-primary);">Rename Profile ID</h2>
+            
+            <div style="background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 13px;">
+                <strong>[WARNING]</strong> This will migrate ALL data (sessions, minutes, realtime) to the new profile ID. The old ID will be deleted.
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">Profile Name:</label>
+                <input type="text" value="${profileName}" disabled
+                       style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 14px;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">Current ID:</label>
+                <input type="text" value="${oldId}" disabled
+                       style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 14px;">
+            </div>
+            
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">New Profile ID:</label>
+                <input type="text" id="newProfileIdInput" placeholder="Enter new ID (lowercase, no spaces)"
+                       style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px;">
+                <small style="color: var(--text-secondary); font-size: 11px;">Only lowercase letters, numbers, and underscores allowed</small>
+            </div>
+            
+            <div id="renameStatus" style="margin-bottom: 15px; padding: 10px; border-radius: 8px; display: none;"></div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button onclick="closeRenameProfileModal()" 
+                        style="padding: 10px 20px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary); cursor: pointer; font-size: 14px;">
+                    Cancel
+                </button>
+                <button onclick="executeProfileRename('${oldId}')" 
+                        style="padding: 10px 20px; border: none; border-radius: 8px; background: #0d6efd; color: white; cursor: pointer; font-weight: 600; font-size: 14px;">
+                    Rename Profile
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('newProfileIdInput').focus();
+}
+
+function closeRenameProfileModal() {
+    const modal = document.getElementById('renameProfileModal');
+    if (modal) modal.remove();
+}
+
+/**
+ * Execute the profile rename (data migration)
+ */
+async function executeProfileRename(oldId) {
+    const newIdInput = document.getElementById('newProfileIdInput');
+    const statusDiv = document.getElementById('renameStatus');
+    
+    let newId = newIdInput.value.trim().toLowerCase();
+    
+    // Validate new ID
+    if (!newId) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#ff4444';
+        statusDiv.style.color = 'white';
+        statusDiv.textContent = '[ERROR] New ID is required';
+        return;
+    }
+    
+    // Sanitize: only allow lowercase letters, numbers, underscores
+    newId = newId.replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_');
+    newIdInput.value = newId;
+    
+    if (newId === oldId) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#ff4444';
+        statusDiv.style.color = 'white';
+        statusDiv.textContent = '[ERROR] New ID must be different from current ID';
+        return;
+    }
+    
+    // Check if new ID already exists
+    if (allProfiles[newId]) {
+        statusDiv.style.display = 'block';
+        statusDiv.style.background = '#ff4444';
+        statusDiv.style.color = 'white';
+        statusDiv.textContent = '[ERROR] A profile with this ID already exists';
+        return;
+    }
+    
+    // Confirm with user
+    if (!confirm(`Are you sure you want to rename profile "${oldId}" to "${newId}"?\n\nThis will migrate ALL data and delete the old profile ID.`)) {
+        return;
+    }
+    
+    statusDiv.style.display = 'block';
+    statusDiv.style.background = '#2196F3';
+    statusDiv.style.color = 'white';
+    statusDiv.textContent = 'Migrating profile data...';
+    
+    try {
+        // Step 1: Get all data from old profile
+        statusDiv.textContent = 'Reading profile data...';
+        const oldProfileSnap = await db.ref(`profiles/${oldId}`).once('value');
+        const oldProfileData = oldProfileSnap.val();
+        
+        if (!oldProfileData) {
+            throw new Error('Could not read old profile data');
+        }
+        
+        // Step 2: Copy data to new profile ID
+        statusDiv.textContent = 'Copying data to new ID...';
+        await db.ref(`profiles/${newId}`).set(oldProfileData);
+        
+        // Step 3: Verify copy was successful
+        statusDiv.textContent = 'Verifying migration...';
+        const newProfileSnap = await db.ref(`profiles/${newId}`).once('value');
+        if (!newProfileSnap.exists()) {
+            throw new Error('Failed to verify new profile data');
+        }
+        
+        // Step 4: Delete old profile
+        statusDiv.textContent = 'Removing old profile...';
+        await db.ref(`profiles/${oldId}`).remove();
+        
+        // Step 5: Update local state
+        statusDiv.style.background = '#4CAF50';
+        statusDiv.textContent = '[OK] Profile renamed successfully!';
+        
+        // Update current profile if it was the renamed one
+        if (currentProfile === oldId) {
+            currentProfile = newId;
+            localStorage.setItem('munra_profile', newId);
+        }
+        
+        // Update recent profiles
+        let recent = JSON.parse(localStorage.getItem('munra_recent_profiles') || '[]');
+        recent = recent.map(id => id === oldId ? newId : id);
+        localStorage.setItem('munra_recent_profiles', JSON.stringify(recent));
+        
+        showToast('Profile renamed successfully!', 'success');
+        
+        // Reload profiles and close modals
+        setTimeout(() => {
+            closeRenameProfileModal();
+            closeManageProfilesModal();
+            loadProfiles();
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Profile rename error:', error);
+        statusDiv.style.background = '#ff4444';
+        statusDiv.textContent = '[ERROR] ' + error.message;
+        showToast('Failed to rename profile: ' + error.message, 'error');
     }
 }

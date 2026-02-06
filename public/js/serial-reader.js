@@ -4,6 +4,14 @@
  * Reads data directly from particle detector via USB serial port.
  * Uses the Web Serial API available in Chrome/Edge browsers.
  * 
+ * SCIENTIFIC INTEGRITY NOTE:
+ * This system NEVER discards or modifies data received from the detector.
+ * High-intensity cosmic ray signals can legitimately reach ~1V from SiPM.
+ * All measurements are preserved exactly as received for scientific accuracy.
+ * 
+ * If extreme values persist for extended periods, users are NOTIFIED
+ * (not blocked) so they can check for potential system issues.
+ * 
  * Data Format from Detector (example line):
  * TRG 1 CH 1 ADC 245 TEMP 22.5 PRES 101320 DT 0.15 CNT 1234 TIME 1704067261234
  * 
@@ -43,13 +51,26 @@ let minuteData = {
     deadtimeCount: 0
 };
 
-// Validation rules
-const VALIDATION_RULES = {
-    sipm: { min: 0, max: 500, unit: 'mV' },          // SiPM signal 0-500mV
-    temp: { min: -40, max: 85, unit: '°C' },         // Temperature -40 to 85°C
-    pressure: { min: 80000, max: 120000, unit: 'Pa' }, // Pressure 80-120 kPa
-    deadtime: { min: 0, max: 1, unit: 'ratio' }      // Deadtime 0-1
+// Warning thresholds for extreme values (NOTIFICATION only - NO data discarding)
+// SCIENTIFIC NOTE: These thresholds are for WARNINGS only. All data is preserved
+// regardless of values. High-intensity cosmic ray signals can reach ~1V from SiPM.
+const WARNING_THRESHOLDS = {
+    sipm: { typical_max: 500, extreme_max: 1000, unit: 'mV' },  // SiPM signal - warn above 500mV, extreme above 1000mV
+    temp: { min: -40, max: 85, unit: '°C' },                     // Temperature -40 to 85°C
+    pressure: { min: 80000, max: 120000, unit: 'Pa' },           // Pressure 80-120 kPa
+    deadtime: { min: 0, max: 1, unit: 'ratio' }                  // Deadtime 0-1
 };
+
+// Extreme value tracking for prolonged anomaly detection
+let extremeValueTracker = {
+    sipm: { startTime: null, count: 0 },
+    temp: { startTime: null, count: 0 },
+    pressure: { startTime: null, count: 0 }
+};
+const EXTREME_VALUE_NOTIFICATION_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes of continuous extreme values
+const EXTREME_VALUE_COUNT_THRESHOLD = 50; // Minimum count before notification
+let lastExtremeNotificationTime = 0;
+const EXTREME_NOTIFICATION_COOLDOWN_MS = 10 * 60 * 1000; // Only notify every 10 minutes
 
 // Terminal output element
 let terminalOutput = null;
@@ -74,8 +95,9 @@ async function connectSerialPort() {
         serialPort = await navigator.serial.requestPort();
         
         // Open with standard settings for MuNRa detector
+        // Baud rate 9600 as used by: sudo minicom -D /dev/ttyACM0 -b 9600
         await serialPort.open({
-            baudRate: 115200,
+            baudRate: 9600,
             dataBits: 8,
             stopBits: 1,
             parity: 'none',
@@ -83,7 +105,7 @@ async function connectSerialPort() {
         });
         
         isSerialConnected = true;
-        console.log('Serial port connected');
+        console.log('Serial port connected at 9600 baud');
         
         return true;
     } catch (error) {
@@ -229,18 +251,22 @@ async function readSerialLoop(enableRealtime) {
 /**
  * Process a single line of data from the detector
  * 
- * Expected formats:
- * Format 1: "TRG 1 CH 1 ADC 245 TEMP 22.5 PRES 101320 DT 0.15"
- * Format 2: "1,245,22.5,101320,0.15,0,1704067261234"  (CSV)
- * Format 3: JSON
+ * Expected formats (in order of priority):
+ * Format 1 (PRIMARY): TAB-separated from MuNRa detector:
+ *   "event_id \t timestamp \t adc \t sipm_mV \t voltage_V \t pressure_Pa \t temp_C \t deadtime \t coincident \t COSMIC"
+ *   Example: "9	332741	50	225	0.3	76363.0	28.1	44572	0	COSMIC"
+ * 
+ * Format 2: JSON object
+ * Format 3: Key-value pairs "TRG 1 CH 1 ADC 245..."
+ * Format 4: Comma-separated CSV
  */
 function processDataLine(line, enableRealtime) {
-    // Update terminal display
+    // Update terminal display - show raw data exactly as received
     appendToTerminal(line);
     
     let parsedData = null;
     
-    // Try different formats
+    // Try different formats in order of priority
     if (line.startsWith('{')) {
         // JSON format
         try {
@@ -249,6 +275,10 @@ function processDataLine(line, enableRealtime) {
             console.warn('Invalid JSON:', line);
             return;
         }
+    } else if (line.includes('\t') || (line.includes('COSMIC') && !line.includes(','))) {
+        // TAB-separated format from MuNRa detector (PRIMARY format)
+        // Format: event_id \t timestamp \t adc \t sipm \t voltage \t pressure \t temp \t deadtime \t coincident \t COSMIC
+        parsedData = parseTabSeparatedLine(line);
     } else if (line.includes('TRG') || line.includes('ADC')) {
         // Key-value format: "TRG 1 CH 1 ADC 245 TEMP 22.5 PRES 101320 DT 0.15"
         parsedData = parseKeyValueLine(line);
@@ -256,20 +286,20 @@ function processDataLine(line, enableRealtime) {
         // CSV format
         parsedData = parseCSVLine(line);
     } else {
-        // Unknown format
-        console.warn('Unknown data format:', line);
+        // Try to parse as space-separated (fallback for simple numeric data)
+        parsedData = parseSpaceSeparatedLine(line);
+    }
+    
+    if (!parsedData) {
+        console.warn('Could not parse data line:', line);
         return;
     }
     
-    if (!parsedData) return;
+    // Check for extreme values - WARN but DO NOT DISCARD data
+    // SCIENTIFIC INTEGRITY: All data must be preserved regardless of values
+    checkExtremeValues(parsedData);
     
-    // Validate data
-    if (!validateData(parsedData)) {
-        console.warn('Data validation failed:', parsedData);
-        return;
-    }
-    
-    // Aggregate for minute data
+    // Aggregate for minute data - ALL DATA IS PROCESSED
     aggregateData(parsedData);
     
     // Check if minute changed
@@ -349,6 +379,76 @@ function parseKeyValueLine(line) {
 }
 
 /**
+ * Parse TAB-separated format line from MuNRa detector
+ * This is the PRIMARY format from the actual cosmic ray detector
+ * 
+ * Format: event_id \t timestamp \t adc \t sipm_mV \t voltage_V \t pressure_Pa \t temp_C \t deadtime \t coincident \t COSMIC
+ * Example: "9	332741	50	225	0.3	76363.0	28.1	44572	0	COSMIC"
+ * 
+ * Column mapping:
+ * [0] Event ID/counter
+ * [1] Timestamp (internal ms counter from detector)
+ * [2] ADC raw value
+ * [3] SiPM signal in mV (already converted by detector)
+ * [4] Voltage in Volts (convert to mV by * 1000)
+ * [5] Pressure in Pascals
+ * [6] Temperature in Celsius
+ * [7] Dead time counter
+ * [8] Coincident flag (0 or 1)
+ * [9] "COSMIC" marker (optional)
+ */
+function parseTabSeparatedLine(line) {
+    // Split by tab or multiple spaces
+    const parts = line.split(/\t+/).map(p => p.trim()).filter(p => p !== '');
+    
+    if (parts.length < 7) {
+        console.warn('Tab-separated line has insufficient columns:', parts.length, 'expected at least 7');
+        return null;
+    }
+    
+    // Parse each column according to the detector format
+    const eventId = parseInt(parts[0]) || 0;
+    const detectorTimestamp = parseInt(parts[1]) || 0;
+    const adcRaw = parseInt(parts[2]) || 0;
+    const sipmMv = parseFloat(parts[3]) || 0;           // Already in mV from detector
+    const voltageV = parseFloat(parts[4]) || 0;          // In Volts
+    const pressurePa = parseFloat(parts[5]) || 0;        // In Pascals
+    const tempC = parseFloat(parts[6]) || 0;             // In Celsius
+    const deadtimeCounter = parseInt(parts[7]) || 0;
+    const coincident = parseInt(parts[8]) || 0;
+    // parts[9] is "COSMIC" marker, we ignore it
+    
+    return {
+        timestamp: Date.now(),                           // Use current time for database
+        eventId: eventId,
+        detectorTimestamp: detectorTimestamp,
+        adcRaw: adcRaw,
+        sipm: sipmMv,                                    // SiPM already in mV
+        voltage: voltageV * 1000,                        // Convert V to mV for consistency
+        temp: tempC,
+        pressure: pressurePa,
+        deadtime: deadtimeCounter,
+        coincident: coincident,
+        trg: 1                                           // Assume triggered if we received data
+    };
+}
+
+/**
+ * Parse space-separated line (fallback for simple numeric data)
+ * Tries to interpret space-separated numbers in the same order as TAB format
+ */
+function parseSpaceSeparatedLine(line) {
+    const parts = line.split(/\s+/).map(p => p.trim()).filter(p => p !== '' && p !== 'COSMIC');
+    
+    if (parts.length < 7) {
+        return null;
+    }
+    
+    // Same column mapping as TAB-separated
+    return parseTabSeparatedLine(parts.join('\t'));
+}
+
+/**
  * Parse CSV format line
  * Expected format: "trg,sipm,temp,pressure,deadtime,coincident,timestamp"
  */
@@ -371,42 +471,157 @@ function parseCSVLine(line) {
 }
 
 /**
- * Validate data against rules
+ * Check for extreme values and track prolonged anomalies
+ * 
+ * CRITICAL SCIENTIFIC NOTE: This function ONLY logs warnings and tracks patterns.
+ * It NEVER discards or modifies data. All measurements are preserved exactly as received.
+ * 
+ * High-intensity cosmic ray signals can legitimately reach ~1V from SiPM.
+ * Prolonged extreme values (over 5 minutes) MAY indicate a system error and will
+ * trigger a user notification suggesting they contact administrators.
  */
-function validateData(data) {
-    // SiPM must be in valid range
+function checkExtremeValues(data) {
+    const now = Date.now();
+    let hasExtremeValue = false;
+    let extremeDetails = [];
+    
+    /**
+     * Helper to track extreme values and build notification details
+     */
+    function recordExtreme(type, value, unit, message) {
+        console.info(message);
+        trackExtremeValue(type, now);
+        hasExtremeValue = true;
+        extremeDetails.push(`${type}: ${value} ${unit}`);
+    }
+    
+    // Check SiPM - values above typical_max are notable, but NOT invalid
     if (data.sipm !== undefined && data.sipm !== null) {
-        if (data.sipm < VALIDATION_RULES.sipm.min || data.sipm > VALIDATION_RULES.sipm.max) {
-            console.warn(`SiPM out of range: ${data.sipm} (valid: ${VALIDATION_RULES.sipm.min}-${VALIDATION_RULES.sipm.max})`);
-            return false;
+        if (data.sipm > WARNING_THRESHOLDS.sipm.extreme_max) {
+            recordExtreme('SiPM', data.sipm, 'mV', `[HIGH] SiPM signal: ${data.sipm} mV (extreme, but data preserved)`);
+        } else if (data.sipm > WARNING_THRESHOLDS.sipm.typical_max) {
+            recordExtreme('SiPM', data.sipm, 'mV', `[NOTE] SiPM signal: ${data.sipm} mV (above typical, data preserved)`);
+        } else {
+            // Reset tracker if value is normal
+            resetExtremeTracker('sipm');
+        }
+        
+        // Check for negative values (physically impossible but don't discard)
+        if (data.sipm < 0) {
+            console.warn(`[WARN] Negative SiPM value: ${data.sipm} mV - physically unusual, data preserved`);
         }
     }
     
-    // Temperature validation (if present)
+    // Check Temperature
     if (data.temp !== undefined && data.temp !== null) {
-        if (data.temp < VALIDATION_RULES.temp.min || data.temp > VALIDATION_RULES.temp.max) {
-            console.warn(`Temperature out of range: ${data.temp} (valid: ${VALIDATION_RULES.temp.min}-${VALIDATION_RULES.temp.max})`);
-            return false;
+        if (data.temp < WARNING_THRESHOLDS.temp.min || data.temp > WARNING_THRESHOLDS.temp.max) {
+            recordExtreme('Temp', data.temp, 'degC', `[WARN] Unusual temperature: ${data.temp} degC (outside typical range, data preserved)`);
+        } else {
+            resetExtremeTracker('temp');
         }
     }
     
-    // Pressure validation (if present)
+    // Check Pressure
     if (data.pressure !== undefined && data.pressure !== null) {
-        if (data.pressure < VALIDATION_RULES.pressure.min || data.pressure > VALIDATION_RULES.pressure.max) {
-            console.warn(`Pressure out of range: ${data.pressure} (valid: ${VALIDATION_RULES.pressure.min}-${VALIDATION_RULES.pressure.max})`);
-            return false;
+        if (data.pressure < WARNING_THRESHOLDS.pressure.min || data.pressure > WARNING_THRESHOLDS.pressure.max) {
+            recordExtreme('Pressure', data.pressure, 'Pa', `[WARN] Unusual pressure: ${data.pressure} Pa (outside typical range, data preserved)`);
+        } else {
+            resetExtremeTracker('pressure');
         }
     }
     
-    // Deadtime validation (if present)
+    // Check Deadtime (physically constrained 0-1, but still don't discard)
     if (data.deadtime !== undefined && data.deadtime !== null) {
-        if (data.deadtime < VALIDATION_RULES.deadtime.min || data.deadtime > VALIDATION_RULES.deadtime.max) {
-            console.warn(`Deadtime out of range: ${data.deadtime} (valid: ${VALIDATION_RULES.deadtime.min}-${VALIDATION_RULES.deadtime.max})`);
-            return false;
+        if (data.deadtime < 0 || data.deadtime > 1) {
+            console.warn(`[WARN] Unusual deadtime: ${data.deadtime} (outside 0-1 range, data preserved)`);
         }
     }
     
-    return true;
+    // Check for prolonged extreme values and notify user if needed
+    if (hasExtremeValue) {
+        checkProlongedExtremeValues(extremeDetails.join(', '));
+    }
+}
+
+/**
+ * Track the start time and count of extreme values
+ */
+function trackExtremeValue(type, now) {
+    if (!extremeValueTracker[type].startTime) {
+        extremeValueTracker[type].startTime = now;
+        extremeValueTracker[type].count = 1;
+    } else {
+        extremeValueTracker[type].count++;
+    }
+}
+
+/**
+ * Reset the extreme value tracker for a type
+ */
+function resetExtremeTracker(type) {
+    extremeValueTracker[type].startTime = null;
+    extremeValueTracker[type].count = 0;
+}
+
+/**
+ * Check if extreme values have persisted for too long and notify user
+ * This suggests a potential system error (not bad data)
+ */
+function checkProlongedExtremeValues(details) {
+    const now = Date.now();
+    
+    // Check each tracker for prolonged extreme values
+    for (const [type, tracker] of Object.entries(extremeValueTracker)) {
+        if (tracker.startTime && tracker.count >= EXTREME_VALUE_COUNT_THRESHOLD) {
+            const duration = now - tracker.startTime;
+            
+            if (duration >= EXTREME_VALUE_NOTIFICATION_THRESHOLD_MS) {
+                // Check cooldown to avoid spam
+                if (now - lastExtremeNotificationTime >= EXTREME_NOTIFICATION_COOLDOWN_MS) {
+                    lastExtremeNotificationTime = now;
+                    
+                    // Show notification to user
+                    showExtremeValueNotification(type, tracker.count, duration, details);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Show notification to user about prolonged extreme values
+ * This suggests they may want to check the system and report to administrators
+ * 
+ * Message is bilingual (Spanish/English) since the user base includes Spanish speakers
+ */
+function showExtremeValueNotification(type, count, duration, details) {
+    const durationMinutes = Math.round(duration / 60000);
+    
+    // Bilingual console message
+    const message = `[WARNING / ADVERTENCIA] Extreme values detected / Valores extremos detectados
+Duration / Duracion: ${durationMinutes} min
+Type / Tipo: ${type.toUpperCase()}
+Extreme readings / Lecturas extremas: ${count}
+Latest values / Ultimos valores: ${details}
+
+[INFO] Data has NOT been discarded (scientific integrity preserved).
+       Los datos NO han sido descartados (se preserva la integridad cientifica).
+
+If this doesn't correspond to a real physical event, it may indicate a detector or connection issue.
+Si esto no corresponde a un evento fisico real, podria indicar un problema con el detector.
+
+[SUGGESTION] Check detector status. If the problem persists, consider reporting to system administrators.
+             Verifique el estado del detector. Si persiste, reporte a los administradores.`;
+    
+    console.warn(message);
+    
+    // Show toast notification if function is available
+    if (typeof showToast === 'function') {
+        showToast(`[WARNING] Extreme values for ${durationMinutes}+ min. Check detector / Verifique detector.`, 'warning');
+    }
+    
+    // Append to terminal
+    appendToTerminal(`[SYSTEM WARNING] Prolonged extreme ${type} values (${count} readings over ${durationMinutes} min). Data preserved but may indicate system issue.`);
 }
 
 /**
@@ -607,21 +822,21 @@ function showSerialTerminal() {
     modal.innerHTML = `
         <div class="modal-content" style="max-width: 800px; width: 90%; max-height: 90vh;">
             <div class="modal-header">
-                <h2>🖥️ Serial Terminal - Detector Data</h2>
+                <h2>Serial Terminal - Detector Data</h2>
                 <button class="modal-close" onclick="hideSerialTerminal()">&times;</button>
             </div>
             <div class="modal-body">
                 <!-- Connection Status -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <div id="serialStatus" style="padding: 8px 15px; border-radius: 20px; background: #dc3545; color: white; font-size: 12px;">
-                        ● Disconnected
+                        Disconnected
                     </div>
                     <div style="display: flex; gap: 10px;">
                         <button id="serialConnectBtn" class="btn btn-primary" onclick="handleSerialConnect()">
-                            🔌 Connect
+                            Connect
                         </button>
                         <button id="serialDisconnectBtn" class="btn btn-secondary" onclick="handleSerialDisconnect()" disabled>
-                            ⏹️ Disconnect
+                            Disconnect
                         </button>
                     </div>
                 </div>
@@ -641,10 +856,10 @@ function showSerialTerminal() {
                             </label>
                         </div>
                         <button id="startRecordingBtn" class="btn btn-primary" onclick="handleStartRecording()" disabled>
-                            🔴 Start Recording
+                            Start Recording
                         </button>
                         <button id="stopRecordingBtn" class="btn btn-secondary" onclick="handleStopRecording()" disabled>
-                            ⏹️ Stop
+                            Stop
                         </button>
                     </div>
                 </div>
@@ -704,6 +919,10 @@ function hideSerialTerminal() {
 
 /**
  * Populate profile select in serial terminal
+ * Shows profiles that the current user can write data to:
+ * - Profiles owned by the user
+ * - Profiles shared with edit permission
+ * - For admins, all profiles
  */
 function populateSerialProfileSelect() {
     const select = document.getElementById('serialProfileSelect');
@@ -711,15 +930,80 @@ function populateSerialProfileSelect() {
     
     select.innerHTML = '<option value="">Select profile...</option>';
     
-    if (typeof allProfiles !== 'undefined') {
-        Object.keys(allProfiles).forEach(id => {
-            const profile = allProfiles[id];
-            // Only show profiles user can edit
-            if (typeof canEditProfile === 'function' && canEditProfile(profile, id)) {
-                const name = profile.name || profile.meta?.name || id;
-                select.innerHTML += `<option value="${id}">${name}</option>`;
-            }
+    if (typeof allProfiles === 'undefined' || !allProfiles) {
+        console.warn('No profiles available for serial terminal');
+        return;
+    }
+    
+    // Get current user info (from auth.js globals)
+    const isAdmin = typeof isUserAdmin === 'function' && isUserAdmin();
+    const currentUserId = typeof currentUser !== 'undefined' && currentUser ? currentUser.uid : null;
+    
+    // Group profiles
+    const myProfiles = [];
+    const sharedWithMe = [];
+    const publicProfiles = [];
+    
+    Object.keys(allProfiles).forEach(id => {
+        const profile = allProfiles[id];
+        const name = profile.name || profile.meta?.name || id;
+        
+        // Check ownership
+        const isOwner = currentUserId && profile.ownerUid === currentUserId;
+        const hasEditAccess = profile.sharedWith && currentUserId && profile.sharedWith[currentUserId] === 'edit';
+        const isPublicEditable = profile.visibility === 'public' && isAdmin;
+        
+        if (isOwner) {
+            myProfiles.push({ id, name, profile });
+        } else if (hasEditAccess) {
+            sharedWithMe.push({ id, name, profile });
+        } else if (isPublicEditable) {
+            publicProfiles.push({ id, name, profile });
+        }
+    });
+    
+    // Add "My Profiles" section
+    if (myProfiles.length > 0) {
+        const optgroup1 = document.createElement('optgroup');
+        optgroup1.label = 'My Profiles';
+        myProfiles.forEach(({ id, name }) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+            optgroup1.appendChild(option);
         });
+        select.appendChild(optgroup1);
+    }
+    
+    // Add "Shared with Me" section
+    if (sharedWithMe.length > 0) {
+        const optgroup2 = document.createElement('optgroup');
+        optgroup2.label = 'Shared with Me';
+        sharedWithMe.forEach(({ id, name }) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+            optgroup2.appendChild(option);
+        });
+        select.appendChild(optgroup2);
+    }
+    
+    // Add "Public Profiles" section (only for admins)
+    if (isAdmin && publicProfiles.length > 0) {
+        const optgroup3 = document.createElement('optgroup');
+        optgroup3.label = 'Public Profiles (Admin)';
+        publicProfiles.forEach(({ id, name }) => {
+            const option = document.createElement('option');
+            option.value = id;
+            option.textContent = name;
+            optgroup3.appendChild(option);
+        });
+        select.appendChild(optgroup3);
+    }
+    
+    // If no profiles found, show a message
+    if (myProfiles.length === 0 && sharedWithMe.length === 0 && !(isAdmin && publicProfiles.length > 0)) {
+        select.innerHTML = '<option value="">No writable profiles found. Create one first.</option>';
     }
 }
 
@@ -731,7 +1015,7 @@ async function handleSerialConnect() {
         await connectSerialPort();
         
         // Update UI
-        document.getElementById('serialStatus').innerHTML = '● Connected';
+        document.getElementById('serialStatus').innerHTML = 'Connected';
         document.getElementById('serialStatus').style.background = '#28a745';
         document.getElementById('serialConnectBtn').disabled = true;
         document.getElementById('serialDisconnectBtn').disabled = false;
@@ -754,7 +1038,7 @@ async function handleSerialDisconnect() {
         await disconnectSerialPort();
         
         // Update UI
-        document.getElementById('serialStatus').innerHTML = '● Disconnected';
+        document.getElementById('serialStatus').innerHTML = 'Disconnected';
         document.getElementById('serialStatus').style.background = '#dc3545';
         document.getElementById('serialConnectBtn').disabled = false;
         document.getElementById('serialDisconnectBtn').disabled = true;

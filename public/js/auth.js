@@ -728,8 +728,15 @@ async function saveUserSettings() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// ADMIN PANEL
+// ADMIN PANEL - With loading indicators and caching for better performance
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// Cache for admin data to speed up subsequent loads
+let adminUsersCache = null;
+let adminProfilesCache = null;
+let adminCacheTime = 0;
+const ADMIN_CACHE_DURATION = 30000; // 30 seconds cache
+
 async function openAdminPanel() {
     if (!currentUserData || currentUserData.role !== 'admin') {
         showToast(t('accessDenied'), 'error');
@@ -737,18 +744,52 @@ async function openAdminPanel() {
     }
     
     document.getElementById('adminModal').classList.add('active');
-    await loadAdminUsers();
+    
+    // Show loading indicator immediately
+    const usersBody = document.getElementById('usersTableBody');
+    const profilesBody = document.getElementById('profilesTableBody');
+    
+    if (usersBody) {
+        usersBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-secondary);">Loading users...</td></tr>';
+    }
+    if (profilesBody) {
+        profilesBody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px; color: var(--text-secondary);">Loading profiles...</td></tr>';
+    }
+    
+    // Load data in parallel for faster loading
+    await Promise.all([
+        loadAdminUsers(),
+        loadAdminProfiles()
+    ]);
 }
 
 async function loadAdminUsers() {
+    const tbody = document.getElementById('usersTableBody');
+    if (!tbody) return;
+    
     try {
-        const snapshot = await firebase.database().ref('users').once('value');
-        const users = snapshot.val() || {};
+        // Check cache first
+        const now = Date.now();
+        let users;
         
-        const tbody = document.getElementById('usersTableBody');
+        if (adminUsersCache && (now - adminCacheTime) < ADMIN_CACHE_DURATION) {
+            users = adminUsersCache;
+            console.log('Using cached users data');
+        } else {
+            const snapshot = await firebase.database().ref('users').once('value');
+            users = snapshot.val() || {};
+            adminUsersCache = users;
+            adminCacheTime = now;
+        }
+        
         tbody.innerHTML = '';
         
-        Object.entries(users).forEach(([uid, user]) => {
+        // Convert to array and sort by email for consistent display
+        const userEntries = Object.entries(users).sort((a, b) => 
+            (a[1].email || '').localeCompare(b[1].email || '')
+        );
+        
+        userEntries.forEach(([uid, user]) => {
             // Protect users: can't modify self, admins can only be changed by admins
             const isSelf = uid === currentUser?.uid;
             const isProtectedAdmin = user.role === 'admin' && currentUserData?.role !== 'admin';
@@ -778,6 +819,8 @@ async function loadAdminUsers() {
                 const newRole = e.target.value;
                 try {
                     await firebase.database().ref(`users/${uid}/role`).set(newRole);
+                    adminUsersCache = null; // Invalidate cache
+                    adminCacheTime = 0; // Reset cache timestamp
                     showToast(t('roleUpdated'), 'success');
                 } catch (err) {
                     showToast(t('error'), 'error');
@@ -787,19 +830,37 @@ async function loadAdminUsers() {
         });
     } catch (e) {
         console.error('Error loading users:', e);
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #ff4444;">Error loading users</td></tr>';
         showToast(t('error'), 'error');
     }
 }
 
 async function loadAdminProfiles() {
+    const tbody = document.getElementById('profilesTableBody');
+    if (!tbody) return;
+    
     try {
-        const snapshot = await firebase.database().ref('profiles').once('value');
-        const profiles = snapshot.val() || {};
+        // Check cache first
+        const now = Date.now();
+        let profiles;
         
-        const tbody = document.getElementById('profilesTableBody');
+        if (adminProfilesCache && (now - adminCacheTime) < ADMIN_CACHE_DURATION) {
+            profiles = adminProfilesCache;
+            console.log('Using cached profiles data');
+        } else {
+            const snapshot = await firebase.database().ref('profiles').once('value');
+            profiles = snapshot.val() || {};
+            adminProfilesCache = profiles;
+        }
+        
         tbody.innerHTML = '';
         
-        Object.entries(profiles).forEach(([name, profile]) => {
+        // Convert to array and sort by name for consistent display
+        const profileEntries = Object.entries(profiles).sort((a, b) => 
+            (a[1].name || a[0]).localeCompare(b[1].name || b[0])
+        );
+        
+        profileEntries.forEach(([name, profile]) => {
             const visibility = profile.visibility || 'public';
             const ownerDisplay = profile.ownerName || profile.ownerEmail || 'Unassigned';
             
@@ -819,18 +880,18 @@ async function loadAdminProfiles() {
                 <td style="display: flex; gap: 4px; flex-wrap: wrap;">
                     <button class="btn-small btn-edit" data-profile="${name}" 
                             style="background: #e5a00d; color: white;">
-                        ✏️ Edit
+                        Edit
                     </button>
                     <button class="btn-small btn-save" data-profile="${name}" 
                             style="background: #2ea043; color: white; display: none;">
-                        💾 Save
+                        Save
                     </button>
                     <button class="btn-small btn-cancel" data-profile="${name}" 
                             style="background: #6c757d; color: white; display: none;">
-                        ✕
+                        X
                     </button>
                     <button class="btn-small btn-danger btn-delete" data-profile="${name}">
-                        🗑️
+                        Delete
                     </button>
                 </td>
             `;
@@ -850,6 +911,8 @@ async function loadAdminProfiles() {
             btn.addEventListener('click', async (e) => {
                 const profileName = e.target.dataset.profile;
                 await saveProfileChanges(profileName);
+                adminProfilesCache = null; // Invalidate cache
+                adminCacheTime = 0; // Reset cache timestamp
             });
         });
         
@@ -872,6 +935,7 @@ async function loadAdminProfiles() {
         
     } catch (e) {
         console.error('Error loading profiles:', e);
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #ff4444;">Error loading profiles</td></tr>';
         showToast(t('error'), 'error');
     }
 }
@@ -918,7 +982,7 @@ async function saveProfileChanges(profileName) {
     const newOwnerSearch = ownerInput ? ownerInput.value.trim() : '';
     
     // Show confirmation
-    let confirmMsg = `⚠️ You are about to save changes to profile "${profileName}":\n\n`;
+    let confirmMsg = `[WARNING] You are about to save changes to profile "${profileName}":\n\n`;
     confirmMsg += `• Visibility: ${newVisibility}\n`;
     if (newOwnerSearch) {
         confirmMsg += `• New owner: ${newOwnerSearch}\n`;
@@ -1343,13 +1407,13 @@ function showCmdLinkModal() {
     if (!token) return;
     
     const role = currentUserData?.role || 'user';
-    const roleBadge = role === 'admin' ? '👑 ADMIN' : '👤 USER';
+    const roleBadge = role === 'admin' ? '[ADMIN] ADMIN' : '[USER] USER';
     
     const modalHtml = `
         <div id="cmdLinkModal" class="modal active" onclick="if(event.target === this) closeCmdLinkModal()">
             <div class="modal-content" style="max-width: 500px;">
                 <span class="close" onclick="closeCmdLinkModal()">&times;</span>
-                <h3>🔗 Link CMD Session</h3>
+                <h3> Link CMD Session</h3>
                 
                 <div style="margin: 20px 0;">
                     <p><strong>User:</strong> ${currentUser.email}</p>
@@ -1364,7 +1428,7 @@ function showCmdLinkModal() {
                     <div style="display: flex; gap: 10px;">
                         <input type="text" id="cmdTokenInput" value="${token}" readonly 
                                style="flex: 1; font-family: monospace; font-size: 0.85em;">
-                        <button onclick="copyCmdToken()" class="btn btn-primary">📋 Copy</button>
+                        <button onclick="copyCmdToken()" class="btn btn-primary">Copy</button>
                     </div>
                 </div>
                 
@@ -1376,12 +1440,12 @@ function showCmdLinkModal() {
                     <div style="display: flex; gap: 10px;">
                         <input type="text" id="cmdAuthCode" placeholder="Enter code from CMD..." 
                                style="flex: 1; font-family: monospace;">
-                        <button onclick="confirmCmdAuthCode()" class="btn btn-success">✓ Link</button>
+                        <button onclick="confirmCmdAuthCode()" class="btn btn-success">Link</button>
                     </div>
                 </div>
                 
                 <div style="margin-top: 20px; padding: 10px; background: #fff3cd; border-radius: 4px; color: #856404;">
-                    ⚠️ Token expires in 24 hours. Keep it secure!
+                    [WARNING] Token expires in 24 hours. Keep it secure!
                 </div>
                 
                 <div style="margin-top: 20px; text-align: right;">
@@ -1446,7 +1510,7 @@ async function confirmCmdAuthCode() {
             linkedBy: currentUser.uid
         });
         
-        showToast('✓ CMD session linked successfully!', 'success');
+        showToast('[OK] CMD session linked successfully!', 'success');
         closeCmdLinkModal();
         
         // Auto-delete after 5 minutes (code already used)

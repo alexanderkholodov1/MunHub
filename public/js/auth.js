@@ -272,8 +272,8 @@ function handleAuthStateChanged(user) {
             currentUserData = userData;
             updateUIForLoggedInUser(user, userData);
             // Reload profiles to filter by permissions
-            if (typeof loadProfiles === 'function') {
-                loadProfiles();
+            if (typeof ProfileManager !== 'undefined') {
+                ProfileManager.loadProfiles();
             }
         });
     } else {
@@ -281,8 +281,8 @@ function handleAuthStateChanged(user) {
         currentUserData = null;
         updateUIForLoggedOutUser();
         // Reload profiles to show only public
-        if (typeof loadProfiles === 'function') {
-            loadProfiles();
+        if (typeof ProfileManager !== 'undefined') {
+            ProfileManager.loadProfiles();
         }
     }
 }
@@ -536,8 +536,8 @@ function setupAuthListeners() {
                 registerForm.reset();
                 
                 // Reload profiles
-                if (typeof loadProfiles === 'function') {
-                    loadProfiles();
+                if (typeof ProfileManager !== 'undefined') {
+                    ProfileManager.loadProfiles();
                 }
                 
             } catch (error) {
@@ -1283,8 +1283,8 @@ async function deleteProfileAdmin(name) {
         showToast(t('profileDeleted'), 'success');
         loadAdminProfiles();
         // Reload profiles in main app
-        if (typeof loadProfiles === 'function') {
-            loadProfiles();
+        if (typeof ProfileManager !== 'undefined') {
+            ProfileManager.loadProfiles();
         }
     } catch (e) {
         showToast(t('error'), 'error');

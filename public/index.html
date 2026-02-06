@@ -3,146 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MuNRa - Cosmic Ray Monitor</title>
-    
+    <title>MuNRa — Cosmic Ray Monitor</title>
+
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-    
-    <!-- Chart.js with date-fns adapter for TIME axis -->
+
+    <!-- Chart.js with date-fns adapter -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    
+
     <link rel="stylesheet" href="css/main.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="header">
-        <div class="header-left">
-            <div class="logo">
-                <div class="logo-icon">μ</div>
-                <div class="logo-text">
-                    <h1>MuNRa</h1>
-                    <span>Cosmic Ray Monitor</span>
-                </div>
+
+    <!-- ═══════════════ TOP BAR ═══════════════ -->
+    <header class="topbar">
+        <div class="topbar-left">
+            <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle sidebar">☰</button>
+            <div class="brand">
+                <span class="brand-mu">μ</span>
+                <span class="brand-name">MuNRa</span>
+                <span class="brand-sub">Cosmic Ray Monitor</span>
             </div>
-        </div>
-        
-        <div class="header-center">
             <div class="status-indicator" id="connectionStatus">
                 <span class="status-dot"></span>
-                <span class="status-text">Connecting...</span>
+                <span class="status-text">Connecting…</span>
             </div>
         </div>
-        
-        <div class="header-right">
-            <select id="profileSelect" class="profile-select">
-                <option value="">Select Profile</option>
-            </select>
-            
-            <!-- Add Profile button -->
-            <button class="icon-btn" id="addProfileBtn" title="Create New Profile">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="10"/>
-                    <line x1="12" y1="8" x2="12" y2="16"/>
-                    <line x1="8" y1="12" x2="16" y2="12"/>
-                </svg>
-            </button>
-            
-            <!-- Manage Profiles button (delete/edit) -->
-            <button class="icon-btn" id="manageProfilesBtn" title="Manage Profiles">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-                    <circle cx="9" cy="7" r="4"/>
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                </svg>
-            </button>
-            
-            <!-- Serial Terminal button - only for logged in users -->
-            <button class="icon-btn" id="serialTerminalBtn" title="Connect Detector (Serial Terminal)" style="display: none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                    <line x1="8" y1="21" x2="16" y2="21"/>
-                    <line x1="12" y1="17" x2="12" y2="21"/>
-                    <path d="M6 8h.01M9 8h.01M12 8h.01"/>
-                </svg>
-            </button>
-            
-            <!-- Settings button - GEAR ICON -->
-            <button class="icon-btn" id="settingsBtn" title="Settings">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                </svg>
-            </button>
-            
-            <!-- Theme toggle - SUN/MOON -->
-            <button class="icon-btn" id="themeToggle" title="Toggle Theme">
-                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="5"/>
-                    <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-                </svg>
-                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-            </button>
-            
-            <!-- Login Button (shown when not logged in) -->
-            <button class="icon-btn" id="loginBtn" title="Login">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                    <polyline points="10 17 15 12 10 7"/>
-                    <line x1="15" y1="12" x2="3" y2="12"/>
-                </svg>
-            </button>
-            
-            <!-- User Menu (shown when logged in) -->
-            <div class="user-menu" id="userMenu" style="display: none;">
-                <button class="user-btn" id="userMenuBtn">
-                    <div class="user-avatar" id="userAvatar">?</div>
-                    <span class="user-name" id="userName">User</span>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <polyline points="6 9 12 15 18 9"/>
-                    </svg>
-                </button>
-                <div class="user-dropdown" id="userDropdown">
-                    <div class="dropdown-header">
-                        <span id="userEmail">email@example.com</span>
-                        <span class="user-role" id="userRole">user</span>
-                    </div>
-                    <div class="dropdown-divider"></div>
-                    <button class="dropdown-item" id="userSettingsBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                            <circle cx="12" cy="12" r="3"/>
-                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-                        </svg>
-                        User Settings
-                    </button>
-                    <button class="dropdown-item" id="adminPanelBtn" style="display: none;">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                            <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                        </svg>
-                        Admin Panel
-                    </button>
-                    <div class="dropdown-divider"></div>
-                    <button class="dropdown-item" id="logoutBtn">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                            <polyline points="16 17 21 12 16 7"/>
-                            <line x1="21" y1="12" x2="9" y2="12"/>
-                        </svg>
-                        Logout
-                    </button>
-                </div>
-            </div>
-        </div>
-    </header>
-    
-    <!-- Controls Bar -->
-    <div class="controls-bar">
-        <div class="time-controls">
+
+        <div class="topbar-center">
             <div class="time-buttons" id="timeButtons">
                 <button class="time-btn" data-range="1">1m</button>
                 <button class="time-btn" data-range="5">5m</button>
@@ -159,9 +50,6 @@
                 <button class="time-btn" data-range="all">ALL</button>
                 <button class="time-btn" data-range="custom">CUSTOM</button>
             </div>
-        </div>
-        
-        <div class="view-controls">
             <div class="mode-switch">
                 <span class="mode-label" id="accurateLabel">ACCURATE</span>
                 <label class="switch">
@@ -171,310 +59,318 @@
                 <span class="mode-label" id="stackedLabel">STACKED</span>
             </div>
         </div>
+
+        <div class="topbar-right">
+            <!-- Connect Detector — clear text, hidden for guests -->
+            <button class="action-btn" id="serialTerminalBtn" style="display:none">
+                <span class="action-icon">⎔</span> Connect Detector
+            </button>
+
+            <!-- Settings — text label -->
+            <button class="action-btn" id="settingsBtn">
+                <span class="action-icon">⚙</span> Settings
+            </button>
+
+            <!-- Theme toggle — icon-only is fine here -->
+            <button class="icon-btn" id="themeToggle" title="Toggle Theme">
+                <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+                <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="display:none">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+            </button>
+
+            <!-- Login — clear text for guest -->
+            <button class="action-btn action-btn-accent" id="loginBtn" title="Login / Register">Login</button>
+
+            <!-- User Menu — shown when logged in -->
+            <div class="user-menu" id="userMenu" style="display:none">
+                <button class="user-btn" id="userMenuBtn">
+                    <div class="user-avatar" id="userAvatar">?</div>
+                    <span class="user-name" id="userName">User</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="user-dropdown" id="userDropdown">
+                    <div class="dropdown-header">
+                        <span id="userEmail">email@example.com</span>
+                        <span class="user-role" id="userRole">user</span>
+                    </div>
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-item" id="userSettingsBtn">User Settings</button>
+                    <button class="dropdown-item" id="adminPanelBtn" style="display:none">Admin Panel</button>
+                    <div class="dropdown-divider"></div>
+                    <button class="dropdown-item dropdown-danger" id="logoutBtn">Logout</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══════════════ MAIN LAYOUT: sidebar + content ═══════════════ -->
+    <div class="app-body">
+
+        <!-- LEFT SIDEBAR: Profile Browser -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-head">
+                <h2>Profiles</h2>
+            </div>
+
+            <!-- Search -->
+            <div class="sidebar-search">
+                <input type="text" id="profileSearch" placeholder="Search profiles…" autocomplete="off">
+            </div>
+
+            <!-- Profile tree -->
+            <div class="profile-tree" id="profileTree">
+                <div class="tree-section" id="treeMyProfiles">
+                    <div class="tree-section-head" data-section="mine">
+                        <span class="tree-arrow">▶</span>
+                        <span class="tree-icon">👤</span>
+                        <span class="tree-section-label">My Profiles</span>
+                        <span class="tree-count" id="countMine">0</span>
+                    </div>
+                    <div class="tree-section-body" data-section-body="mine"></div>
+                </div>
+                <div class="tree-section" id="treeShared">
+                    <div class="tree-section-head" data-section="shared">
+                        <span class="tree-arrow">▶</span>
+                        <span class="tree-icon">🤝</span>
+                        <span class="tree-section-label">Shared with Me</span>
+                        <span class="tree-count" id="countShared">0</span>
+                    </div>
+                    <div class="tree-section-body" data-section-body="shared"></div>
+                </div>
+                <div class="tree-section" id="treePublic">
+                    <div class="tree-section-head" data-section="public">
+                        <span class="tree-arrow">▶</span>
+                        <span class="tree-icon">🌐</span>
+                        <span class="tree-section-label">Public Profiles</span>
+                        <span class="tree-count" id="countPublic">0</span>
+                    </div>
+                    <div class="tree-section-body" data-section-body="public"></div>
+                </div>
+            </div>
+
+            <!-- Bottom actions -->
+            <div class="sidebar-actions">
+                <button class="sidebar-btn sidebar-btn-primary" id="addProfileBtn">+ New Profile</button>
+                <button class="sidebar-btn" id="manageProfilesBtn">Manage Profiles</button>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="content">
+
+            <!-- Stats row -->
+            <div class="stats-bar">
+                <div class="stat-item"><span class="stat-label">Events/min</span><span class="stat-value" id="statEventsMin">—</span></div>
+                <div class="stat-item"><span class="stat-label">Muons/min</span><span class="stat-value" id="statMuonsMin">—</span></div>
+                <div class="stat-item"><span class="stat-label">SiPM Avg</span><span class="stat-value" id="statSipmAvg">— mV</span></div>
+                <div class="stat-item"><span class="stat-label">Temp</span><span class="stat-value" id="statTemp">— °C</span></div>
+                <div class="stat-item"><span class="stat-label">Pressure</span><span class="stat-value" id="statPressure">— hPa</span></div>
+                <div class="stat-item"><span class="stat-label">Last Update</span><span class="stat-value" id="statLastUpdate">—</span></div>
+                <div class="stat-item stat-profile"><span class="stat-label">Profile</span><span class="stat-value" id="statProfileName">None</span></div>
+            </div>
+
+            <!-- 2×2 Charts Grid -->
+            <div class="charts-grid">
+                <!-- Event Rate -->
+                <div class="chart-panel" data-chart="events">
+                    <div class="chart-header">
+                        <h3>Event Rate</h3>
+                        <div class="chart-actions">
+                            <button class="chart-btn chart-type-btn" data-chart="events" title="Cycle chart type">Type ▸</button>
+                            <button class="chart-btn chart-download-btn" data-chart="events" title="Download CSV">↓ CSV</button>
+                        </div>
+                    </div>
+                    <div class="chart-container"><canvas id="chartEvents"></canvas></div>
+                </div>
+                <!-- SiPM Signal -->
+                <div class="chart-panel" data-chart="sipm">
+                    <div class="chart-header">
+                        <h3>SiPM Signal</h3>
+                        <div class="chart-actions">
+                            <button class="chart-btn chart-type-btn" data-chart="sipm" title="Cycle chart type">Type ▸</button>
+                            <button class="chart-btn chart-download-btn" data-chart="sipm" title="Download CSV">↓ CSV</button>
+                        </div>
+                    </div>
+                    <div class="chart-container"><canvas id="chartSipm"></canvas></div>
+                </div>
+                <!-- Temperature & Pressure -->
+                <div class="chart-panel" data-chart="temp">
+                    <div class="chart-header">
+                        <h3>Temperature &amp; Pressure</h3>
+                        <div class="chart-actions">
+                            <button class="chart-btn chart-type-btn" data-chart="temp" title="Cycle chart type">Type ▸</button>
+                            <button class="chart-btn chart-download-btn" data-chart="temp" title="Download CSV">↓ CSV</button>
+                        </div>
+                    </div>
+                    <div class="chart-container"><canvas id="chartTemp"></canvas></div>
+                </div>
+                <!-- Dead Time -->
+                <div class="chart-panel" data-chart="deadtime">
+                    <div class="chart-header">
+                        <h3>Dead Time</h3>
+                        <div class="chart-actions">
+                            <button class="chart-btn chart-type-btn" data-chart="deadtime" title="Cycle chart type">Type ▸</button>
+                            <button class="chart-btn chart-download-btn" data-chart="deadtime" title="Download CSV">↓ CSV</button>
+                        </div>
+                    </div>
+                    <div class="chart-container"><canvas id="chartDeadtime"></canvas></div>
+                </div>
+            </div>
+
+        </main>
     </div>
-    
-    <!-- Stats Bar -->
-    <div class="stats-bar">
-        <div class="stat-item">
-            <span class="stat-label">Events/min</span>
-            <span class="stat-value" id="statEventsMin">--</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Muons/min</span>
-            <span class="stat-value" id="statMuonsMin">--</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">SiPM Avg</span>
-            <span class="stat-value" id="statSipmAvg">-- mV</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Temperature</span>
-            <span class="stat-value" id="statTemp">-- °C</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Pressure</span>
-            <span class="stat-value" id="statPressure">-- hPa</span>
-        </div>
-        <div class="stat-item">
-            <span class="stat-label">Last Update</span>
-            <span class="stat-value" id="statLastUpdate">--:--:--</span>
-        </div>
-    </div>
-    
-    <!-- Charts Grid - 4 charts that MUST FIT on screen -->
-    <main class="charts-grid">
-        <!-- Chart 1: Event Rate -->
-        <div class="chart-panel" data-chart="events">
-            <div class="chart-header">
-                <h3>Event Rate</h3>
-                <div class="chart-actions">
-                    <button class="chart-btn chart-type-btn" data-chart="events" title="Change Chart Type">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>
-                        </svg>
-                    </button>
-                    <button class="chart-btn chart-download-btn" data-chart="events" title="Download Data">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="chartEvents"></canvas>
-            </div>
-        </div>
-        
-        <!-- Chart 2: SiPM Signal -->
-        <div class="chart-panel" data-chart="sipm">
-            <div class="chart-header">
-                <h3>SiPM Signal</h3>
-                <div class="chart-actions">
-                    <button class="chart-btn chart-type-btn" data-chart="sipm" title="Change Chart Type">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>
-                        </svg>
-                    </button>
-                    <button class="chart-btn chart-download-btn" data-chart="sipm" title="Download Data">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="chartSipm"></canvas>
-            </div>
-        </div>
-        
-        <!-- Chart 3: Temperature -->
-        <div class="chart-panel" data-chart="temp">
-            <div class="chart-header">
-                <h3>Temperature & Pressure</h3>
-                <div class="chart-actions">
-                    <button class="chart-btn chart-type-btn" data-chart="temp" title="Change Chart Type">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>
-                        </svg>
-                    </button>
-                    <button class="chart-btn chart-download-btn" data-chart="temp" title="Download Data">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="chartTemp"></canvas>
-            </div>
-        </div>
-        
-        <!-- Chart 4: Dead Time / Modular -->
-        <div class="chart-panel" data-chart="deadtime">
-            <div class="chart-header">
-                <h3>Dead Time</h3>
-                <div class="chart-actions">
-                    <button class="chart-btn chart-type-btn" data-chart="deadtime" title="Change Chart Type">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/>
-                        </svg>
-                    </button>
-                    <button class="chart-btn chart-download-btn" data-chart="deadtime" title="Download Data">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="chartDeadtime"></canvas>
-            </div>
-        </div>
-    </main>
-    
-    <!-- Settings Modal -->
+
+    <!-- Hidden <select> for backwards-compat with profile-manager -->
+    <select id="profileSelect" style="display:none"><option value="">Select</option></select>
+
+    <!-- ═══════════════ SETTINGS MODAL ═══════════════ -->
     <div class="modal" id="settingsModal">
-        <div class="modal-content">
+        <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2>Settings</h2>
+                <h2>⚙ Settings</h2>
                 <button class="modal-close" id="closeSettings">&times;</button>
             </div>
-            <div class="modal-body">
-                <!-- Language Setting - Available to all -->
-                <div class="setting-group">
-                    <label>Language / Idioma</label>
-                    <select id="languageSelect">
-                        <option value="es">Español</option>
-                        <option value="en">English</option>
-                    </select>
-                </div>
-                
-                <div class="setting-group">
-                    <label>Timezone</label>
-                    <select id="timezoneSelect">
-                        <option value="America/Guayaquil">Ecuador (GMT-5)</option>
-                        <option value="America/Bogota">Colombia (GMT-5)</option>
-                        <option value="America/Lima">Peru (GMT-5)</option>
-                        <option value="UTC">UTC</option>
-                    </select>
-                </div>
-                
-                <!-- Database Settings - Different for admin/users/guests -->
-                <div class="setting-group" id="databaseSettingGroup">
-                    <label>Database</label>
-                    <!-- For non-admin users -->
-                    <div id="userDatabaseOptions">
-                        <select id="databaseChoice">
-                            <option value="default">Default (MuNRa)</option>
-                            <option value="custom">Custom URL</option>
+            <div class="modal-body settings-grid">
+                <section class="settings-section">
+                    <h3>General</h3>
+                    <div class="setting-group">
+                        <label>Language / Idioma</label>
+                        <select id="languageSelect">
+                            <option value="es">Español</option>
+                            <option value="en">English</option>
                         </select>
-                        <input type="text" id="userCustomUrl" placeholder="https://your-project.firebaseio.com/" style="display: none; margin-top: 8px;">
                     </div>
-                    <!-- For admin only -->
-                    <div id="adminDatabaseOptions" style="display: none;">
-                        <div style="background: #f8d7da; border: 1px solid #f5c2c7; border-radius: 8px; padding: 10px; margin-bottom: 10px;">
-                            <p style="color: #842029; font-size: 12px; margin: 0;">
-                                [WARNING] <strong>ADMIN WARNING:</strong> Changing the database URL will affect ALL users. 
-                                This is a critical operation.
-                            </p>
+                    <div class="setting-group">
+                        <label>Timezone</label>
+                        <select id="timezoneSelect">
+                            <option value="America/Guayaquil">Ecuador (GMT-5)</option>
+                            <option value="America/Bogota">Colombia (GMT-5)</option>
+                            <option value="America/Lima">Peru (GMT-5)</option>
+                            <option value="UTC">UTC</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="settings-section">
+                    <h3>Database</h3>
+                    <div id="databaseSettingGroup">
+                        <div id="userDatabaseOptions">
+                            <div class="setting-group">
+                                <label>Source</label>
+                                <select id="databaseChoice">
+                                    <option value="default">Default (MuNRa)</option>
+                                    <option value="custom">Custom URL</option>
+                                </select>
+                            </div>
+                            <input type="text" id="userCustomUrl" placeholder="https://your-project.firebaseio.com/" style="display:none">
                         </div>
-                        <input type="text" id="firebaseUrl" placeholder="https://your-project.firebaseio.com/">
-                        <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
-                            <button class="btn btn-primary" id="applyFirebaseBtn"> Apply & Connect</button>
-                            <button class="btn btn-secondary" id="migrateDbBtn" style="background: #6f42c1;"> Migrate Database</button>
+                        <div id="adminDatabaseOptions" style="display:none">
+                            <div class="warning-box">⚠ Admin: Changing the URL affects ALL users.</div>
+                            <div class="setting-group">
+                                <input type="text" id="firebaseUrl" placeholder="https://your-project.firebaseio.com/">
+                            </div>
+                            <div class="btn-row">
+                                <button class="btn btn-primary" id="applyFirebaseBtn">Apply &amp; Connect</button>
+                                <button class="btn btn-purple" id="migrateDbBtn">Migrate DB</button>
+                            </div>
+                            <div class="connection-result" id="connectionResult"></div>
                         </div>
-                        <div class="connection-result" id="connectionResult"></div>
+                        <button class="btn btn-primary" id="applyFirebaseBtnUser" style="margin-top:8px">Apply &amp; Connect</button>
+                        <div class="connection-result" id="connectionResultUser"></div>
                     </div>
-                    <!-- Apply button for non-admin (outside admin div) -->
-                    <button class="btn btn-primary" id="applyFirebaseBtnUser" style="margin-top: 8px;">Apply & Connect</button>
-                    <div class="connection-result" id="connectionResultUser"></div>
-                </div>
-                
-                <!-- Data Management - Only for logged in users -->
-                <div class="setting-group" id="dataManagementGroup">
-                    <label>Data Management</label>
-                    <button class="btn btn-secondary" id="uploadSessionBtn"> Upload Session File</button>
-                    <input type="file" id="sessionFileInput" accept=".json,.jsonl,.csv,.txt,.log" style="display:none;">
-                    <button class="btn btn-secondary" id="uploadProfileBtn"> Upload Profile (ZIP)</button>
-                    <input type="file" id="profileFileInput" accept=".zip,.json" style="display:none;">
-                    <button class="btn btn-secondary" id="exportDataBtn"> Export All Data (CSV)</button>
-                </div>
-                
-                <!-- CMD Session Linking - Only for logged in users -->
-                <div class="setting-group" id="cmdLinkGroup">
-                    <label> Link CMD Session</label>
-                    <p style="font-size: 0.85em; color: var(--text-secondary); margin: 5px 0 10px;">
-                        Connect your Python CMD application to your web account
-                    </p>
-                    <button class="btn btn-secondary" onclick="showCmdLinkModal()" style="background: #198754;">
-                         Link CMD / Terminal
-                    </button>
-                </div>
-                
-                <div class="setting-group">
-                    <label>Storage Statistics</label>
-                    <div class="storage-stats" id="storageStats">
-                        <p>Minutes stored: <span id="statsMinutes">--</span></p>
-                        <p>Realtime entries: <span id="statsRealtime">--</span></p>
-                        <p>Connection: <span id="statsConnection">--</span></p>
+                </section>
+
+                <section class="settings-section" id="dataManagementGroup">
+                    <h3>Data Management</h3>
+                    <div class="btn-row">
+                        <button class="btn" id="uploadSessionBtn">Upload Session</button>
+                        <input type="file" id="sessionFileInput" accept=".json,.jsonl,.csv,.txt,.log" style="display:none">
+                        <button class="btn" id="uploadProfileBtn">Upload Profile</button>
+                        <input type="file" id="profileFileInput" accept=".zip,.json" style="display:none">
+                        <button class="btn" id="exportDataBtn">Export CSV</button>
                     </div>
-                </div>
+                </section>
+
+                <section class="settings-section" id="cmdLinkGroup">
+                    <h3>CMD / Terminal Link</h3>
+                    <p class="help-text">Connect your Python CMD application to your web account.</p>
+                    <button class="btn btn-green" onclick="if(typeof showCmdLinkModal==='function')showCmdLinkModal()">Link CMD Session</button>
+                </section>
+
+                <section class="settings-section">
+                    <h3>Storage Statistics</h3>
+                    <div class="storage-stats">
+                        <p>Minutes stored: <span id="statsMinutes">—</span></p>
+                        <p>Realtime entries: <span id="statsRealtime">—</span></p>
+                        <p>Connection: <span id="statsConnection">—</span></p>
+                    </div>
+                </section>
             </div>
         </div>
     </div>
-    
-    <!-- Custom Range Modal -->
+
+    <!-- ═══════════════ CUSTOM RANGE MODAL ═══════════════ -->
     <div class="modal" id="customRangeModal">
-        <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2>Custom Time Range</h2>
                 <button class="modal-close" id="closeCustomRange">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="setting-group">
-                    <label>Start Date & Time</label>
-                    <input type="datetime-local" id="customStartTime" class="datetime-input">
+                    <label>Start Date &amp; Time</label>
+                    <input type="datetime-local" id="customStartTime">
                 </div>
                 <div class="setting-group">
-                    <label>End Date & Time</label>
-                    <input type="datetime-local" id="customEndTime" class="datetime-input">
+                    <label>End Date &amp; Time</label>
+                    <input type="datetime-local" id="customEndTime">
                 </div>
-                <div class="setting-group" style="margin-top: 1rem;">
-                    <button class="btn btn-primary" id="applyCustomRange" style="width: 100%;">Apply Range</button>
-                </div>
+                <button class="btn btn-primary" id="applyCustomRange" style="width:100%;margin-top:12px">Apply Range</button>
             </div>
         </div>
     </div>
-    
-    <!-- Auth Modal -->
+
+    <!-- ═══════════════ AUTH MODAL ═══════════════ -->
     <div class="modal" id="authModal">
-        <div class="modal-content" style="max-width: 400px;">
+        <div class="modal-content modal-sm">
             <div class="modal-header">
                 <h2 id="authModalTitle">Login</h2>
                 <button class="modal-close" id="closeAuth">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Login Form -->
                 <form id="loginForm" class="auth-form">
-                    <div class="setting-group">
-                        <label>Email</label>
-                        <input type="email" id="loginEmail" placeholder="your@email.com" required>
-                    </div>
-                    <div class="setting-group">
-                        <label>Password</label>
-                        <input type="password" id="loginPassword" placeholder="••••••••" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Login</button>
+                    <div class="setting-group"><label>Email</label><input type="email" id="loginEmail" placeholder="you@email.com" required></div>
+                    <div class="setting-group"><label>Password</label><input type="password" id="loginPassword" placeholder="••••••••" required></div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">Login</button>
                     <div class="auth-links">
                         <a href="#" id="showForgot">Forgot password?</a>
                         <a href="#" id="showRegister">Create account</a>
                     </div>
                 </form>
-                
-                <!-- Register Form -->
-                <form id="registerForm" class="auth-form" style="display: none;">
-                    <div class="setting-group">
-                        <label>Display Name</label>
-                        <input type="text" id="registerName" placeholder="Your Name" required>
-                    </div>
-                    <div class="setting-group">
-                        <label>Email</label>
-                        <input type="email" id="registerEmail" placeholder="your@email.com" required>
-                    </div>
-                    <div class="setting-group">
-                        <label>Password</label>
-                        <input type="password" id="registerPassword" placeholder="••••••••" required minlength="6">
-                    </div>
-                    <div class="setting-group">
-                        <label>Confirm Password</label>
-                        <input type="password" id="registerConfirm" placeholder="••••••••" required minlength="6">
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Register</button>
-                    <div class="auth-links">
-                        <a href="#" id="showLoginFromReg">Already have an account?</a>
-                    </div>
+                <form id="registerForm" class="auth-form" style="display:none">
+                    <div class="setting-group"><label>Display Name</label><input type="text" id="registerName" required></div>
+                    <div class="setting-group"><label>Email</label><input type="email" id="registerEmail" required></div>
+                    <div class="setting-group"><label>Password</label><input type="password" id="registerPassword" required minlength="6"></div>
+                    <div class="setting-group"><label>Confirm</label><input type="password" id="registerConfirm" required minlength="6"></div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">Register</button>
+                    <div class="auth-links"><a href="#" id="showLoginFromReg">Already have an account?</a></div>
                 </form>
-                
-                <!-- Forgot Password Form -->
-                <form id="forgotForm" class="auth-form" style="display: none;">
-                    <div class="setting-group">
-                        <label>Email</label>
-                        <input type="email" id="forgotEmail" placeholder="your@email.com" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%;">Send Reset Link</button>
-                    <div class="auth-links">
-                        <a href="#" id="showLoginFromForgot">Back to login</a>
-                    </div>
+                <form id="forgotForm" class="auth-form" style="display:none">
+                    <div class="setting-group"><label>Email</label><input type="email" id="forgotEmail" required></div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">Send Reset Link</button>
+                    <div class="auth-links"><a href="#" id="showLoginFromForgot">Back to login</a></div>
                 </form>
-                
-                <div class="auth-error" id="authError" style="display: none;"></div>
+                <div class="auth-error" id="authError" style="display:none"></div>
             </div>
         </div>
     </div>
-    
-    <!-- Admin Panel Modal -->
+
+    <!-- ═══════════════ ADMIN MODAL ═══════════════ -->
     <div class="modal" id="adminModal">
-        <div class="modal-content" style="max-width: 700px;">
+        <div class="modal-content modal-lg">
             <div class="modal-header">
                 <h2>Admin Panel</h2>
                 <button class="modal-close" id="closeAdmin">&times;</button>
@@ -484,36 +380,16 @@
                     <button class="admin-tab active" data-tab="users">Users</button>
                     <button class="admin-tab" data-tab="profiles">Profiles</button>
                 </div>
-                
-                <!-- Users Tab -->
                 <div class="admin-panel" id="usersPanel">
                     <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Email</th>
-                                <th>Name</th>
-                                <th>Role</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="usersTableBody">
-                        </tbody>
+                        <thead><tr><th>Email</th><th>Name</th><th>Role</th><th>Actions</th></tr></thead>
+                        <tbody id="usersTableBody"></tbody>
                     </table>
                 </div>
-                
-                <!-- Profiles Tab -->
-                <div class="admin-panel" id="profilesPanel" style="display: none;">
+                <div class="admin-panel" id="profilesPanel" style="display:none">
                     <table class="admin-table">
-                        <thead>
-                            <tr>
-                                <th>Profile</th>
-                                <th>Owner</th>
-                                <th>Visibility</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="profilesTableBody">
-                        </tbody>
+                        <thead><tr><th>Profile</th><th>Owner</th><th>Visibility</th><th>Actions</th></tr></thead>
+                        <tbody id="profilesTableBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -522,9 +398,17 @@
 
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
-    
-    <script src="js/auth.js?v=20260203"></script>
-    <script src="js/serial-reader.js?v=20260203"></script>
-    <script src="js/app.js?v=20260203"></script>
+
+    <!-- ═══════════════ SCRIPTS ═══════════════ -->
+    <script src="js/config.js?v=4.1"></script>
+    <script src="js/ui-manager.js?v=4.1"></script>
+    <script src="js/firebase-manager.js?v=4.1"></script>
+    <script src="js/data-manager.js?v=4.1"></script>
+    <script src="js/chart-manager.js?v=4.1"></script>
+    <script src="js/profile-manager.js?v=4.1"></script>
+    <script src="js/upload-manager.js?v=4.1"></script>
+    <script src="js/auth.js?v=4.1"></script>
+    <script src="js/serial-reader.js?v=4.1"></script>
+    <script src="js/app-entry.js?v=4.1"></script>
 </body>
 </html>

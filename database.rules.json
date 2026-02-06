@@ -24,6 +24,7 @@
         },
 
         "realtime": {
+          ".indexOn": ["ts"],
           ".read": "root.child('profiles').child($profileId).child('visibility').val() !== 'private' || (auth != null && (root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid || root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).exists() || root.child('users').child(auth.uid).child('role').val() === 'admin'))",
           ".write": "auth != null && (root.child('profiles').child($profileId).child('ownerUid').val() === auth.uid || root.child('profiles').child($profileId).child('sharedWith/' + auth.uid).val() === 'edit' || root.child('users').child(auth.uid).child('role').val() === 'admin')"
         },

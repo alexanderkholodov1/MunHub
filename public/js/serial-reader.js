@@ -133,6 +133,7 @@ async function startRecording(profileId, enableRealtime = false) {
     
     recordingProfile = profileId;
     isRecording = true;
+    _lastCleanupProfile = profileId;
     
     // Create new session
     const sessionId = `session_${Date.now()}`;
@@ -180,14 +181,12 @@ async function stopRecording() {
         try { await serialReader.cancel(); } catch (e) { /* ignore */ }
     }
     
-    // Finalize current minute if there's data
+    // DISCARD partial minute data — only complete minutes are scientifically valid.
+    // A partial minute would show artificially low event counts (e.g., 30 events
+    // in 20 seconds looks like 30/min instead of ~90/min), misleading researchers.
     if (minuteData.eventCount > 0) {
-        appendToTerminal(`[System] Saving final minute data (${minuteData.eventCount} events)...`);
-        try {
-            await saveMinuteData();
-        } catch (e) {
-            appendToTerminal(`[Error] Failed to save final minute: ${e.message}`);
-        }
+        appendToTerminal(`[System] Discarding partial minute (${minuteData.eventCount} events in incomplete minute) — only complete minutes are saved.`);
+        resetMinuteData();
     }
     
     // Update session status
@@ -297,14 +296,10 @@ async function readSerialLoop(enableRealtime) {
             appendToTerminal(`[Error] Serial read loop error: ${error.message}`);
         }
     } finally {
-        // ─── CRITICAL: Save any partial minute data before exiting ───
-        if (minuteData.eventCount > 0 && recordingProfile && recordingSession) {
-            appendToTerminal(`[System] Saving partial minute data (${minuteData.eventCount} events) before exit...`);
-            try {
-                await saveMinuteData();
-            } catch (saveErr) {
-                appendToTerminal(`[Error] Failed to save partial data: ${saveErr.message}`);
-            }
+        // ─── DISCARD partial minute data — only complete minutes are valid ───
+        if (minuteData.eventCount > 0) {
+            appendToTerminal(`[System] Discarding partial minute (${minuteData.eventCount} events) on loop exit — only complete minutes are saved.`);
+            resetMinuteData();
         }
         
         appendToTerminal(`[System] Read loop ended: ${exitReason}. Total: ${linesProcessed} lines, ${linesParsed} parsed, ${linesFailed} skipped.`);
@@ -1010,31 +1005,80 @@ async function handleStopRecording() {
     }
 }
 
-// Cleanup interval reference
+// Cleanup state
 let cleanupInterval = null;
+let cleanupStartTimeout = null;
+let cleanupStopTimeout = null;
 
 /**
- * Start periodic cleanup of old realtime data
+ * Start periodic cleanup of old realtime data.
+ * Cleanup begins 5 minutes after recording starts (to give data time to accumulate).
+ * This avoids cleaning up data that is still being displayed.
  */
 function startRealtimeCleanup() {
-    if (cleanupInterval) return;
-    
-    cleanupInterval = setInterval(() => {
-        if (recordingProfile) {
-            cleanupRealtimeData(recordingProfile);
-        }
-    }, 60000); // Run every minute
+    // Cancel any pending stop from a previous session
+    if (cleanupStopTimeout) { clearTimeout(cleanupStopTimeout); cleanupStopTimeout = null; }
+
+    if (cleanupInterval || cleanupStartTimeout) return; // already scheduled or running
+
+    console.log('[Cleanup] Scheduled to start in 5 minutes...');
+    cleanupStartTimeout = setTimeout(() => {
+        cleanupStartTimeout = null;
+        if (!recordingProfile) return; // recording may have stopped in the meantime
+
+        console.log('[Cleanup] Starting periodic realtime cleanup.');
+        _runCleanupNow();
+        cleanupInterval = setInterval(() => {
+            _runCleanupNow();
+        }, PERF.CLEANUP_INTERVAL_MS);
+    }, PERF.REALTIME_RETENTION_MS); // 5 minutes
 }
 
 /**
- * Stop periodic cleanup
+ * Schedule cleanup to wind down after recording stops.
+ * Continues for 5 more minutes, then stops when no realtime data remains in DB.
  */
 function stopRealtimeCleanup() {
-    if (cleanupInterval) {
-        clearInterval(cleanupInterval);
-        cleanupInterval = null;
+    // Cancel the start timeout if cleanup hasn't begun yet
+    if (cleanupStartTimeout) {
+        clearTimeout(cleanupStartTimeout);
+        cleanupStartTimeout = null;
+        console.log('[Cleanup] Recording stopped before cleanup started. Cancelled.');
+        return;
+    }
+
+    if (!cleanupInterval) return; // nothing running
+
+    console.log('[Cleanup] Recording stopped. Cleanup continues for 5 more minutes...');
+
+    cleanupStopTimeout = setTimeout(async () => {
+        cleanupStopTimeout = null;
+        // Final cleanup pass
+        await _runCleanupNow();
+        // Stop interval
+        if (cleanupInterval) {
+            clearInterval(cleanupInterval);
+            cleanupInterval = null;
+        }
+        console.log('[Cleanup] Final cleanup complete. Cleanup stopped.');
+    }, PERF.REALTIME_RETENTION_MS); // 5 minutes after stop
+}
+
+/** Execute a single cleanup pass for the recording profile */
+async function _runCleanupNow() {
+    const profileId = recordingProfile || _lastCleanupProfile;
+    if (!profileId) return;
+    _lastCleanupProfile = profileId;
+
+    try {
+        await cleanupRealtimeData(profileId);
+    } catch (e) {
+        console.error('[Cleanup] Error during cleanup:', e);
     }
 }
+
+// Track last profile for post-recording cleanup
+let _lastCleanupProfile = null;
 
 // Export functions for use in other modules
 if (typeof window !== 'undefined') {

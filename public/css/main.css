@@ -116,7 +116,8 @@ body { display: flex; flex-direction: column; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
 /* Time buttons — LARGE */
-.time-buttons { display: flex; gap: 3px; flex-wrap: wrap; }
+.time-buttons { display: flex; gap: 3px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.time-buttons::-webkit-scrollbar { display: none; }
 .time-btn {
     padding: 5px 10px;
     background: var(--bg-tertiary);
@@ -130,6 +131,11 @@ body { display: flex; flex-direction: column; }
     white-space: nowrap;
 }
 .time-btn:hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+.time-btn.rt-disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 .time-btn.active {
     background: var(--accent-primary);
     border-color: var(--accent-primary);

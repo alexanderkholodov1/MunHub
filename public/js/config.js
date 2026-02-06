@@ -48,19 +48,27 @@ const COLORS = Object.freeze({
     temp:      '#ff6b35',
     pressure:  '#7b2cbf',
     deadtime:  '#d29922',
+    // Realtime overlay colors (used in 5m dual-line view)
+    rtEvents:  'rgba(0,212,255,0.35)',
+    rtMuons:   'rgba(255,107,53,0.35)',
+    rtSipm:    'rgba(0,255,136,0.35)',
+    rtTemp:    'rgba(255,107,53,0.35)',
+    rtPressure:'rgba(123,44,191,0.35)',
+    rtDeadtime:'rgba(210,153,34,0.35)',
     grid:      'rgba(255,255,255,0.05)',
     tick:      '#8b949e'
 });
 
 // ─── Chart Type Cycle ───────────────────────────────────────────────────────
-const CHART_TYPES = Object.freeze(['line', 'line-only', 'smooth', 'bar', 'scatter']);
+const CHART_TYPES = Object.freeze(['line', 'line-only', 'smooth', 'smooth-no-dots', 'bar', 'scatter']);
 
 const CHART_TYPE_LABELS = Object.freeze({
-    'line':      'Line + Dots',
-    'line-only': 'Line Only',
-    'smooth':    'Smooth Curve',
-    'bar':       'Bar Chart',
-    'scatter':   'Scatter'
+    'line':           'Line + Dots',
+    'line-only':      'Line Only',
+    'smooth':         'Smooth + Dots',
+    'smooth-no-dots': 'Smooth Curve',
+    'bar':            'Bar Chart',
+    'scatter':        'Scatter'
 });
 
 // ─── Time Ranges ────────────────────────────────────────────────────────────

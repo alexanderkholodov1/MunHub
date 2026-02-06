@@ -29,6 +29,9 @@ const ChartManager = (() => {
     /** Chart type PER SLOT (not per source) */
     const _chartTypes = ['line', 'line', 'line', 'line'];
 
+    /** For 5m view: separate chart type for the realtime overlay line, PER SLOT */
+    const _realtimeChartTypes = ['bar', 'bar', 'bar', 'bar'];
+
     // RAF throttle
     let _updateScheduled = false;
     let _lastUpdateTs = 0;
@@ -48,8 +51,16 @@ const ChartManager = (() => {
     function isStacked()      { return _isStackedMode; }
 
     function setTimeRange(range) {
+        // 1m and 5m require realtime data to be available
+        if ((range === 1 || range === 5) && !DataManager.hasRealtimeData()) {
+            UIManager.showToast('1m/5m views require real-time data. Enable it when connecting a detector.', 'error');
+            return;
+        }
+        const wasRtRange = (_globalTimeRange === 5);
         _globalTimeRange = range;
         localStorage.setItem('munra_range', range);
+        // Clean up realtime overlay datasets when leaving 5m view
+        if (wasRtRange && range !== 5) _cleanupRealtimeOverlays();
         scheduleUpdate();
     }
     function setCustomRange(start, end) {
@@ -285,8 +296,16 @@ const ChartManager = (() => {
     function _updateCharts() {
         _lastUpdateTs = performance.now();
 
+        const isRtRange = (_globalTimeRange === 1 || _globalTimeRange === 5);
+
+        // For 1m view: ONLY realtime data, no minute data
+        if (_globalTimeRange === 1) {
+            _renderRealtimeOnly();
+            return;
+        }
+
         const allData = DataManager.getAllData();
-        if (!allData.length && !_isStackedMode) return;
+        if (!allData.length && !_isStackedMode && !isRtRange) return;
 
         const now = Date.now();
         let minTime, maxTime, filtered;
@@ -340,7 +359,7 @@ const ChartManager = (() => {
         // Downsample
         if (chartData.length > PERF.MAX_CHART_POINTS) chartData = DataManager.downsample(chartData, PERF.MAX_CHART_POINTS);
 
-        // Build point arrays
+        // Build point arrays for minute averages
         const getX = d => _isStackedMode ? d.virtualTs : d.timestamp * 1000;
         const pt  = (d, f) => ({ x: getX(d), y: d.isGap ? null : (d[f] || 0),   realTime: d.timestamp * 1000 });
         const ptN = (d, f) => ({ x: getX(d), y: d.isGap ? null : (d[f] || null), realTime: d.timestamp * 1000 });
@@ -361,6 +380,12 @@ const ChartManager = (() => {
             arrays.dt[i] = ptN(d, 'dt');
         }
 
+        // For 5m view: also build realtime point arrays
+        let rtArrays = null;
+        if (_globalTimeRange === 5) {
+            rtArrays = _buildRealtimeArrays(cMin, cMax);
+        }
+
         // Push data to each slot's chart (skip terminal slots)
         for (let slot = 0; slot < NUM_SLOTS; slot++) {
             if (!_charts[slot]) continue;
@@ -373,10 +398,208 @@ const ChartManager = (() => {
                 case 'deadtime': datasets = [arrays.dt]; break;
                 default: continue;
             }
+
+            // 5m view: append realtime overlay datasets after the minute datasets
+            if (_globalTimeRange === 5 && rtArrays) {
+                const rtData = _getRealtimeDatasetsForSource(src, rtArrays);
+                if (rtData.length > 0) {
+                    _ensureRealtimeDatasets(slot, src, rtData.length);
+                    datasets = datasets.concat(rtData);
+                }
+            }
+
             _setChart(_charts[slot], datasets, cMin, cMax);
         }
 
         _updateStats(filtered);
+    }
+
+    /** Build point arrays from realtime data within a time range */
+    function _buildRealtimeArrays(minTime, maxTime) {
+        const rtRaw = DataManager.getRealtimeData();
+        if (!rtRaw.length) return null;
+
+        const filtered = rtRaw.filter(d => d.ts >= minTime && d.ts <= maxTime);
+        if (!filtered.length) return null;
+
+        const len = filtered.length;
+        const arrays = {
+            ev: new Array(len), mu: new Array(len),
+            sa: new Array(len),
+            tp: new Array(len), pr: new Array(len),
+            dt: new Array(len)
+        };
+        for (let i = 0; i < len; i++) {
+            const d = filtered[i];
+            arrays.ev[i] = { x: d.ts, y: 1 };                                    // each event = 1 trigger
+            arrays.mu[i] = { x: d.ts, y: d.coincident || 0 };                     // muon if coincident
+            arrays.sa[i] = { x: d.ts, y: d.sipm || 0 };                           // instantaneous SiPM
+            arrays.tp[i] = { x: d.ts, y: d.temp != null ? d.temp : null };         // instantaneous temp
+            arrays.pr[i] = { x: d.ts, y: d.pressure != null ? d.pressure / 100 : null }; // Pa→hPa
+            arrays.dt[i] = { x: d.ts, y: d.deadtime != null ? d.deadtime : null }; // instantaneous deadtime
+        }
+        return arrays;
+    }
+
+    /** Get realtime data arrays for a specific chart source */
+    function _getRealtimeDatasetsForSource(src, rtArrays) {
+        if (!rtArrays) return [];
+        switch (src) {
+            case 'events':   return [rtArrays.ev, rtArrays.mu];
+            case 'sipm':     return [rtArrays.sa];
+            case 'temp':     return [rtArrays.tp, rtArrays.pr];
+            case 'deadtime': return [rtArrays.dt];
+            default: return [];
+        }
+    }
+
+    /** Ensure the chart has enough datasets for both minute + realtime data */
+    function _ensureRealtimeDatasets(slot, src, rtCount) {
+        const chart = _charts[slot];
+        if (!chart) return;
+
+        // Calculate expected total: minute datasets + realtime datasets
+        let minuteCount;
+        switch (src) {
+            case 'events':   minuteCount = 2; break;
+            case 'sipm':     minuteCount = 3; break;
+            case 'temp':     minuteCount = 2; break;
+            case 'deadtime': minuteCount = 1; break;
+            default: return;
+        }
+        const totalNeeded = minuteCount + rtCount;
+
+        // Add missing realtime datasets if needed
+        while (chart.data.datasets.length < totalNeeded) {
+            const rtIdx = chart.data.datasets.length - minuteCount;
+            const rtLabel = _getRealtimeLabel(src, rtIdx);
+            const rtColor = _getRealtimeColor(src, rtIdx);
+            const rtType = _realtimeChartTypes[slot] || 'bar';
+
+            chart.data.datasets.push({
+                label: rtLabel,
+                data: [],
+                borderColor: rtColor,
+                backgroundColor: rtColor,
+                type: rtType === 'bar' ? 'bar' : 'line',
+                pointRadius: rtType === 'bar' ? 0 : 2,
+                borderWidth: 1,
+                fill: false,
+                spanGaps: false,
+                barPercentage: 0.6,
+                yAxisID: src === 'temp' && rtIdx >= 1 ? 'y1' : 'y',
+                order: 10  // render behind minute data
+            });
+        }
+
+        // Remove extra realtime datasets (when switching away from 5m)
+        while (chart.data.datasets.length > totalNeeded) {
+            chart.data.datasets.pop();
+        }
+    }
+
+    function _getRealtimeLabel(src, rtIdx) {
+        const labels = {
+            events:   ['RT Events', 'RT Muons'],
+            sipm:     ['RT SiPM'],
+            temp:     ['RT °C', 'RT hPa'],
+            deadtime: ['RT Dead Time']
+        };
+        return (labels[src] && labels[src][rtIdx]) || 'RT Data';
+    }
+
+    function _getRealtimeColor(src, rtIdx) {
+        const colors = {
+            events:   [COLORS.rtEvents, COLORS.rtMuons],
+            sipm:     [COLORS.rtSipm],
+            temp:     [COLORS.rtTemp, COLORS.rtPressure],
+            deadtime: [COLORS.rtDeadtime]
+        };
+        return (colors[src] && colors[src][rtIdx]) || 'rgba(128,128,128,0.3)';
+    }
+
+    /** Render 1m view: ONLY realtime/instantaneous data from detector */
+    function _renderRealtimeOnly() {
+        const rtRaw = DataManager.getRealtimeData();
+        const now = Date.now();
+        const minTime = now - 60_000;
+        const maxTime = now;
+
+        // Filter to last 60 seconds
+        const filtered = rtRaw.filter(d => d.ts >= minTime && d.ts <= maxTime);
+
+        if (!filtered.length) {
+            // Still update axes even with no data
+            for (let slot = 0; slot < NUM_SLOTS; slot++) {
+                if (!_charts[slot]) continue;
+                _setChart(_charts[slot], _charts[slot].data.datasets.map(() => []), minTime, maxTime);
+            }
+            return;
+        }
+
+        const len = filtered.length;
+
+        for (let slot = 0; slot < NUM_SLOTS; slot++) {
+            if (!_charts[slot]) continue;
+            const src = _slotSource[slot];
+            if (src === 'terminal') continue;
+
+            // Strip any extra realtime-overlay datasets (1m only has base datasets)
+            let minuteCount;
+            switch (src) {
+                case 'events':   minuteCount = 2; break;
+                case 'sipm':     minuteCount = 3; break;
+                case 'temp':     minuteCount = 2; break;
+                case 'deadtime': minuteCount = 1; break;
+                default: continue;
+            }
+            while (_charts[slot].data.datasets.length > minuteCount) {
+                _charts[slot].data.datasets.pop();
+            }
+
+            const datasets = [];
+            switch (src) {
+                case 'events': {
+                    const ev = new Array(len), mu = new Array(len);
+                    for (let i = 0; i < len; i++) {
+                        ev[i] = { x: filtered[i].ts, y: 1 };
+                        mu[i] = { x: filtered[i].ts, y: filtered[i].coincident || 0 };
+                    }
+                    datasets.push(ev, mu);
+                    break;
+                }
+                case 'sipm': {
+                    const sa = new Array(len), sx = new Array(len), sn = new Array(len);
+                    for (let i = 0; i < len; i++) {
+                        const v = filtered[i].sipm || 0;
+                        sa[i] = { x: filtered[i].ts, y: v };
+                        sx[i] = { x: filtered[i].ts, y: v }; // in RT there's no min/max separation
+                        sn[i] = { x: filtered[i].ts, y: v };
+                    }
+                    datasets.push(sa, sx, sn);
+                    break;
+                }
+                case 'temp': {
+                    const tp = new Array(len), pr = new Array(len);
+                    for (let i = 0; i < len; i++) {
+                        tp[i] = { x: filtered[i].ts, y: filtered[i].temp };
+                        pr[i] = { x: filtered[i].ts, y: filtered[i].pressure != null ? filtered[i].pressure / 100 : null };
+                    }
+                    datasets.push(tp, pr);
+                    break;
+                }
+                case 'deadtime': {
+                    const dt = new Array(len);
+                    for (let i = 0; i < len; i++) {
+                        dt[i] = { x: filtered[i].ts, y: filtered[i].deadtime };
+                    }
+                    datasets.push(dt);
+                    break;
+                }
+            }
+
+            _setChart(_charts[slot], datasets, minTime, maxTime);
+        }
     }
 
     function _setChart(chart, datasets, minTime, maxTime) {
@@ -390,6 +613,26 @@ const ChartManager = (() => {
         chart.options.scales.x.max = maxTime;
         chart.options.scales.x.time.unit = unit;
         chart.update('none');
+    }
+
+    /** Remove realtime overlay datasets when leaving 5m view */
+    function _cleanupRealtimeOverlays() {
+        for (let slot = 0; slot < NUM_SLOTS; slot++) {
+            const chart = _charts[slot];
+            if (!chart) continue;
+            const src = _slotSource[slot];
+            let minuteCount;
+            switch (src) {
+                case 'events':   minuteCount = 2; break;
+                case 'sipm':     minuteCount = 3; break;
+                case 'temp':     minuteCount = 2; break;
+                case 'deadtime': minuteCount = 1; break;
+                default: continue;
+            }
+            while (chart.data.datasets.length > minuteCount) {
+                chart.data.datasets.pop();
+            }
+        }
     }
 
     function _updateStats(data) {
@@ -431,12 +674,30 @@ const ChartManager = (() => {
         if (!chart) return;
         chart.data.datasets.forEach(d => {
             d.type = type === 'bar' ? 'bar' : type === 'scatter' ? 'scatter' : 'line';
+            // Reset all point properties first to avoid stale values
+            d.pointStyle = undefined;
+            d.pointHoverRadius = undefined;
             switch (type) {
-                case 'scatter':    d.pointRadius = 4; d.showLine = false; d.tension = 0; break;
-                case 'bar':        d.pointRadius = 0; d.showLine = true;  d.tension = 0; break;
-                case 'line-only':  d.pointRadius = 0; d.showLine = true;  d.tension = 0; d.borderWidth = 2; break;
-                case 'smooth':     d.pointRadius = 0; d.showLine = true;  d.tension = 0.4; d.borderWidth = 2; break;
-                default:           d.pointRadius = 2; d.showLine = true;  d.tension = 0; d.borderWidth = 1.5; break;
+                case 'scatter':
+                    d.pointRadius = 4; d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
+                    break;
+                case 'bar':
+                    d.pointRadius = 0; d.pointStyle = false; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
+                    break;
+                case 'line-only':
+                    d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0;
+                    d.showLine = true; d.tension = 0; d.borderWidth = 2;
+                    break;
+                case 'smooth':
+                    d.pointRadius = 2; d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
+                    break;
+                case 'smooth-no-dots':
+                    d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0;
+                    d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
+                    break;
+                default: // 'line' = Line + Dots
+                    d.pointRadius = 2; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
+                    break;
             }
         });
         chart.update('none');

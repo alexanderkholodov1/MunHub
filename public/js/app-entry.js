@@ -38,7 +38,28 @@ document.addEventListener('DOMContentLoaded', () => {
     UIManager.highlightTimeButton(range);
 
     // ── 3. Data → Chart pipeline ───────────────────────────────────────
-    DataManager.onChange(() => ChartManager.scheduleUpdate());
+    DataManager.onChange(() => {
+        ChartManager.scheduleUpdate();
+        _updateRealtimeButtonStates();
+    });
+    DataManager.onRealtimeChange(() => {
+        // Only trigger chart updates for realtime ranges (1m, 5m) to avoid unnecessary redraws
+        const range = ChartManager.getTimeRange();
+        if (range === 1 || range === 5) ChartManager.scheduleUpdate();
+        _updateRealtimeButtonStates();
+    });
+
+    /** Disable 1m/5m buttons when no realtime data is available */
+    function _updateRealtimeButtonStates() {
+        const hasRT = DataManager.hasRealtimeData();
+        document.querySelectorAll('.time-btn').forEach(btn => {
+            const r = btn.dataset.range;
+            if (r === '1' || r === '5') {
+                btn.classList.toggle('rt-disabled', !hasRT);
+                btn.title = hasRT ? '' : 'Enable real-time data when connecting a detector';
+            }
+        });
+    }
 
     // ── 4. Restore slot sources from localStorage ──────────────────────
     for (let s = 0; s < 4; s++) {
@@ -251,8 +272,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const customModal = document.getElementById('customRangeModal');
     if (customModal) customModal.addEventListener('click', e => { if (e.target.id === 'customRangeModal') customModal.classList.remove('active'); });
 
-    // ── 5. Periodic tasks ──────────────────────────────────────────────
-    setInterval(() => DataManager.cleanupAllRealtime(), PERF.CLEANUP_INTERVAL_MS);
+    // ── 5. Initial state ─────────────────────────────────────────────
+    // Realtime cleanup is handled by serial-reader.js on a per-session basis.
+    // No global cleanup runs here — it only runs when recording with realtime enabled.
+    _updateRealtimeButtonStates();
 
     console.log('MuNRa 4.2 — modular init complete');
 });

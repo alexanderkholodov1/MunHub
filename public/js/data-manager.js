@@ -16,6 +16,7 @@ const DataManager = (() => {
     let _allData = [];            // sorted minute-level points
     let _realtimeData = [];       // last N realtime entries
     let _latestData = null;
+    let _hasRealtimeData = false; // true when profile has realtime entries
 
     // Firebase listener refs (so we can .off() cleanly)
     let _sessionRef = null;
@@ -25,13 +26,16 @@ const DataManager = (() => {
     // Change-notification callbacks
     /** @type {Function[]} */
     const _listeners = [];
+    /** @type {Function[]} */
+    const _realtimeListeners = [];
 
     // ─── Public Accessors ───────────────────────────────────────────────
-    function getAllData()      { return _allData; }
-    function getRealtimeData() { return _realtimeData; }
-    function getLatestData()   { return _latestData; }
-    function getSessionsData() { return _sessionsData; }
+    function getAllData()        { return _allData; }
+    function getRealtimeData()   { return _realtimeData; }
+    function getLatestData()     { return _latestData; }
+    function getSessionsData()   { return _sessionsData; }
     function getCurrentProfile() { return _currentProfile; }
+    function hasRealtimeData()   { return _hasRealtimeData; }
 
     // ─── Listener Registration ──────────────────────────────────────────
     /** Register a callback that fires whenever allData changes. */
@@ -39,9 +43,20 @@ const DataManager = (() => {
         if (typeof fn === 'function') _listeners.push(fn);
     }
 
+    /** Register a callback that fires whenever realtimeData changes. */
+    function onRealtimeChange(fn) {
+        if (typeof fn === 'function') _realtimeListeners.push(fn);
+    }
+
     function _notify() {
         for (const fn of _listeners) {
             try { fn(); } catch (e) { console.error('[DataManager] listener error:', e); }
+        }
+    }
+
+    function _notifyRealtime() {
+        for (const fn of _realtimeListeners) {
+            try { fn(); } catch (e) { console.error('[DataManager] realtime listener error:', e); }
         }
     }
 
@@ -83,6 +98,11 @@ const DataManager = (() => {
             _realtimeData = raw
                 ? Object.values(raw).sort((a, b) => a.ts - b.ts)
                 : [];
+            const hadData = _hasRealtimeData;
+            _hasRealtimeData = _realtimeData.length > 0;
+            _notifyRealtime();
+            // Also notify minute listeners if realtime availability changed
+            if (hadData !== _hasRealtimeData) _notify();
         });
     }
 
@@ -232,6 +252,7 @@ const DataManager = (() => {
         _allData = [];
         _realtimeData = [];
         _latestData = null;
+        _hasRealtimeData = false;
     }
 
     // ─── Public API ─────────────────────────────────────────────────────
@@ -242,7 +263,9 @@ const DataManager = (() => {
         getSessionsData,
         getCurrentProfile,
         getStorageStats,
+        hasRealtimeData,
         onChange,
+        onRealtimeChange,
         subscribeToProfile,
         disconnect,
         downsample,

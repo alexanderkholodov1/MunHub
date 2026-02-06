@@ -285,8 +285,20 @@ async function readSerialLoop(enableRealtime) {
                 buffer += decoder.decode(value, { stream: true });
                 
                 // Process complete lines
-                const lines = buffer.split('\n');
+                let lines = buffer.split('\n');
                 buffer = lines.pop(); // Keep incomplete line in buffer
+                
+                // Detector sometimes omits \n between records:
+                //   "...0 COSMIC488 1059953..." → two events glued together
+                // Split any such concatenated lines on the COSMIC+digit boundary
+                const expanded = [];
+                for (const rawLine of lines) {
+                    const subLines = rawLine.split(/(?<=COSMIC)(?=\d)/);
+                    for (const sub of subLines) {
+                        expanded.push(sub);
+                    }
+                }
+                lines = expanded;
                 
                 for (const line of lines) {
                     const trimmed = line.trim();
@@ -299,6 +311,9 @@ async function readSerialLoop(enableRealtime) {
                         } catch (lineError) {
                             linesFailed++;
                             console.error('Error processing line:', trimmed, lineError);
+                            if (linesFailed <= 3) {
+                                appendToTerminal(`[Error] Line processing crashed: ${lineError.message}`);
+                            }
                         }
                     }
                 }
@@ -358,7 +373,6 @@ function processDataLine(line, enableRealtime) {
     //   "Event TimeStamp[ms] ADC1 ADC2 SiPM[mV] Pressure[Pa] Temp[C] DeadTime[us] Coe..."
     // Also skip lines that are clearly NOT data (contain brackets, labels, etc.)
     if (/^[A-Za-z]/.test(line) || line.includes('[') || line.includes('Event') || line.includes('TimeStamp')) {
-        // This is a header or info line — display it but don't parse as data
         return false;
     }
     
@@ -399,7 +413,6 @@ function processDataLine(line, enableRealtime) {
     }
     
     if (!parsedData) {
-        // Don't warn on every unparsed line — just return false
         return false;
     }
     
@@ -609,9 +622,9 @@ function checkExtremeValues(data) {
     // Check SiPM - values above typical_max are notable, but NOT invalid
     if (data.sipm !== undefined && data.sipm !== null) {
         if (data.sipm > WARNING_THRESHOLDS.sipm.extreme_max) {
-            recordExtreme('SiPM', data.sipm, 'mV', `[HIGH] SiPM signal: ${data.sipm} mV (extreme, but data preserved)`);
+            recordExtreme('sipm', data.sipm, 'mV', `[HIGH] SiPM signal: ${data.sipm} mV (extreme, but data preserved)`);
         } else if (data.sipm > WARNING_THRESHOLDS.sipm.typical_max) {
-            recordExtreme('SiPM', data.sipm, 'mV', `[NOTE] SiPM signal: ${data.sipm} mV (above typical, data preserved)`);
+            recordExtreme('sipm', data.sipm, 'mV', `[NOTE] SiPM signal: ${data.sipm} mV (above typical, data preserved)`);
         } else {
             // Reset tracker if value is normal
             resetExtremeTracker('sipm');
@@ -626,7 +639,7 @@ function checkExtremeValues(data) {
     // Check Temperature
     if (data.temp !== undefined && data.temp !== null) {
         if (data.temp < WARNING_THRESHOLDS.temp.min || data.temp > WARNING_THRESHOLDS.temp.max) {
-            recordExtreme('Temp', data.temp, 'degC', `[WARN] Unusual temperature: ${data.temp} degC (outside typical range, data preserved)`);
+            recordExtreme('temp', data.temp, 'degC', `[WARN] Unusual temperature: ${data.temp} degC (outside typical range, data preserved)`);
         } else {
             resetExtremeTracker('temp');
         }
@@ -635,7 +648,7 @@ function checkExtremeValues(data) {
     // Check Pressure
     if (data.pressure !== undefined && data.pressure !== null) {
         if (data.pressure < WARNING_THRESHOLDS.pressure.min || data.pressure > WARNING_THRESHOLDS.pressure.max) {
-            recordExtreme('Pressure', data.pressure, 'Pa', `[WARN] Unusual pressure: ${data.pressure} Pa (outside typical range, data preserved)`);
+            recordExtreme('pressure', data.pressure, 'Pa', `[WARN] Unusual pressure: ${data.pressure} Pa (outside typical range, data preserved)`);
         } else {
             resetExtremeTracker('pressure');
         }

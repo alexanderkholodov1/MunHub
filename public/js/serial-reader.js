@@ -4,26 +4,12 @@
  * Reads data directly from particle detector via USB serial port.
  * Uses the Web Serial API available in Chrome/Edge browsers.
  * 
- * SCIENTIFIC INTEGRITY NOTE:
- * This system NEVER discards or modifies data received from the detector.
- * High-intensity cosmic ray signals can legitimately reach ~1V from SiPM.
- * All measurements are preserved exactly as received for scientific accuracy.
+ * SCIENTIFIC INTEGRITY: Data is NEVER filtered, edited, or discarded.
+ * All measurements are saved exactly as received from the detector.
  * 
- * If extreme values persist for extended periods, users are NOTIFIED
- * (not blocked) so they can check for potential system issues.
- * 
- * Data Format from Detector (example line):
- * TRG 1 CH 1 ADC 245 TEMP 22.5 PRES 101320 DT 0.15 CNT 1234 TIME 1704067261234
- * 
- * Fields:
- * - TRG: Trigger (1 = event detected)
- * - CH: Channel number
- * - ADC: SiPM signal in ADC counts (convert to mV: ADC * 0.5)
- * - TEMP: Temperature in Celsius
- * - PRES: Pressure in Pascals
- * - DT: Deadtime ratio (0-1)
- * - CNT: Event counter
- * - TIME: Unix timestamp in milliseconds
+ * Primary data format (TAB/space-separated from MuNRa detector):
+ *   Event TimeStamp[ms] ADC1 ADC2 SiPM[mV] Pressure[Pa] Temp[C] DeadTime[us] Coincident COSMIC
+ *   Example: "270 111753 60 1881 0.9 76501.6 27.1 46100 0 COSMIC"
  */
 
 // Serial connection state
@@ -50,27 +36,6 @@ let minuteData = {
     deadtimeSum: 0,
     deadtimeCount: 0
 };
-
-// Warning thresholds for extreme values (NOTIFICATION only - NO data discarding)
-// SCIENTIFIC NOTE: These thresholds are for WARNINGS only. All data is preserved
-// regardless of values. High-intensity cosmic ray signals can reach ~1V from SiPM.
-const WARNING_THRESHOLDS = {
-    sipm: { typical_max: 500, extreme_max: 1000, unit: 'mV' },  // SiPM signal - warn above 500mV, extreme above 1000mV
-    temp: { min: -40, max: 85, unit: '°C' },                     // Temperature -40 to 85°C
-    pressure: { min: 80000, max: 120000, unit: 'Pa' },           // Pressure 80-120 kPa
-    deadtime: { min: 0, max: 1, unit: 'ratio' }                  // Deadtime 0-1
-};
-
-// Extreme value tracking for prolonged anomaly detection
-let extremeValueTracker = {
-    sipm: { startTime: null, count: 0 },
-    temp: { startTime: null, count: 0 },
-    pressure: { startTime: null, count: 0 }
-};
-const EXTREME_VALUE_NOTIFICATION_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes of continuous extreme values
-const EXTREME_VALUE_COUNT_THRESHOLD = 50; // Minimum count before notification
-let lastExtremeNotificationTime = 0;
-const EXTREME_NOTIFICATION_COOLDOWN_MS = 10 * 60 * 1000; // Only notify every 10 minutes
 
 // Terminal output element
 let terminalOutput = null;
@@ -416,29 +381,46 @@ function processDataLine(line, enableRealtime) {
         return false;
     }
     
-    // Check for extreme values - WARN but DO NOT DISCARD data
-    // SCIENTIFIC INTEGRITY: All data must be preserved regardless of values
-    checkExtremeValues(parsedData);
+    // ─── ALL DATA IS PROCESSED — no filtering, no validation ───────
+    // Scientific data is NEVER discarded regardless of values.
     
-    // Aggregate for minute data - ALL DATA IS PROCESSED
-    aggregateData(parsedData);
-    
-    // Check if minute changed
-    const nowMinute = Math.floor(Date.now() / 60000);
-    if (currentMinute !== null && nowMinute !== currentMinute) {
-        // Save previous minute
-        saveMinuteData();
-        resetMinuteData();
-        currentMinute = nowMinute;
+    // Log first successful parse so user can confirm data is flowing
+    if (!processDataLine._firstParsed) {
+        processDataLine._firstParsed = true;
+        appendToTerminal(`[OK] ✓ First data parsed! sipm=${parsedData.sipm}mV temp=${parsedData.temp}°C pres=${parsedData.pressure}Pa`);
     }
     
-    // Store real-time data if enabled (and cleanup old data)
-    if (enableRealtime && recordingProfile) {
-        saveRealtimeData(parsedData);
+    try {
+        aggregateData(parsedData);
+    } catch (e) {
+        appendToTerminal(`[Error] aggregateData crashed: ${e.message}`);
+        return false;
     }
     
-    // Update latest data
-    updateLatestData(parsedData);
+    try {
+        const nowMinute = Math.floor(Date.now() / 60000);
+        if (currentMinute !== null && nowMinute !== currentMinute) {
+            saveMinuteData();
+            resetMinuteData();
+            currentMinute = nowMinute;
+        }
+    } catch (e) {
+        appendToTerminal(`[Error] saveMinuteData crashed: ${e.message}`);
+    }
+    
+    try {
+        if (enableRealtime && recordingProfile) {
+            saveRealtimeData(parsedData);
+        }
+    } catch (e) {
+        console.error('saveRealtimeData error:', e);
+    }
+    
+    try {
+        updateLatestData(parsedData);
+    } catch (e) {
+        appendToTerminal(`[Error] updateLatestData crashed: ${e.message}`);
+    }
     
     return true; // Successfully processed
 }
@@ -592,160 +574,6 @@ function parseCSVLine(line) {
         deadtime: parts[4] ? parseFloat(parts[4]) : null,
         coincident: parseInt(parts[5]) || 0
     };
-}
-
-/**
- * Check for extreme values and track prolonged anomalies
- * 
- * CRITICAL SCIENTIFIC NOTE: This function ONLY logs warnings and tracks patterns.
- * It NEVER discards or modifies data. All measurements are preserved exactly as received.
- * 
- * High-intensity cosmic ray signals can legitimately reach ~1V from SiPM.
- * Prolonged extreme values (over 5 minutes) MAY indicate a system error and will
- * trigger a user notification suggesting they contact administrators.
- */
-function checkExtremeValues(data) {
-    const now = Date.now();
-    let hasExtremeValue = false;
-    let extremeDetails = [];
-    
-    /**
-     * Helper to track extreme values and build notification details
-     */
-    function recordExtreme(type, value, unit, message) {
-        console.info(message);
-        trackExtremeValue(type, now);
-        hasExtremeValue = true;
-        extremeDetails.push(`${type}: ${value} ${unit}`);
-    }
-    
-    // Check SiPM - values above typical_max are notable, but NOT invalid
-    if (data.sipm !== undefined && data.sipm !== null) {
-        if (data.sipm > WARNING_THRESHOLDS.sipm.extreme_max) {
-            recordExtreme('sipm', data.sipm, 'mV', `[HIGH] SiPM signal: ${data.sipm} mV (extreme, but data preserved)`);
-        } else if (data.sipm > WARNING_THRESHOLDS.sipm.typical_max) {
-            recordExtreme('sipm', data.sipm, 'mV', `[NOTE] SiPM signal: ${data.sipm} mV (above typical, data preserved)`);
-        } else {
-            // Reset tracker if value is normal
-            resetExtremeTracker('sipm');
-        }
-        
-        // Check for negative values (physically impossible but don't discard)
-        if (data.sipm < 0) {
-            console.warn(`[WARN] Negative SiPM value: ${data.sipm} mV - physically unusual, data preserved`);
-        }
-    }
-    
-    // Check Temperature
-    if (data.temp !== undefined && data.temp !== null) {
-        if (data.temp < WARNING_THRESHOLDS.temp.min || data.temp > WARNING_THRESHOLDS.temp.max) {
-            recordExtreme('temp', data.temp, 'degC', `[WARN] Unusual temperature: ${data.temp} degC (outside typical range, data preserved)`);
-        } else {
-            resetExtremeTracker('temp');
-        }
-    }
-    
-    // Check Pressure
-    if (data.pressure !== undefined && data.pressure !== null) {
-        if (data.pressure < WARNING_THRESHOLDS.pressure.min || data.pressure > WARNING_THRESHOLDS.pressure.max) {
-            recordExtreme('pressure', data.pressure, 'Pa', `[WARN] Unusual pressure: ${data.pressure} Pa (outside typical range, data preserved)`);
-        } else {
-            resetExtremeTracker('pressure');
-        }
-    }
-    
-    // Check Deadtime (physically constrained 0-1, but still don't discard)
-    if (data.deadtime !== undefined && data.deadtime !== null) {
-        if (data.deadtime < 0 || data.deadtime > 1) {
-            console.warn(`[WARN] Unusual deadtime: ${data.deadtime} (outside 0-1 range, data preserved)`);
-        }
-    }
-    
-    // Check for prolonged extreme values and notify user if needed
-    if (hasExtremeValue) {
-        checkProlongedExtremeValues(extremeDetails.join(', '));
-    }
-}
-
-/**
- * Track the start time and count of extreme values
- */
-function trackExtremeValue(type, now) {
-    if (!extremeValueTracker[type].startTime) {
-        extremeValueTracker[type].startTime = now;
-        extremeValueTracker[type].count = 1;
-    } else {
-        extremeValueTracker[type].count++;
-    }
-}
-
-/**
- * Reset the extreme value tracker for a type
- */
-function resetExtremeTracker(type) {
-    extremeValueTracker[type].startTime = null;
-    extremeValueTracker[type].count = 0;
-}
-
-/**
- * Check if extreme values have persisted for too long and notify user
- * This suggests a potential system error (not bad data)
- */
-function checkProlongedExtremeValues(details) {
-    const now = Date.now();
-    
-    // Check each tracker for prolonged extreme values
-    for (const [type, tracker] of Object.entries(extremeValueTracker)) {
-        if (tracker.startTime && tracker.count >= EXTREME_VALUE_COUNT_THRESHOLD) {
-            const duration = now - tracker.startTime;
-            
-            if (duration >= EXTREME_VALUE_NOTIFICATION_THRESHOLD_MS) {
-                // Check cooldown to avoid spam
-                if (now - lastExtremeNotificationTime >= EXTREME_NOTIFICATION_COOLDOWN_MS) {
-                    lastExtremeNotificationTime = now;
-                    
-                    // Show notification to user
-                    showExtremeValueNotification(type, tracker.count, duration, details);
-                }
-            }
-        }
-    }
-}
-
-/**
- * Show notification to user about prolonged extreme values
- * This suggests they may want to check the system and report to administrators
- * 
- * Message is bilingual (Spanish/English) since the user base includes Spanish speakers
- */
-function showExtremeValueNotification(type, count, duration, details) {
-    const durationMinutes = Math.round(duration / 60000);
-    
-    // Bilingual console message
-    const message = `[WARNING / ADVERTENCIA] Extreme values detected / Valores extremos detectados
-Duration / Duracion: ${durationMinutes} min
-Type / Tipo: ${type.toUpperCase()}
-Extreme readings / Lecturas extremas: ${count}
-Latest values / Ultimos valores: ${details}
-
-[INFO] Data has NOT been discarded (scientific integrity preserved).
-       Los datos NO han sido descartados (se preserva la integridad cientifica).
-
-If this doesn't correspond to a real physical event, it may indicate a detector or connection issue.
-Si esto no corresponde a un evento fisico real, podria indicar un problema con el detector.
-
-[SUGGESTION] Check detector status. If the problem persists, consider reporting to system administrators.
-             Verifique el estado del detector. Si persiste, reporte a los administradores.`;
-    
-    console.warn(message);
-    
-    // Show toast notification if function is available
-    if (typeof showToast === 'function') {
-        showToast(`[WARNING] Extreme values for ${durationMinutes}+ min. Check detector / Verifique detector.`, 'warning');
-    }
-    
-    // Append to terminal
-    appendToTerminal(`[SYSTEM WARNING] Prolonged extreme ${type} values (${count} readings over ${durationMinutes} min). Data preserved but may indicate system issue.`);
 }
 
 /**

@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.6.1 — Entry Point / Orchestrator
+ * MuNRa 4.5.2 — Entry Point / Orchestrator
  *
  * Wires IIFE modules + DOM listeners.  NO business logic here.
  *
@@ -345,5 +345,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Periodic RT expiry check every 30 seconds
     setInterval(() => _updateRealtimeButtonStates(), 30_000);
 
-    console.log('MuNRa 4.6.1 — modular init complete');
+    console.log('MuNRa 4.5.2 — modular init complete');
 });

@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════════
-   MuNRa 4.6.1 — Cosmic Ray Monitor
+   MuNRa 4.5.2 — Cosmic Ray Monitor
    Professional scientific dashboard — fully responsive
    Base font: 16px. Topbar: 56px.  Readable from 3m away on lab screens.
    ═══════════════════════════════════════════════════════════════════════════════ */
@@ -293,27 +293,47 @@ body { display: flex; flex-direction: column; }
 
 /* ── Mobile topbar ─────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-    .topbar { padding: 6px 8px; gap: 6px; min-height: auto; }
-    .topbar-left { order: 1; }
-    .topbar-right { order: 2; margin-left: auto; }
+    .topbar {
+        padding: 6px 8px;
+        gap: 4px;
+        min-height: auto;
+        flex-wrap: wrap;
+        max-width: 100vw;
+        overflow-x: hidden;
+    }
+    .topbar-left {
+        order: 1;
+        flex: 0 0 auto;
+    }
+    .topbar-right {
+        order: 2;
+        margin-left: auto;
+        flex-wrap: wrap;
+        gap: 4px;
+        justify-content: flex-end;
+    }
     .topbar-center {
         order: 3;
         width: 100%;
         justify-content: flex-start;
         gap: 6px;
     }
+    /* Hide button text on mobile — icon only */
+    .action-text { display: none; }
+    .action-btn { padding: 6px 8px; font-size: 0.85rem; gap: 0; }
     /* Hide desktop time buttons, show dropdown */
     .time-buttons { display: none; }
     .time-range-select { display: block; }
-    /* Hide mode switch labels on small screens */
     .mode-label { font-size: 0.7rem; }
-    .action-btn { padding: 5px 8px; font-size: 0.85rem; }
+    /* Enforce no horizontal overflow */
+    .brand-sub { display: none; }
 }
 @media (max-width: 480px) {
     .status-indicator .status-text { display: none; }
     .brand-name { font-size: 1rem; }
     .brand-mu { width: 28px; height: 28px; min-width: 28px; font-size: 14px; }
     .mode-switch { display: none; }
+    .action-btn { padding: 5px 6px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════════

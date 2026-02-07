@@ -91,10 +91,10 @@ const ChartManager = (() => {
     function init() {
         _loadPreferences();
 
-        // Suppress Chart.js global point defaults so pointRadius: 0 on datasets is respected
+        // Set global point defaults to 0 so line-only / smooth-no-dots never flash dots
         if (Chart.defaults.elements && Chart.defaults.elements.point) {
-            Chart.defaults.elements.point.radius = 2;
-            Chart.defaults.elements.point.hoverRadius = 4;
+            Chart.defaults.elements.point.radius = 0;
+            Chart.defaults.elements.point.hoverRadius = 0;
         }
 
         for (let slot = 0; slot < NUM_SLOTS; slot++) {

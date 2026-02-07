@@ -16,7 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="css/main.css?v=4.6">
+    <link rel="stylesheet" href="css/main.css?v=4.6.1">
 </head>
 <body>
 
@@ -51,6 +51,22 @@
                 <button class="time-btn" data-range="all">ALL</button>
                 <button class="time-btn" data-range="custom">CUSTOM</button>
             </div>
+            <select class="time-range-select" id="timeRangeMobile">
+                <option value="1">1m</option>
+                <option value="5">5m</option>
+                <option value="15" selected>15m</option>
+                <option value="30">30m</option>
+                <option value="60">1h</option>
+                <option value="360">6h</option>
+                <option value="720">12h</option>
+                <option value="1440">24h</option>
+                <option value="4320">3d</option>
+                <option value="10080">7d</option>
+                <option value="20160">14d</option>
+                <option value="43200">30d</option>
+                <option value="all">ALL</option>
+                <option value="custom">CUSTOM</option>
+            </select>
             <div class="mode-switch">
                 <span class="mode-label" id="accurateLabel">ACCURATE</span>
                 <label class="switch">
@@ -59,8 +75,6 @@
                 </label>
                 <span class="mode-label" id="stackedLabel">STACKED</span>
             </div>
-            <button class="global-type-btn" id="globalTypeBtn" title="Cycle chart type for ALL charts">All Type</button>
-            <button class="global-type-btn" id="globalRtTypeBtn" title="Cycle realtime chart type for ALL charts" style="display:none">All RT</button>
         </div>
 
         <div class="topbar-right">
@@ -73,7 +87,7 @@
             <!-- Connect Detector — clear text, hidden for guests -->
             <button class="action-btn" id="serialTerminalBtn" style="display:none">
                 <span class="action-icon"><svg viewBox="0 0 24 24"><path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m8 0h6M4.93 19.07l4.24-4.24m5.66-5.66l4.24-4.24"/></svg></span>
-                <span class="action-text">Detector</span>
+                <span class="action-text">Connect Detector</span>
             </button>
 
             <!-- Settings — text label -->
@@ -174,6 +188,10 @@
                 <div class="stat-item"><span class="stat-label">Pressure</span><span class="stat-value" id="statPressure">— hPa</span></div>
                 <div class="stat-item"><span class="stat-label">Last Update</span><span class="stat-value" id="statLastUpdate">—</span></div>
                 <div class="stat-item stat-profile"><span class="stat-label">Profile</span><span class="stat-value" id="statProfileName">None</span></div>
+                <div class="stat-item stat-type-btn">
+                    <button class="global-type-btn" id="globalTypeBtn" title="Cycle chart type for all charts">Chart ↻</button>
+                    <button class="global-type-btn" id="globalRtTypeBtn" title="Cycle realtime chart type for all charts" style="display:none">RT ↻</button>
+                </div>
             </div>
 
             <!-- 2×2 Charts Grid — each cell has source selector -->
@@ -189,9 +207,9 @@
                                 <option value="deadtime">Dead Time</option>
                                 <option value="terminal">Terminal</option>
                             </select>
-                            <button class="chart-btn chart-type-btn" data-slot="0" title="Cycle chart type">Type ▸</button>
-                            <button class="chart-btn chart-rt-type-btn" data-slot="0" title="Cycle realtime chart type" style="display:none">RT ▸</button>
-                            <button class="chart-btn chart-download-btn" data-slot="0" title="Download CSV">↓ CSV</button>
+                            <button class="chart-btn chart-type-btn" data-slot="0" title="Cycle chart type">↻</button>
+                            <button class="chart-btn chart-rt-type-btn" data-slot="0" title="Cycle realtime chart type" style="display:none">↻</button>
+                            <button class="chart-btn chart-download-btn" data-slot="0" title="Download CSV">↓</button>
                         </div>
                     </div>
                     <div class="chart-container"><canvas id="chartCanvas0"></canvas></div>
@@ -208,9 +226,9 @@
                                 <option value="deadtime">Dead Time</option>
                                 <option value="terminal">Terminal</option>
                             </select>
-                            <button class="chart-btn chart-type-btn" data-slot="1" title="Cycle chart type">Type ▸</button>
-                            <button class="chart-btn chart-rt-type-btn" data-slot="1" title="Cycle realtime chart type" style="display:none">RT ▸</button>
-                            <button class="chart-btn chart-download-btn" data-slot="1" title="Download CSV">↓ CSV</button>
+                            <button class="chart-btn chart-type-btn" data-slot="1" title="Cycle chart type">↻</button>
+                            <button class="chart-btn chart-rt-type-btn" data-slot="1" title="Cycle realtime chart type" style="display:none">↻</button>
+                            <button class="chart-btn chart-download-btn" data-slot="1" title="Download CSV">↓</button>
                         </div>
                     </div>
                     <div class="chart-container"><canvas id="chartCanvas1"></canvas></div>
@@ -227,9 +245,9 @@
                                 <option value="deadtime">Dead Time</option>
                                 <option value="terminal">Terminal</option>
                             </select>
-                            <button class="chart-btn chart-type-btn" data-slot="2" title="Cycle chart type">Type ▸</button>
-                            <button class="chart-btn chart-rt-type-btn" data-slot="2" title="Cycle realtime chart type" style="display:none">RT ▸</button>
-                            <button class="chart-btn chart-download-btn" data-slot="2" title="Download CSV">↓ CSV</button>
+                            <button class="chart-btn chart-type-btn" data-slot="2" title="Cycle chart type">↻</button>
+                            <button class="chart-btn chart-rt-type-btn" data-slot="2" title="Cycle realtime chart type" style="display:none">↻</button>
+                            <button class="chart-btn chart-download-btn" data-slot="2" title="Download CSV">↓</button>
                         </div>
                     </div>
                     <div class="chart-container"><canvas id="chartCanvas2"></canvas></div>
@@ -246,9 +264,9 @@
                                 <option value="deadtime" selected>Dead Time</option>
                                 <option value="terminal">Terminal</option>
                             </select>
-                            <button class="chart-btn chart-type-btn" data-slot="3" title="Cycle chart type">Type ▸</button>
-                            <button class="chart-btn chart-rt-type-btn" data-slot="3" title="Cycle realtime chart type" style="display:none">RT ▸</button>
-                            <button class="chart-btn chart-download-btn" data-slot="3" title="Download CSV">↓ CSV</button>
+                            <button class="chart-btn chart-type-btn" data-slot="3" title="Cycle chart type">↻</button>
+                            <button class="chart-btn chart-rt-type-btn" data-slot="3" title="Cycle realtime chart type" style="display:none">↻</button>
+                            <button class="chart-btn chart-download-btn" data-slot="3" title="Download CSV">↓</button>
                         </div>
                     </div>
                     <div class="chart-container"><canvas id="chartCanvas3"></canvas></div>
@@ -473,15 +491,15 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ═══════════════ SCRIPTS ═══════════════ -->
-    <script src="js/config.js?v=4.6"></script>
-    <script src="js/ui-manager.js?v=4.6"></script>
-    <script src="js/firebase-manager.js?v=4.6"></script>
-    <script src="js/data-manager.js?v=4.6"></script>
-    <script src="js/chart-manager.js?v=4.6"></script>
-    <script src="js/profile-manager.js?v=4.6"></script>
-    <script src="js/upload-manager.js?v=4.6"></script>
-    <script src="js/auth.js?v=4.6"></script>
-    <script src="js/serial-reader.js?v=4.6"></script>
-    <script src="js/app-entry.js?v=4.6"></script>
+    <script src="js/config.js?v=4.6.1"></script>
+    <script src="js/ui-manager.js?v=4.6.1"></script>
+    <script src="js/firebase-manager.js?v=4.6.1"></script>
+    <script src="js/data-manager.js?v=4.6.1"></script>
+    <script src="js/chart-manager.js?v=4.6.1"></script>
+    <script src="js/profile-manager.js?v=4.6.1"></script>
+    <script src="js/upload-manager.js?v=4.6.1"></script>
+    <script src="js/auth.js?v=4.6.1"></script>
+    <script src="js/serial-reader.js?v=4.6.1"></script>
+    <script src="js/app-entry.js?v=4.6.1"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.6 — Entry Point / Orchestrator
+ * MuNRa 4.6.1 — Entry Point / Orchestrator
  *
  * Wires IIFE modules + DOM listeners.  NO business logic here.
  *
@@ -301,6 +301,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const customModal = document.getElementById('customRangeModal');
     if (customModal) customModal.addEventListener('click', e => { if (e.target.id === 'customRangeModal') customModal.classList.remove('active'); });
 
+    // ── Esc key — close topmost overlay ─────────────────────────────────
+    document.addEventListener('keydown', e => {
+        if (e.key !== 'Escape') return;
+        // Close in priority order (topmost first)
+        const adminModal = document.getElementById('adminModal');
+        if (adminModal && adminModal.classList.contains('active')) { adminModal.classList.remove('active'); return; }
+        const authModal = document.getElementById('authModal');
+        if (authModal && authModal.classList.contains('active')) { authModal.classList.remove('active'); return; }
+        const settingsM = document.getElementById('settingsModal');
+        if (settingsM && settingsM.classList.contains('active')) { UIManager.closeSettings(); return; }
+        const customM = document.getElementById('customRangeModal');
+        if (customM && customM.classList.contains('active')) { customM.classList.remove('active'); return; }
+        const detectorM = document.getElementById('detectorSetupModal');
+        if (detectorM && detectorM.classList.contains('active')) { detectorM.classList.remove('active'); return; }
+        if (profilePanel && profilePanel.classList.contains('open')) { closeProfilePanel(); return; }
+        // Close user dropdown if open
+        const userDd = document.getElementById('userDropdown');
+        if (userDd && userDd.classList.contains('show')) { userDd.classList.remove('show'); return; }
+    });
+
+    // ── Mobile time-range dropdown ──────────────────────────────────────
+    const timeRangeMobile = document.getElementById('timeRangeMobile');
+    if (timeRangeMobile) {
+        timeRangeMobile.addEventListener('change', () => {
+            const r = timeRangeMobile.value;
+            if (r === 'custom') { UIManager.openCustomRange(); return; }
+            // Sync desktop buttons
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+            const matchBtn = document.querySelector(`.time-btn[data-range="${r}"]`);
+            if (matchBtn) matchBtn.classList.add('active');
+            ChartManager.setTimeRange(r === 'all' ? 'all' : parseInt(r));
+            _updateGlobalRtButton();
+        });
+    }
+
     // ── 5. Initial state ─────────────────────────────────────────────
     // Realtime cleanup is handled by serial-reader.js on a per-session basis.
     // No global cleanup runs here — it only runs when recording with realtime enabled.
@@ -310,5 +345,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Periodic RT expiry check every 30 seconds
     setInterval(() => _updateRealtimeButtonStates(), 30_000);
 
-    console.log('MuNRa 4.6 — modular init complete');
+    console.log('MuNRa 4.6.1 — modular init complete');
 });

@@ -20,6 +20,7 @@ let isSerialConnected = false;
 let isRecording = false;
 let recordingProfile = null;
 let recordingSession = null;
+let _firstMinuteIsPartial = false;
 
 // Data aggregation state
 let currentMinute = null;
@@ -159,6 +160,7 @@ async function startRecording(profileId, enableRealtime = false) {
     // Reset minute data and error counters
     resetMinuteData();
     currentMinute = Math.floor(Date.now() / 60000);
+    _firstMinuteIsPartial = true;
     _latestWriteErrors = 0;
     _lastLatestUpdate = 0;
     
@@ -395,7 +397,13 @@ function processDataLine(line, enableRealtime) {
     try {
         const nowMinute = Math.floor(Date.now() / 60000);
         if (currentMinute !== null && nowMinute !== currentMinute) {
-            saveMinuteData();
+            if (_firstMinuteIsPartial) {
+                // First minute started mid-way — discard like last partial minute
+                appendToTerminal(`[System] Discarding first partial minute (${minuteData.eventCount} events in incomplete minute) — only complete minutes are saved.`);
+                _firstMinuteIsPartial = false;
+            } else {
+                saveMinuteData();
+            }
             resetMinuteData();
             currentMinute = nowMinute;
         }

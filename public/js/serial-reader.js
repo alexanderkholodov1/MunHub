@@ -1,12 +1,25 @@
 /**
- * MuNRa 4.5.2 - Web Serial API Data Reader
+ * MuNRa 4.5.2 - Dual-Mode Serial Data Reader
  * 
- * Reads data directly from particle detector via USB serial port.
- * Uses the Web Serial API available in Chrome/Edge/Opera browsers.
+ * Reads data from particle detector via USB serial port.
+ * Supports TWO connection modes for universal browser compatibility:
+ * 
+ * MODE 1 — Web Serial API (direct, Chrome/Edge/Opera only):
+ *   Browser talks directly to the USB serial port.
+ *   Requires Chrome 89+, Edge 89+, or Opera 75+.
+ * 
+ * MODE 2 — WebSocket Bridge (ANY browser, including Firefox/Safari):
+ *   A small Python script (tools/serial_bridge.py) runs on the user's
+ *   machine, reads the serial port, and forwards data over WebSocket.
+ *   The browser connects to ws://localhost:8765.
+ *   Works with EVERY browser that supports WebSocket (all modern browsers).
+ * 
+ * The UI automatically detects which modes are available and lets the
+ * user choose. Buttons are NEVER disabled — there is always a way to connect.
  * 
  * SERIAL COMPATIBILITY:
- *   - Supported browsers: Chrome 89+, Edge 89+, Opera 75+
- *   - NOT supported: Firefox, Safari (no Web Serial API)
+ *   - Chrome/Edge/Opera: Web Serial API (direct USB) or WebSocket Bridge
+ *   - Firefox/Safari/any: WebSocket Bridge
  *   - Linux: user must be in 'dialout' group for /dev/ttyACM0 access
  *   - Provides detailed OS-specific error diagnostics on connection failure
  * 
@@ -43,6 +56,12 @@ let minuteData = {
     deadtimeSum: 0,
     deadtimeCount: 0
 };
+
+// WebSocket bridge state (for Firefox/Safari/any browser)
+let _wsBridge = null;         // WebSocket connection to bridge server
+let _wsConnected = false;     // Whether bridge WebSocket is open
+let _connectionMode = null;   // 'serial' | 'websocket' | null
+const WS_BRIDGE_URL = 'ws://localhost:8765';
 
 // Terminal output element
 let terminalOutput = null;
@@ -117,8 +136,10 @@ function getSerialCompatInfo() {
 
     return {
         supported: false,
-        message: `${browser.name} does not support the Web Serial API.\nRequired: Chrome 89+, Edge 89+, or Opera 75+.`,
-        help: downloadHint
+        message: `${browser.name} does not support direct USB connection (Web Serial API).`,
+        help: downloadHint,
+        bridgeAvailable: true,
+        bridgeMessage: 'Use the WebSocket Bridge to connect from any browser.\nRun the bridge script on your computer, then click Connect.'
     };
 }
 
@@ -243,13 +264,18 @@ function _buildSerialErrorDiagnostic(error) {
 
 /**
  * Request and open a serial port connection.
+ * Strategy:
+ *   1. If Web Serial API is available → use it (Chrome/Edge/Opera)
+ *   2. If not → automatically try WebSocket bridge (any browser)
  * Provides detailed, OS-specific error diagnostics on failure.
  */
 async function connectSerialPort() {
+    // If Web Serial API not available, go straight to WebSocket bridge
     if (!isSerialSupported()) {
-        const info = getSerialCompatInfo();
-        throw new Error(info.message + '\n\n' + info.help);
+        return connectWebSocketBridge();
     }
+
+    // ── Web Serial path (Chrome/Edge/Opera) ───────────────────────
 
     // ── Step 1: Request port from user (browser picker dialog) ────
     try {
@@ -278,10 +304,104 @@ async function connectSerialPort() {
         throw new Error(_buildSerialErrorDiagnostic(openError));
     }
 
+    _connectionMode = 'serial';
     isSerialConnected = true;
-    console.log('Serial port connected at 9600 baud');
+    console.log('Serial port connected at 9600 baud (Web Serial API)');
 
     return true;
+}
+
+/**
+ * Connect via WebSocket bridge (for ANY browser including Firefox/Safari).
+ * The bridge is a Python script that reads serial and forwards via WebSocket.
+ * Connects to ws://localhost:8765
+ */
+async function connectWebSocketBridge() {
+    if (_wsBridge && _wsBridge.readyState === WebSocket.OPEN) {
+        throw new Error('WebSocket bridge is already connected.');
+    }
+
+    appendToTerminal('[System] Connecting to WebSocket bridge at ' + WS_BRIDGE_URL + '...');
+
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            if (_wsBridge) { try { _wsBridge.close(); } catch(e) {} }
+            _wsBridge = null;
+            const os = detectOS();
+            const lines = [
+                'WEBSOCKET BRIDGE NOT RUNNING',
+                '',
+                'The bridge script must be running on your computer to connect.',
+                '',
+                'Quick start:',
+                '  1. Install dependencies (one time):',
+                '     pip3 install pyserial websockets',
+                '',
+                '  2. Download and run the bridge:',
+            ];
+            if (os === 'linux' || os === 'macos') {
+                lines.push('     python3 tools/serial_bridge.py');
+            } else {
+                lines.push('     python tools\\serial_bridge.py');
+            }
+            lines.push('');
+            lines.push('  3. Then click "Connect" in the browser again.');
+            lines.push('');
+            lines.push('The bridge script is included with MuNRa:');
+            lines.push('  tools/serial_bridge.py');
+            lines.push('');
+            lines.push('Download it from the MuNRa website if needed:');
+            lines.push('  https://munra-1.web.app/tools/serial_bridge.py');
+            reject(new Error(lines.join('\n')));
+        }, 3000);  // 3 second timeout
+
+        try {
+            _wsBridge = new WebSocket(WS_BRIDGE_URL);
+        } catch (e) {
+            clearTimeout(timeout);
+            reject(new Error('Could not create WebSocket connection.\nMake sure the bridge script is running.'));
+            return;
+        }
+
+        _wsBridge.onopen = () => {
+            clearTimeout(timeout);
+            _wsConnected = true;
+            _connectionMode = 'websocket';
+            isSerialConnected = true;
+            console.log('Connected to WebSocket bridge at ' + WS_BRIDGE_URL);
+            resolve(true);
+        };
+
+        _wsBridge.onerror = (event) => {
+            clearTimeout(timeout);
+            console.error('WebSocket bridge error:', event);
+            // The error event fires but has no useful info — the timeout handles the message
+        };
+
+        _wsBridge.onclose = () => {
+            _wsConnected = false;
+            if (_connectionMode === 'websocket' && isSerialConnected) {
+                isSerialConnected = false;
+                appendToTerminal('[System] WebSocket bridge disconnected.');
+                if (typeof UIManager !== 'undefined') {
+                    UIManager.showToast('Bridge disconnected', 'error');
+                }
+            }
+        };
+    });
+}
+
+/**
+ * Disconnect from the WebSocket bridge
+ */
+async function disconnectWebSocketBridge() {
+    if (_wsBridge) {
+        try { _wsBridge.close(); } catch (e) { /* ignore */ }
+        _wsBridge = null;
+    }
+    _wsConnected = false;
+    _connectionMode = null;
+    isSerialConnected = false;
 }
 
 /**
@@ -294,30 +414,39 @@ async function disconnectSerialPort() {
         if (isRecording) {
             await stopRecording();
         }
-        
-        if (serialReader) {
-            try { await serialReader.cancel(); } catch (e) { /* ignore */ }
-            try { serialReader.releaseLock(); } catch (e) { /* ignore */ }
-            serialReader = null;
+
+        // Disconnect based on connection mode
+        if (_connectionMode === 'websocket') {
+            await disconnectWebSocketBridge();
+        } else {
+            if (serialReader) {
+                try { await serialReader.cancel(); } catch (e) { /* ignore */ }
+                try { serialReader.releaseLock(); } catch (e) { /* ignore */ }
+                serialReader = null;
+            }
+            
+            if (serialPort) {
+                try { await serialPort.close(); } catch (e) { /* ignore */ }
+                serialPort = null;
+            }
         }
         
-        if (serialPort) {
-            try { await serialPort.close(); } catch (e) { /* ignore */ }
-            serialPort = null;
-        }
-        
+        _connectionMode = null;
         isSerialConnected = false;
         isRecording = false;
-        console.log('Serial port disconnected');
+        console.log('Disconnected');
         
         return true;
     } catch (error) {
-        console.error('Serial disconnect error:', error);
+        console.error('Disconnect error:', error);
         // Still try to clean up state
+        _connectionMode = null;
         isSerialConnected = false;
         isRecording = false;
         serialReader = null;
         serialPort = null;
+        _wsBridge = null;
+        _wsConnected = false;
         throw error;
     }
 }
@@ -328,8 +457,14 @@ async function disconnectSerialPort() {
  * @param {boolean} enableRealtime - Whether to store real-time data (expensive)
  */
 async function startRecording(profileId, enableRealtime = false) {
-    if (!isSerialConnected || !serialPort) {
+    if (!isSerialConnected) {
+        throw new Error('Not connected. Click "Connect" first.');
+    }
+    if (_connectionMode === 'serial' && !serialPort) {
         throw new Error('Serial port not connected');
+    }
+    if (_connectionMode === 'websocket' && (!_wsBridge || _wsBridge.readyState !== WebSocket.OPEN)) {
+        throw new Error('WebSocket bridge not connected. Run the bridge script and reconnect.');
     }
     
     if (!profileId) {
@@ -368,10 +503,14 @@ async function startRecording(profileId, enableRealtime = false) {
     _latestWriteErrors = 0;
     _lastLatestUpdate = 0;
     
-    // Start reading
-    readSerialLoop(enableRealtime);
+    // Start reading — different loop depending on connection mode
+    if (_connectionMode === 'websocket') {
+        readWebSocketLoop(enableRealtime);
+    } else {
+        readSerialLoop(enableRealtime);
+    }
     
-    console.log(`Recording started for profile: ${profileId}, session: ${sessionId}`);
+    console.log(`Recording started for profile: ${profileId}, session: ${sessionId}, mode: ${_connectionMode}`);
     return sessionId;
 }
 
@@ -516,6 +655,84 @@ async function readSerialLoop(enableRealtime) {
             serialReader = null;
         }
     }
+}
+
+/**
+ * WebSocket bridge read loop.
+ * Receives serial data forwarded by the Python bridge script.
+ * Data arrives as JSON messages: { type: "serial_data", line: "...", ts: 12345 }
+ * The data lines are then processed by the same processDataLine() as Web Serial.
+ */
+function readWebSocketLoop(enableRealtime) {
+    if (!_wsBridge || _wsBridge.readyState !== WebSocket.OPEN) {
+        appendToTerminal('[Error] WebSocket bridge not connected — cannot start read loop.');
+        return;
+    }
+
+    let linesProcessed = 0;
+    let linesParsed = 0;
+    let linesFailed = 0;
+
+    appendToTerminal('[System] WebSocket bridge read loop started. Waiting for data...');
+
+    _wsBridge.onmessage = (event) => {
+        if (!isRecording) return;
+
+        try {
+            const msg = JSON.parse(event.data);
+
+            if (msg.type === 'bridge_info') {
+                appendToTerminal(`[OK] Bridge: ${msg.message} (port: ${msg.serial_port}, baud: ${msg.baud_rate})`);
+                return;
+            }
+
+            if (msg.type === 'serial_data' && msg.line) {
+                const line = msg.line.trim();
+                if (!line) return;
+
+                try {
+                    linesProcessed++;
+                    const wasParsed = processDataLine(line, enableRealtime);
+                    if (wasParsed) linesParsed++;
+                    else linesFailed++;
+                } catch (lineError) {
+                    linesFailed++;
+                    console.error('Error processing bridge line:', line, lineError);
+                    if (linesFailed <= 3) {
+                        appendToTerminal(`[Error] Line processing error: ${lineError.message}`);
+                    }
+                }
+
+                // Log progress periodically
+                if (linesProcessed > 0 && linesProcessed % 100 === 0) {
+                    appendToTerminal(`[System] Bridge progress: ${linesProcessed} lines, ${linesParsed} parsed, ${linesFailed} skipped`);
+                }
+            }
+        } catch (parseError) {
+            // Not JSON — try processing as raw line
+            const raw = event.data.trim();
+            if (raw) {
+                linesProcessed++;
+                try {
+                    const wasParsed = processDataLine(raw, enableRealtime);
+                    if (wasParsed) linesParsed++;
+                    else linesFailed++;
+                } catch (e) { linesFailed++; }
+            }
+        }
+    };
+
+    // Handle bridge disconnection during recording
+    const origOnclose = _wsBridge.onclose;
+    _wsBridge.onclose = () => {
+        appendToTerminal(`[System] Bridge read loop ended. Total: ${linesProcessed} lines, ${linesParsed} parsed, ${linesFailed} skipped.`);
+        _wsConnected = false;
+        if (isRecording) {
+            appendToTerminal('[Error] WebSocket bridge disconnected while recording!');
+            appendToTerminal('[Info] Data collected so far is safe. Restart the bridge and reconnect to continue.');
+        }
+        if (origOnclose) origOnclose();
+    };
 }
 
 /**
@@ -1130,7 +1347,8 @@ async function handleSerialConnect() {
         document.getElementById('startRecordingBtn').disabled = false;
         
         const os = detectOS();
-        appendToTerminal(`[OK] Serial port connected at 9600 baud (${os})`);
+        const mode = _connectionMode === 'websocket' ? 'WebSocket Bridge' : 'Web Serial API';
+        appendToTerminal(`[OK] Connected via ${mode} (${os})`);
     } catch (error) {
         // Display each line of the diagnostic as a separate terminal line
         const diagLines = (error.message || 'Unknown error').split('\n');
@@ -1306,7 +1524,9 @@ if (typeof window !== 'undefined') {
     window.detectOS = detectOS;
     window.detectBrowser = detectBrowser;
     window.connectSerialPort = connectSerialPort;
+    window.connectWebSocketBridge = connectWebSocketBridge;
     window.disconnectSerialPort = disconnectSerialPort;
+    window.disconnectWebSocketBridge = disconnectWebSocketBridge;
     window.startRecording = startRecording;
     window.stopRecording = stopRecording;
     window.showSerialTerminal = showSerialTerminal;

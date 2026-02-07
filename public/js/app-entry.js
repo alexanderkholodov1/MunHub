@@ -239,37 +239,27 @@ document.addEventListener('DOMContentLoaded', () => {
             if (hiddenSel && hiddenSel.value) sel.value = hiddenSel.value;
         }
 
-        // ── Browser compatibility check ───────────────────────────────
+        // ── Connection mode info ──────────────────────────────────────
         const warnEl = document.getElementById('serialCompatWarning');
         if (warnEl) {
-            if (typeof getSerialCompatInfo === 'function') {
-                const info = getSerialCompatInfo();
-                if (!info.supported) {
-                    document.getElementById('serialCompatMsg').textContent = info.message.split('\n')[0];
-                    document.getElementById('serialCompatDetail').innerHTML =
-                        info.message.split('\n').slice(1).join('<br>') +
-                        '<br><br><a href="https://www.google.com/chrome/" target="_blank" style="color:#58a6ff;">Download Google Chrome</a>';
-                    warnEl.style.display = 'block';
-                    // Disable connect buttons but don't hide them
-                    const tabBtn   = document.getElementById('setupOpenTab');
-                    const chartBtn = document.getElementById('setupOpenInChart');
-                    if (tabBtn)   { tabBtn.disabled = true; tabBtn.title = 'Requires Chrome or Edge'; }
-                    if (chartBtn) { chartBtn.disabled = true; chartBtn.title = 'Requires Chrome or Edge'; }
-                } else {
-                    warnEl.style.display = 'none';
-                    const tabBtn   = document.getElementById('setupOpenTab');
-                    const chartBtn = document.getElementById('setupOpenInChart');
-                    if (tabBtn)   { tabBtn.disabled = false; tabBtn.title = ''; }
-                    if (chartBtn) { chartBtn.disabled = false; chartBtn.title = ''; }
-                }
-            } else if (!('serial' in navigator)) {
-                // Fallback if serial-reader.js hasn't loaded yet
-                document.getElementById('serialCompatMsg').textContent = 'Web Serial API not available in this browser.';
+            const hasSerial = ('serial' in navigator);
+            if (!hasSerial) {
+                // Show WebSocket Bridge info — NOT an error, NOT disabled!
+                document.getElementById('serialCompatMsg').textContent = 'WebSocket Bridge Mode';
                 document.getElementById('serialCompatDetail').innerHTML =
-                    'Requires <strong>Chrome 89+</strong>, <strong>Edge 89+</strong>, or <strong>Opera 75+</strong>.<br>' +
-                    '<a href="https://www.google.com/chrome/" target="_blank" style="color:#58a6ff;">Download Google Chrome</a>';
+                    'Your browser will connect via the bridge script (works with <strong>all browsers</strong>).<br>' +
+                    'Run on your computer: <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:3px;">pip3 install pyserial websockets && python3 tools/serial_bridge.py</code><br>' +
+                    '<a href="tools/serial_bridge.py" download style="color:#3fb950;">Download serial_bridge.py</a>';
                 warnEl.style.display = 'block';
+                // Buttons stay ENABLED — bridge mode works!
+            } else {
+                warnEl.style.display = 'none';
             }
+            // Always ensure buttons are enabled
+            const tabBtn   = document.getElementById('setupOpenTab');
+            const chartBtn = document.getElementById('setupOpenInChart');
+            if (tabBtn)   { tabBtn.disabled = false; tabBtn.title = ''; }
+            if (chartBtn) { chartBtn.disabled = false; chartBtn.title = ''; }
         }
 
         detectorModal.classList.add('active');

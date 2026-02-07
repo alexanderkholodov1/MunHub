@@ -1,0 +1,377 @@
+#!/usr/bin/env python3
+"""
+MuNRa Serial-to-WebSocket Bridge
+=================================
+Connects ANY browser to the MuNRa particle detector via USB serial port.
+
+This bridge reads data from the detector's serial port and forwards it
+over WebSocket to the browser. It works with ALL browsers (Firefox,
+Safari, Chrome, Edge, Opera — any browser that supports WebSocket).
+
+Usage:
+    python3 serial_bridge.py                    # Auto-detect port
+    python3 serial_bridge.py /dev/ttyACM0       # Specify port (Linux)
+    python3 serial_bridge.py COM3               # Specify port (Windows)
+
+Requirements:
+    pip install pyserial websockets
+    (or: pip3 install pyserial websockets)
+
+The bridge runs a WebSocket server on ws://localhost:8765.
+MuNRa's terminal will auto-detect and connect to it.
+
+NOTE: On Linux, your user must be in the 'dialout' group to access
+serial ports without sudo:
+    sudo usermod -a -G dialout $USER
+    (then log out and back in)
+"""
+
+import sys
+import asyncio
+import json
+import signal
+import time
+import glob
+import platform
+
+try:
+    import serial
+    import serial.tools.list_ports
+except ImportError:
+    print("\n[ERROR] 'pyserial' is not installed.")
+    print("  Install it with:  pip3 install pyserial websockets")
+    print("  Or:               pip install pyserial websockets\n")
+    sys.exit(1)
+
+try:
+    import websockets
+    from websockets.asyncio.server import serve
+except ImportError:
+    try:
+        import websockets
+        # Older websockets versions
+        serve = websockets.serve
+    except ImportError:
+        print("\n[ERROR] 'websockets' is not installed.")
+        print("  Install it with:  pip3 install pyserial websockets")
+        print("  Or:               pip install pyserial websockets\n")
+        sys.exit(1)
+
+# ─── Configuration ─────────────────────────────────────────────────
+WS_HOST = "localhost"
+WS_PORT = 8765
+BAUD_RATE = 9600
+DATA_BITS = 8
+STOP_BITS = 1
+PARITY = "none"
+
+# ─── Globals ───────────────────────────────────────────────────────
+connected_clients = set()
+serial_port = None
+running = True
+
+
+def detect_serial_ports():
+    """Auto-detect available serial ports, prioritizing likely detector ports."""
+    ports = serial.tools.list_ports.comports()
+    candidates = []
+    
+    for port in ports:
+        info = {
+            "device": port.device,
+            "description": port.description or "",
+            "hwid": port.hwid or "",
+            "manufacturer": port.manufacturer or "",
+        }
+        # Prioritize Arduino/detector-like ports
+        score = 0
+        desc = (port.description or "").lower()
+        mfr = (port.manufacturer or "").lower()
+        
+        if "arduino" in desc or "arduino" in mfr:
+            score += 10
+        if "acm" in port.device.lower():
+            score += 5
+        if "usb" in desc.lower():
+            score += 3
+        if "ch340" in desc or "ftdi" in desc or "cp210" in desc:
+            score += 4
+        if "bluetooth" in desc.lower() or "bt" in desc.lower():
+            score -= 10  # Deprioritize Bluetooth
+            
+        candidates.append((score, info))
+    
+    # Sort by score (highest first)
+    candidates.sort(key=lambda x: -x[0])
+    return [c[1] for c in candidates]
+
+
+def print_banner():
+    """Print startup banner."""
+    os_name = platform.system()
+    print()
+    print("=" * 60)
+    print("  MuNRa Serial-to-WebSocket Bridge")
+    print("  Connects ANY browser to the particle detector")
+    print("=" * 60)
+    print(f"  OS:        {os_name} ({platform.release()})")
+    print(f"  Python:    {sys.version.split()[0]}")
+    print(f"  WebSocket: ws://{WS_HOST}:{WS_PORT}")
+    print(f"  Baud Rate: {BAUD_RATE}")
+    print("=" * 60)
+    print()
+
+
+def open_serial(port_path):
+    """Open the serial port with MuNRa detector settings."""
+    global serial_port
+    
+    try:
+        serial_port = serial.Serial(
+            port=port_path,
+            baudrate=BAUD_RATE,
+            bytesize=serial.EIGHTBITS,
+            stopbits=serial.STOPBITS_ONE,
+            parity=serial.PARITY_NONE,
+            timeout=1,
+            xonxoff=False,
+            rtscts=False,
+            dsrdtr=False,
+        )
+        print(f"[OK] Serial port opened: {port_path} at {BAUD_RATE} baud")
+        return True
+    except serial.SerialException as e:
+        msg = str(e).lower()
+        print(f"\n[ERROR] Cannot open {port_path}: {e}")
+        
+        if "permission" in msg or "access" in msg:
+            if platform.system() == "Linux":
+                print("\n  FIX: Add your user to the 'dialout' group:")
+                print(f"    sudo usermod -a -G dialout {os_environ_user()}")
+                print("    (then log out and back in)")
+                print(f"\n  Quick test (temporary):")
+                print(f"    sudo chmod 666 {port_path}")
+            elif platform.system() == "Darwin":
+                print("\n  FIX: Check System Preferences > Security & Privacy")
+            elif platform.system() == "Windows":
+                print("\n  FIX: Run this script as Administrator,")
+                print("  or check Device Manager for the correct COM port.")
+        
+        elif "busy" in msg or "in use" in msg or "resource" in msg:
+            print("\n  FIX: Another program is using this port.")
+            print("  Close minicom, Arduino IDE, screen, or any other serial monitor.")
+            if platform.system() == "Linux":
+                print(f"  Find the process: sudo fuser {port_path}")
+                print(f"  Kill it:          sudo fuser -k {port_path}")
+        
+        return False
+
+
+def os_environ_user():
+    """Get the current username."""
+    import os
+    return os.environ.get("USER", os.environ.get("USERNAME", "your_user"))
+
+
+async def serial_reader():
+    """Read serial data and broadcast to all WebSocket clients."""
+    global running
+    
+    buffer = ""
+    lines_sent = 0
+    
+    print("[OK] Serial reader loop started. Waiting for data...")
+    
+    while running:
+        try:
+            if serial_port and serial_port.is_open and serial_port.in_waiting > 0:
+                raw = serial_port.read(serial_port.in_waiting)
+                text = raw.decode("utf-8", errors="replace")
+                buffer += text
+                
+                # Process complete lines
+                lines = buffer.split("\n")
+                buffer = lines.pop()  # Keep incomplete line
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    
+                    # Send to all connected WebSocket clients
+                    if connected_clients:
+                        message = json.dumps({
+                            "type": "serial_data",
+                            "line": line,
+                            "ts": int(time.time() * 1000)
+                        })
+                        
+                        # Send to all clients, remove disconnected ones
+                        disconnected = set()
+                        for client in connected_clients:
+                            try:
+                                await client.send(message)
+                            except websockets.exceptions.ConnectionClosed:
+                                disconnected.add(client)
+                        
+                        connected_clients -= disconnected
+                        lines_sent += 1
+                        
+                        if lines_sent == 1:
+                            print(f"[OK] First data sent to {len(connected_clients)} client(s): {line[:80]}")
+                        elif lines_sent % 500 == 0:
+                            print(f"[Info] {lines_sent} lines sent to {len(connected_clients)} client(s)")
+            
+            else:
+                # No data available, sleep briefly
+                await asyncio.sleep(0.01)
+                
+        except serial.SerialException as e:
+            print(f"[ERROR] Serial read error: {e}")
+            print("[Info] Detector may have been disconnected. Waiting...")
+            await asyncio.sleep(2)
+        except Exception as e:
+            print(f"[ERROR] Unexpected error in reader: {e}")
+            await asyncio.sleep(0.5)
+
+
+async def ws_handler(websocket):
+    """Handle a single WebSocket connection from the browser."""
+    client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}" if hasattr(websocket, 'remote_address') and websocket.remote_address else "unknown"
+    print(f"[OK] Browser connected: {client_info}")
+    connected_clients.add(websocket)
+    
+    # Send welcome message with bridge info
+    welcome = json.dumps({
+        "type": "bridge_info",
+        "version": "1.0",
+        "serial_port": serial_port.port if serial_port else "unknown",
+        "baud_rate": BAUD_RATE,
+        "os": platform.system(),
+        "message": "MuNRa Serial Bridge connected"
+    })
+    
+    try:
+        await websocket.send(welcome)
+        
+        # Listen for commands from the browser (e.g., disconnect request)
+        async for message in websocket:
+            try:
+                cmd = json.loads(message)
+                if cmd.get("type") == "ping":
+                    await websocket.send(json.dumps({"type": "pong", "ts": int(time.time() * 1000)}))
+                elif cmd.get("type") == "status":
+                    await websocket.send(json.dumps({
+                        "type": "status",
+                        "serial_connected": serial_port is not None and serial_port.is_open,
+                        "clients": len(connected_clients),
+                        "serial_port": serial_port.port if serial_port else None
+                    }))
+            except json.JSONDecodeError:
+                pass
+    
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    finally:
+        connected_clients.discard(websocket)
+        print(f"[Info] Browser disconnected: {client_info}")
+
+
+async def main():
+    global running
+    
+    print_banner()
+    
+    # ── Determine serial port ──────────────────────────────────────
+    port_path = None
+    
+    if len(sys.argv) > 1:
+        port_path = sys.argv[1]
+        print(f"[Info] Using specified port: {port_path}")
+    else:
+        # Auto-detect
+        ports = detect_serial_ports()
+        if not ports:
+            print("[ERROR] No serial ports found!")
+            print()
+            print("  Troubleshooting:")
+            print("  1. Check the USB cable is connected")
+            print("  2. Try a different USB port")
+            if platform.system() == "Linux":
+                print("  3. Check: ls -la /dev/ttyACM* /dev/ttyUSB*")
+                print("  4. Check kernel log: dmesg | tail -20")
+            elif platform.system() == "Windows":
+                print("  3. Open Device Manager > Ports (COM & LPT)")
+            elif platform.system() == "Darwin":
+                print("  3. Check: ls /dev/tty.usb*")
+            print()
+            sys.exit(1)
+        
+        print(f"[Info] Found {len(ports)} serial port(s):")
+        for i, p in enumerate(ports):
+            marker = " <-- best match" if i == 0 else ""
+            print(f"  [{i+1}] {p['device']}  —  {p['description']}{marker}")
+        
+        if len(ports) == 1:
+            port_path = ports[0]["device"]
+            print(f"\n[Info] Auto-selecting: {port_path}")
+        else:
+            # Let user choose
+            print()
+            while True:
+                try:
+                    choice = input(f"Select port [1-{len(ports)}] (default: 1): ").strip()
+                    if not choice:
+                        choice = "1"
+                    idx = int(choice) - 1
+                    if 0 <= idx < len(ports):
+                        port_path = ports[idx]["device"]
+                        break
+                    else:
+                        print(f"  Please enter a number between 1 and {len(ports)}")
+                except (ValueError, EOFError):
+                    port_path = ports[0]["device"]
+                    break
+    
+    # ── Open serial port ───────────────────────────────────────────
+    if not open_serial(port_path):
+        sys.exit(1)
+    
+    # ── Start WebSocket server ─────────────────────────────────────
+    print(f"\n[OK] Starting WebSocket server on ws://{WS_HOST}:{WS_PORT}")
+    print("[Info] Open MuNRa in your browser and click 'Connect via Bridge'")
+    print("[Info] Press Ctrl+C to stop\n")
+    
+    # Handle graceful shutdown
+    def signal_handler(sig, frame):
+        global running
+        print("\n[Info] Shutting down...")
+        running = False
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    if hasattr(signal, 'SIGTERM'):
+        signal.signal(signal.SIGTERM, signal_handler)
+    
+    # Start WebSocket server and serial reader concurrently
+    try:
+        async with serve(ws_handler, WS_HOST, WS_PORT) as server:
+            print(f"[OK] WebSocket server listening on ws://{WS_HOST}:{WS_PORT}")
+            # Run the serial reader in parallel
+            await serial_reader()
+    except OSError as e:
+        if "address already in use" in str(e).lower():
+            print(f"\n[ERROR] Port {WS_PORT} is already in use!")
+            print("  Another instance of the bridge may be running.")
+            print(f"  Kill it:  lsof -ti :{WS_PORT} | xargs kill")
+        else:
+            print(f"\n[ERROR] Could not start WebSocket server: {e}")
+        sys.exit(1)
+    finally:
+        if serial_port and serial_port.is_open:
+            serial_port.close()
+            print("[OK] Serial port closed.")
+        print("[OK] Bridge stopped.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

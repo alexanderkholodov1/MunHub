@@ -37,6 +37,20 @@ const DataManager = (() => {
     function getCurrentProfile() { return _currentProfile; }
     function hasRealtimeData()   { return _hasRealtimeData; }
 
+    /** Returns the timestamp (ms) of the most recent realtime entry, or 0 */
+    function getLastRealtimeTimestamp() {
+        if (!_realtimeData.length) return 0;
+        return _realtimeData[_realtimeData.length - 1].ts;
+    }
+
+    /** Returns true if realtime data exists but is older than PERF.REALTIME_RETENTION_MS (5 min) */
+    function isRealtimeExpired() {
+        if (!_hasRealtimeData) return false;
+        const lastTs = getLastRealtimeTimestamp();
+        if (!lastTs) return false;
+        return (Date.now() - lastTs) > PERF.REALTIME_RETENTION_MS;
+    }
+
     // ─── Listener Registration ──────────────────────────────────────────
     /** Register a callback that fires whenever allData changes. */
     function onChange(fn) {
@@ -264,6 +278,8 @@ const DataManager = (() => {
         getCurrentProfile,
         getStorageStats,
         hasRealtimeData,
+        getLastRealtimeTimestamp,
+        isRealtimeExpired,
         onChange,
         onRealtimeChange,
         subscribeToProfile,

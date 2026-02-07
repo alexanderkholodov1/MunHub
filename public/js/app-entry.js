@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.2 — Entry Point / Orchestrator
+ * MuNRa 4.6 — Entry Point / Orchestrator
  *
  * Wires IIFE modules + DOM listeners.  NO business logic here.
  *
@@ -49,16 +49,29 @@ document.addEventListener('DOMContentLoaded', () => {
         _updateRealtimeButtonStates();
     });
 
-    /** Disable 1m/5m buttons when no realtime data is available */
+    /** Disable 1m/5m buttons when no realtime data or data is stale (>5 min old) */
     function _updateRealtimeButtonStates() {
         const hasRT = DataManager.hasRealtimeData();
+        const expired = DataManager.isRealtimeExpired ? DataManager.isRealtimeExpired() : false;
+        const available = hasRT && !expired;
         document.querySelectorAll('.time-btn').forEach(btn => {
             const r = btn.dataset.range;
             if (r === '1' || r === '5') {
-                btn.classList.toggle('rt-disabled', !hasRT);
-                btn.title = hasRT ? '' : 'Enable real-time data when connecting a detector';
+                btn.classList.toggle('rt-disabled', !available);
+                btn.title = available ? '' : (expired ? 'Real-time data is stale (>5 min). Reconnect detector.' : 'Enable real-time data when connecting a detector');
             }
         });
+        // If currently on 1m/5m and RT expired, auto-switch to 15m
+        if (expired) {
+            const curRange = ChartManager.getTimeRange();
+            if (curRange === 1 || curRange === 5) {
+                UIManager.showToast('Real-time data expired. Switching to 15m view.', 'info');
+                document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                const btn15 = document.querySelector('.time-btn[data-range="15"]');
+                if (btn15) btn15.classList.add('active');
+                ChartManager.setTimeRange(15);
+            }
+        }
     }
 
     // ── 4. Restore slot sources from localStorage ──────────────────────
@@ -127,6 +140,18 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); ChartManager.downloadChartData(btn.dataset.slot); })
     );
 
+    // ── Global chart type buttons ──────────────────────────────────────
+    const globalTypeBtn   = document.getElementById('globalTypeBtn');
+    const globalRtTypeBtn = document.getElementById('globalRtTypeBtn');
+    if (globalTypeBtn)   globalTypeBtn.addEventListener('click', () => ChartManager.cycleAllChartTypes());
+    if (globalRtTypeBtn) globalRtTypeBtn.addEventListener('click', () => ChartManager.cycleAllRealtimeChartTypes());
+
+    // Show/hide global RT button based on time range
+    function _updateGlobalRtButton() {
+        const range = ChartManager.getTimeRange();
+        if (globalRtTypeBtn) globalRtTypeBtn.style.display = (range === 5) ? '' : 'none';
+    }
+
     // ── Time range buttons ─────────────────────────────────────────────
     document.querySelectorAll('.time-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -135,6 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             ChartManager.setTimeRange(r === 'all' ? 'all' : parseInt(r));
+            _updateGlobalRtButton();
         });
     });
 
@@ -279,6 +305,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // Realtime cleanup is handled by serial-reader.js on a per-session basis.
     // No global cleanup runs here — it only runs when recording with realtime enabled.
     _updateRealtimeButtonStates();
+    _updateGlobalRtButton();
 
-    console.log('MuNRa 4.2 — modular init complete');
+    // Periodic RT expiry check every 30 seconds
+    setInterval(() => _updateRealtimeButtonStates(), 30_000);
+
+    console.log('MuNRa 4.6 — modular init complete');
 });

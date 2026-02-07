@@ -16,7 +16,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="css/main.css?v=4.4">
+    <link rel="stylesheet" href="css/main.css?v=4.6">
 </head>
 <body>
 
@@ -59,22 +59,27 @@
                 </label>
                 <span class="mode-label" id="stackedLabel">STACKED</span>
             </div>
+            <button class="global-type-btn" id="globalTypeBtn" title="Cycle chart type for ALL charts">All Type</button>
+            <button class="global-type-btn" id="globalRtTypeBtn" title="Cycle realtime chart type for ALL charts" style="display:none">All RT</button>
         </div>
 
         <div class="topbar-right">
             <!-- Profiles — opens overlay panel -->
             <button class="action-btn" id="profilesBtn">
-                <span class="action-icon">📂</span> Profiles
+                <span class="action-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+                <span class="action-text">Profiles</span>
             </button>
 
             <!-- Connect Detector — clear text, hidden for guests -->
             <button class="action-btn" id="serialTerminalBtn" style="display:none">
-                <span class="action-icon">⎔</span> Connect Detector
+                <span class="action-icon"><svg viewBox="0 0 24 24"><path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m8 0h6M4.93 19.07l4.24-4.24m5.66-5.66l4.24-4.24"/></svg></span>
+                <span class="action-text">Detector</span>
             </button>
 
             <!-- Settings — text label -->
             <button class="action-btn" id="settingsBtn">
-                <span class="action-icon">⚙</span> Settings
+                <span class="action-icon"><svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+                <span class="action-text">Settings</span>
             </button>
 
             <!-- Theme toggle -->
@@ -126,7 +131,7 @@
             <div class="tree-section" id="treeMyProfiles">
                 <div class="tree-section-head" data-section="mine">
                     <span class="tree-arrow">▶</span>
-                    <span class="tree-icon">👤</span>
+                    <span class="tree-icon" style="color:var(--accent-primary)">●</span>
                     <span class="tree-section-label">My Profiles</span>
                     <span class="tree-count" id="countMine">0</span>
                 </div>
@@ -135,7 +140,7 @@
             <div class="tree-section" id="treeShared">
                 <div class="tree-section-head" data-section="shared">
                     <span class="tree-arrow">▶</span>
-                    <span class="tree-icon">🤝</span>
+                    <span class="tree-icon" style="color:var(--warning)">●</span>
                     <span class="tree-section-label">Shared with Me</span>
                     <span class="tree-count" id="countShared">0</span>
                 </div>
@@ -144,7 +149,7 @@
             <div class="tree-section" id="treePublic">
                 <div class="tree-section-head" data-section="public">
                     <span class="tree-arrow">▶</span>
-                    <span class="tree-icon">🌐</span>
+                    <span class="tree-icon" style="color:var(--success)">●</span>
                     <span class="tree-section-label">Public Profiles</span>
                     <span class="tree-count" id="countPublic">0</span>
                 </div>
@@ -182,7 +187,7 @@
                                 <option value="sipm">SiPM Signal</option>
                                 <option value="temp">Temp &amp; Pressure</option>
                                 <option value="deadtime">Dead Time</option>
-                                <option value="terminal">🖥 Terminal</option>
+                                <option value="terminal">Terminal</option>
                             </select>
                             <button class="chart-btn chart-type-btn" data-slot="0" title="Cycle chart type">Type ▸</button>
                             <button class="chart-btn chart-rt-type-btn" data-slot="0" title="Cycle realtime chart type" style="display:none">RT ▸</button>
@@ -201,7 +206,7 @@
                                 <option value="sipm" selected>SiPM Signal</option>
                                 <option value="temp">Temp &amp; Pressure</option>
                                 <option value="deadtime">Dead Time</option>
-                                <option value="terminal">🖥 Terminal</option>
+                                <option value="terminal">Terminal</option>
                             </select>
                             <button class="chart-btn chart-type-btn" data-slot="1" title="Cycle chart type">Type ▸</button>
                             <button class="chart-btn chart-rt-type-btn" data-slot="1" title="Cycle realtime chart type" style="display:none">RT ▸</button>
@@ -220,7 +225,7 @@
                                 <option value="sipm">SiPM Signal</option>
                                 <option value="temp" selected>Temp &amp; Pressure</option>
                                 <option value="deadtime">Dead Time</option>
-                                <option value="terminal">🖥 Terminal</option>
+                                <option value="terminal">Terminal</option>
                             </select>
                             <button class="chart-btn chart-type-btn" data-slot="2" title="Cycle chart type">Type ▸</button>
                             <button class="chart-btn chart-rt-type-btn" data-slot="2" title="Cycle realtime chart type" style="display:none">RT ▸</button>
@@ -239,7 +244,7 @@
                                 <option value="sipm">SiPM Signal</option>
                                 <option value="temp">Temp &amp; Pressure</option>
                                 <option value="deadtime" selected>Dead Time</option>
-                                <option value="terminal">🖥 Terminal</option>
+                                <option value="terminal">Terminal</option>
                             </select>
                             <button class="chart-btn chart-type-btn" data-slot="3" title="Cycle chart type">Type ▸</button>
                             <button class="chart-btn chart-rt-type-btn" data-slot="3" title="Cycle realtime chart type" style="display:none">RT ▸</button>
@@ -259,7 +264,7 @@
     <div class="modal" id="detectorSetupModal">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2>⎔ Connect Detector</h2>
+                <h2>Connect Detector</h2>
                 <button class="modal-close" id="closeDetectorSetup">&times;</button>
             </div>
             <div class="modal-body">
@@ -298,7 +303,7 @@
     <div class="modal" id="settingsModal">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2>⚙ Settings</h2>
+                <h2>Settings</h2>
                 <button class="modal-close" id="closeSettings">&times;</button>
             </div>
             <div class="modal-body settings-grid">
@@ -468,15 +473,15 @@
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ═══════════════ SCRIPTS ═══════════════ -->
-    <script src="js/config.js?v=4.4"></script>
-    <script src="js/ui-manager.js?v=4.2"></script>
-    <script src="js/firebase-manager.js?v=4.2"></script>
-    <script src="js/data-manager.js?v=4.4"></script>
-    <script src="js/chart-manager.js?v=4.5"></script>
-    <script src="js/profile-manager.js?v=4.2"></script>
-    <script src="js/upload-manager.js?v=4.2"></script>
-    <script src="js/auth.js?v=4.2"></script>
-    <script src="js/serial-reader.js?v=4.4"></script>
-    <script src="js/app-entry.js?v=4.5"></script>
+    <script src="js/config.js?v=4.6"></script>
+    <script src="js/ui-manager.js?v=4.6"></script>
+    <script src="js/firebase-manager.js?v=4.6"></script>
+    <script src="js/data-manager.js?v=4.6"></script>
+    <script src="js/chart-manager.js?v=4.6"></script>
+    <script src="js/profile-manager.js?v=4.6"></script>
+    <script src="js/upload-manager.js?v=4.6"></script>
+    <script src="js/auth.js?v=4.6"></script>
+    <script src="js/serial-reader.js?v=4.6"></script>
+    <script src="js/app-entry.js?v=4.6"></script>
 </body>
 </html>

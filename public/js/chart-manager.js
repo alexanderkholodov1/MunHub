@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.5 — Chart Manager (slot-based)
+ * MuNRa 4.6 — Chart Manager (slot-based)
  *
  * 4 chart SLOTS — each can display any data source.
  * The HTML has <canvas id="chartCanvas0"> … <canvas id="chartCanvas3">
@@ -30,7 +30,7 @@ const ChartManager = (() => {
     const _chartTypes = ['line', 'line', 'line', 'line'];
 
     /** For 5m view: separate chart type for the realtime overlay line, PER SLOT */
-    const _realtimeChartTypes = ['scatter', 'scatter', 'scatter', 'scatter'];
+    const _realtimeChartTypes = ['bar', 'bar', 'bar', 'bar'];
 
     // RAF throttle
     let _updateScheduled = false;
@@ -43,7 +43,7 @@ const ChartManager = (() => {
         sipm:     'SiPM Signal',
         temp:     'Temperature & Pressure',
         deadtime: 'Dead Time',
-        terminal: '🖥 Terminal'
+        terminal: 'Terminal'
     };
 
     // ─── Accessors / Mutators ───────────────────────────────────────────
@@ -51,10 +51,16 @@ const ChartManager = (() => {
     function isStacked()      { return _isStackedMode; }
 
     function setTimeRange(range) {
-        // 1m and 5m require realtime data to be available
-        if ((range === 1 || range === 5) && !DataManager.hasRealtimeData()) {
-            UIManager.showToast('1m/5m views require real-time data. Enable it when connecting a detector.', 'error');
-            return;
+        // 1m and 5m require fresh realtime data (within last 5 minutes)
+        if ((range === 1 || range === 5)) {
+            if (!DataManager.hasRealtimeData()) {
+                UIManager.showToast('1m/5m views require real-time data. Enable it when connecting a detector.', 'error');
+                return;
+            }
+            if (DataManager.isRealtimeExpired && DataManager.isRealtimeExpired()) {
+                UIManager.showToast('Real-time data is stale (>5 min old). Reconnect the detector to use 1m/5m views.', 'error');
+                return;
+            }
         }
         const wasRtRange = (_globalTimeRange === 5);
         _globalTimeRange = range;
@@ -84,6 +90,12 @@ const ChartManager = (() => {
     // ─── Init ───────────────────────────────────────────────────────────
     function init() {
         _loadPreferences();
+
+        // Suppress Chart.js global point defaults so pointRadius: 0 on datasets is respected
+        if (Chart.defaults.elements && Chart.defaults.elements.point) {
+            Chart.defaults.elements.point.radius = 2;
+            Chart.defaults.elements.point.hoverRadius = 4;
+        }
 
         for (let slot = 0; slot < NUM_SLOTS; slot++) {
             _createChartForSlot(slot);
@@ -702,6 +714,7 @@ const ChartManager = (() => {
             // Reset all point properties first to avoid stale values
             d.pointStyle = undefined;
             d.pointHoverRadius = undefined;
+            d.pointHitRadius = undefined;
             switch (type) {
                 case 'scatter':
                     d.pointRadius = 4; d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
@@ -710,14 +723,14 @@ const ChartManager = (() => {
                     d.pointRadius = 0; d.pointStyle = false; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
                     break;
                 case 'line-only':
-                    d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0;
+                    d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0; d.pointHitRadius = 0;
                     d.showLine = true; d.tension = 0; d.borderWidth = 2;
                     break;
                 case 'smooth':
                     d.pointRadius = 2; d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
                     break;
                 case 'smooth-no-dots':
-                    d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0;
+                    d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0; d.pointHitRadius = 0;
                     d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
                     break;
                 default: // 'line' = Line + Dots
@@ -746,23 +759,24 @@ const ChartManager = (() => {
         d.type = type === 'bar' ? 'bar' : type === 'scatter' ? 'scatter' : 'line';
         d.pointStyle = undefined;
         d.pointHoverRadius = undefined;
+        d.pointHitRadius = undefined;
         switch (type) {
             case 'scatter':
                 d.pointRadius = 4; d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
                 break;
             case 'bar':
                 d.pointRadius = 0; d.pointStyle = false; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
-                d.barPercentage = 0.6;
+                d.barPercentage = 0.95; d.categoryPercentage = 0.95;
                 break;
             case 'line-only':
-                d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0;
+                d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0; d.pointHitRadius = 0;
                 d.showLine = true; d.tension = 0; d.borderWidth = 2;
                 break;
             case 'smooth':
                 d.pointRadius = 2; d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
                 break;
             case 'smooth-no-dots':
-                d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0;
+                d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0; d.pointHitRadius = 0;
                 d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
                 break;
             default: // 'line' = Line + Dots
@@ -787,6 +801,32 @@ const ChartManager = (() => {
         document.querySelectorAll('.chart-rt-type-btn').forEach(btn => {
             btn.style.display = show ? '' : 'none';
         });
+    }
+
+    // ─── Global Chart Type Cycling (all slots at once) ────────────────
+    function cycleAllChartTypes() {
+        // Use slot 0's current type as the reference, cycle to next
+        const cur = _chartTypes[0] || 'line';
+        const next = CHART_TYPES[(CHART_TYPES.indexOf(cur) + 1) % CHART_TYPES.length];
+        for (let slot = 0; slot < NUM_SLOTS; slot++) {
+            if (_slotSource[slot] === 'terminal') continue;
+            _chartTypes[slot] = next;
+            localStorage.setItem(`munra_slot${slot}_chartType`, next);
+            _applyChartType(slot, next, true);
+        }
+        UIManager.showToast(`All Charts: ${CHART_TYPE_LABELS[next] || next}`, 'success');
+    }
+
+    function cycleAllRealtimeChartTypes() {
+        const cur = _realtimeChartTypes[0] || 'bar';
+        const next = CHART_TYPES[(CHART_TYPES.indexOf(cur) + 1) % CHART_TYPES.length];
+        for (let slot = 0; slot < NUM_SLOTS; slot++) {
+            if (_slotSource[slot] === 'terminal') continue;
+            _realtimeChartTypes[slot] = next;
+            localStorage.setItem(`munra_slot${slot}_rtChartType`, next);
+            _applyRealtimeChartType(slot, next);
+        }
+        UIManager.showToast(`All RT: ${CHART_TYPE_LABELS[next] || next}`, 'success');
     }
 
     // ─── Per-Slot CSV Download ──────────────────────────────────────────
@@ -824,6 +864,8 @@ const ChartManager = (() => {
         init, scheduleUpdate, getTimeRange, setTimeRange, setCustomRange,
         isStacked, setStackedMode,
         setSlotSource, getTerminalSlot, appendTerminalLine,
-        cycleChartType, cycleRealtimeChartType, downloadChartData
+        cycleChartType, cycleRealtimeChartType,
+        cycleAllChartTypes, cycleAllRealtimeChartTypes,
+        downloadChartData
     });
 })();

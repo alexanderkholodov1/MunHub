@@ -1,8 +1,14 @@
 /**
- * MuNRa 4.0 - Web Serial API Data Reader
+ * MuNRa 4.5.2 - Web Serial API Data Reader
  * 
  * Reads data directly from particle detector via USB serial port.
- * Uses the Web Serial API available in Chrome/Edge browsers.
+ * Uses the Web Serial API available in Chrome/Edge/Opera browsers.
+ * 
+ * SERIAL COMPATIBILITY:
+ *   - Supported browsers: Chrome 89+, Edge 89+, Opera 75+
+ *   - NOT supported: Firefox, Safari (no Web Serial API)
+ *   - Linux: user must be in 'dialout' group for /dev/ttyACM0 access
+ *   - Provides detailed OS-specific error diagnostics on connection failure
  * 
  * SCIENTIFIC INTEGRITY: Data is NEVER filtered, edited, or discarded.
  * All measurements are saved exactly as received from the detector.
@@ -41,6 +47,41 @@ let minuteData = {
 // Terminal output element
 let terminalOutput = null;
 
+// ─── Platform & Browser Detection ─────────────────────────────────
+/**
+ * Detect user's operating system.
+ * Returns 'linux', 'macos', 'windows', 'chromeos', or 'unknown'.
+ */
+function detectOS() {
+    const ua = navigator.userAgent || '';
+    const plat = navigator.platform || '';
+    // Order matters: ChromeOS ua contains 'Linux' too, check first
+    if (/CrOS/.test(ua))                        return 'chromeos';
+    if (/Linux/.test(plat) || /Linux/.test(ua))  return 'linux';
+    if (/Mac/.test(plat) || /Mac/.test(ua))      return 'macos';
+    if (/Win/.test(plat) || /Win/.test(ua))      return 'windows';
+    return 'unknown';
+}
+
+/**
+ * Detect browser name and version.
+ * Returns { name: string, version: string, serialCapable: boolean }
+ */
+function detectBrowser() {
+    const ua = navigator.userAgent || '';
+    let name = 'Unknown', version = '';
+
+    // Order matters — Edge/Opera contain 'Chrome' in UA too
+    if (/Edg\/(\d[\d.]*)/.test(ua))       { name = 'Edge';    version = RegExp.$1; }
+    else if (/OPR\/(\d[\d.]*)/.test(ua))   { name = 'Opera';   version = RegExp.$1; }
+    else if (/Chrome\/(\d[\d.]*)/.test(ua)) { name = 'Chrome';  version = RegExp.$1; }
+    else if (/Firefox\/(\d[\d.]*)/.test(ua)){ name = 'Firefox'; version = RegExp.$1; }
+    else if (/Safari\/(\d[\d.]*)/.test(ua)) { name = 'Safari';  version = RegExp.$1; }
+
+    const serialCapable = ('serial' in navigator);
+    return { name, version, serialCapable };
+}
+
 /**
  * Check if Web Serial API is available
  */
@@ -49,19 +90,180 @@ function isSerialSupported() {
 }
 
 /**
- * Request and open a serial port connection
+ * Get a user-friendly browser compatibility message with download links.
+ * Returns { supported: boolean, message: string, help: string }
+ */
+function getSerialCompatInfo() {
+    const browser = detectBrowser();
+    if (browser.serialCapable) {
+        return { supported: true, message: `${browser.name} ${browser.version} — Web Serial supported`, help: '' };
+    }
+
+    const os = detectOS();
+    let downloadHint = '';
+    switch (os) {
+        case 'linux':
+            downloadHint = 'Install Google Chrome: https://www.google.com/chrome/ or run:\n  sudo apt install google-chrome-stable  (Debian/Ubuntu)\n  sudo dnf install google-chrome-stable   (Fedora)';
+            break;
+        case 'macos':
+            downloadHint = 'Install Google Chrome: https://www.google.com/chrome/ or:\n  brew install --cask google-chrome';
+            break;
+        case 'windows':
+            downloadHint = 'Install Google Chrome: https://www.google.com/chrome/\nor Microsoft Edge (already installed on Windows 10+)';
+            break;
+        default:
+            downloadHint = 'Install Google Chrome: https://www.google.com/chrome/';
+    }
+
+    return {
+        supported: false,
+        message: `${browser.name} does not support the Web Serial API.\nRequired: Chrome 89+, Edge 89+, or Opera 75+.`,
+        help: downloadHint
+    };
+}
+
+/**
+ * Build a detailed, actionable error message from a serial port open() failure.
+ * Parses the raw error and adds OS-specific troubleshooting steps.
+ */
+function _buildSerialErrorDiagnostic(error) {
+    const msg = (error.message || '').toLowerCase();
+    const os = detectOS();
+    const lines = [];
+
+    // ── 1. Permission denied ──────────────────────────────────────
+    if (msg.includes('permission') || msg.includes('access denied') || msg.includes('failed to open serial port')) {
+        lines.push('SERIAL PORT PERMISSION ERROR');
+        lines.push('The browser cannot access the serial device.\n');
+
+        if (os === 'linux') {
+            lines.push('On Linux, serial devices (e.g. /dev/ttyACM0) require');
+            lines.push('your user to be in the "dialout" group.\n');
+            lines.push('FIX (run in a terminal, then LOG OUT and back in):');
+            lines.push('  sudo usermod -a -G dialout $USER\n');
+            lines.push('Quick test (temporary, resets on reboot):');
+            lines.push('  sudo chmod 666 /dev/ttyACM0\n');
+            lines.push('Verify your groups:');
+            lines.push('  groups $USER');
+            lines.push('You should see "dialout" in the output.\n');
+            lines.push('NOTE: If the device is /dev/ttyUSB0 instead of');
+            lines.push('/dev/ttyACM0, the same fix applies.');
+        } else if (os === 'macos') {
+            lines.push('On macOS, serial permissions are usually automatic.');
+            lines.push('If this error persists:');
+            lines.push('  1. Check System Preferences > Security & Privacy');
+            lines.push('  2. Ensure Chrome has USB access');
+            lines.push('  3. Try unplugging and reconnecting the USB cable');
+        } else if (os === 'windows') {
+            lines.push('On Windows, you may need to install the USB driver:');
+            lines.push('  1. Open Device Manager');
+            lines.push('  2. Look for "Ports (COM & LPT)" or unknown devices');
+            lines.push('  3. Install the Arduino/CH340/FTDI driver if needed');
+            lines.push('  4. Note the COM port number (e.g. COM3)');
+        } else {
+            lines.push('Ensure your user has permission to access serial/USB devices.');
+        }
+
+        // Check if port might be busy (common sub-case of permission errors)
+        lines.push('\nAlso check: Is another program using the port?');
+        lines.push('Close minicom, Arduino IDE, PuTTY, screen, or any');
+        lines.push('other serial monitor before connecting.');
+
+        return lines.join('\n');
+    }
+
+    // ── 2. Port busy / already in use ─────────────────────────────
+    if (msg.includes('busy') || msg.includes('in use') || msg.includes('locked') || msg.includes('resource')) {
+        lines.push('SERIAL PORT IS BUSY');
+        lines.push('Another application is already using this port.\n');
+        lines.push('Common culprits:');
+        lines.push('  - minicom / screen / picocom');
+        lines.push('  - Arduino IDE Serial Monitor');
+        lines.push('  - Another browser tab with MuNRa');
+        lines.push('  - PuTTY or other serial terminal\n');
+        if (os === 'linux') {
+            lines.push('Find what is using the port:');
+            lines.push('  sudo fuser /dev/ttyACM0');
+            lines.push('  sudo lsof /dev/ttyACM0');
+            lines.push('\nKill the process if needed:');
+            lines.push('  sudo fuser -k /dev/ttyACM0');
+        }
+        return lines.join('\n');
+    }
+
+    // ── 3. Device not found / disconnected ────────────────────────
+    if (msg.includes('not found') || msg.includes('no such') || msg.includes('device') || msg.includes('disconnected')) {
+        lines.push('SERIAL DEVICE NOT FOUND');
+        lines.push('The detector does not appear to be connected.\n');
+        lines.push('Troubleshooting:');
+        lines.push('  1. Check the USB cable is firmly connected');
+        lines.push('  2. Try a different USB port');
+        lines.push('  3. Try a different USB cable');
+        if (os === 'linux') {
+            lines.push('  4. Check if the device appears:');
+            lines.push('       ls -la /dev/ttyACM* /dev/ttyUSB*');
+            lines.push('  5. Check kernel messages:');
+            lines.push('       dmesg | tail -20');
+        } else if (os === 'windows') {
+            lines.push('  4. Open Device Manager → Ports (COM & LPT)');
+            lines.push('  5. Check if a COM port appears when you plug in the detector');
+        } else if (os === 'macos') {
+            lines.push('  4. Check:  ls /dev/tty.usb*');
+        }
+        return lines.join('\n');
+    }
+
+    // ── 4. User cancelled the port picker dialog ──────────────────
+    if (msg.includes('cancel') || msg.includes('no port selected') || error.name === 'NotFoundError') {
+        // Not really an error — user just cancelled. Keep it brief.
+        return 'No serial port was selected. Click "Connect" again to choose a port.';
+    }
+
+    // ── 5. Network error (e.g. sandboxed context) ─────────────────
+    if (msg.includes('network') || msg.includes('security') || msg.includes('sandbox')) {
+        lines.push('SECURITY RESTRICTION');
+        lines.push('The Web Serial API requires a secure context (HTTPS or localhost).');
+        lines.push('If running locally, use: http://localhost or https://');
+        return lines.join('\n');
+    }
+
+    // ── 6. Generic / unrecognized error ───────────────────────────
+    lines.push(`SERIAL CONNECTION ERROR: ${error.message || error}`);
+    lines.push('');
+    if (os === 'linux') {
+        lines.push('Common Linux fixes:');
+        lines.push('  sudo usermod -a -G dialout $USER  (then log out/in)');
+        lines.push('  sudo chmod 666 /dev/ttyACM0       (temporary)');
+        lines.push('  Close any serial monitors (minicom, Arduino IDE, screen)');
+    }
+    lines.push('\nIf the problem persists, check the browser console (F12)');
+    lines.push('for more details and report the error.');
+    return lines.join('\n');
+}
+
+/**
+ * Request and open a serial port connection.
+ * Provides detailed, OS-specific error diagnostics on failure.
  */
 async function connectSerialPort() {
     if (!isSerialSupported()) {
-        throw new Error('Web Serial API not supported. Use Chrome or Edge browser.');
+        const info = getSerialCompatInfo();
+        throw new Error(info.message + '\n\n' + info.help);
     }
-    
+
+    // ── Step 1: Request port from user (browser picker dialog) ────
     try {
-        // Request port from user
         serialPort = await navigator.serial.requestPort();
-        
-        // Open with standard settings for MuNRa detector
-        // Baud rate 9600 as used by: sudo minicom -D /dev/ttyACM0 -b 9600
+    } catch (pickError) {
+        // User cancelled the dialog, or no ports available
+        if (pickError.name === 'NotFoundError' || (pickError.message || '').toLowerCase().includes('cancel')) {
+            throw new Error('No serial port was selected.\nClick "Connect" again and choose your detector from the list.\n\nIf no ports appear in the list:\n  - Check that the detector is plugged in via USB\n  - Try a different USB cable or port');
+        }
+        throw new Error(_buildSerialErrorDiagnostic(pickError));
+    }
+
+    // ── Step 2: Open the port ─────────────────────────────────────
+    try {
         await serialPort.open({
             baudRate: 9600,
             dataBits: 8,
@@ -69,15 +271,17 @@ async function connectSerialPort() {
             parity: 'none',
             flowControl: 'none'
         });
-        
-        isSerialConnected = true;
-        console.log('Serial port connected at 9600 baud');
-        
-        return true;
-    } catch (error) {
-        console.error('Serial connection error:', error);
-        throw error;
+    } catch (openError) {
+        // Port selected but open() failed — this is the common Linux permissions issue
+        console.error('Serial port open() failed:', openError);
+        serialPort = null;
+        throw new Error(_buildSerialErrorDiagnostic(openError));
     }
+
+    isSerialConnected = true;
+    console.log('Serial port connected at 9600 baud');
+
+    return true;
 }
 
 /**
@@ -911,7 +1115,8 @@ function populateSerialProfileSelect() {
 }
 
 /**
- * Handle connect button click
+ * Handle connect button click.
+ * Displays detailed, multi-line error diagnostics on failure.
  */
 async function handleSerialConnect() {
     try {
@@ -924,11 +1129,17 @@ async function handleSerialConnect() {
         document.getElementById('serialDisconnectBtn').disabled = false;
         document.getElementById('startRecordingBtn').disabled = false;
         
-        appendToTerminal('[System] Serial port connected successfully!');
+        const os = detectOS();
+        appendToTerminal(`[OK] Serial port connected at 9600 baud (${os})`);
     } catch (error) {
-        appendToTerminal(`[Error] ${error.message}`);
+        // Display each line of the diagnostic as a separate terminal line
+        const diagLines = (error.message || 'Unknown error').split('\n');
+        diagLines.forEach(line => {
+            if (line.trim()) appendToTerminal(`[Error] ${line}`);
+        });
         if (typeof showToast === 'function') {
-            showToast('Failed to connect: ' + error.message, 'error');
+            // Toast gets just the first line (short summary)
+            showToast('Connection failed: ' + diagLines[0], 'error');
         }
     }
 }
@@ -1091,6 +1302,9 @@ let _lastCleanupProfile = null;
 // Export functions for use in other modules
 if (typeof window !== 'undefined') {
     window.isSerialSupported = isSerialSupported;
+    window.getSerialCompatInfo = getSerialCompatInfo;
+    window.detectOS = detectOS;
+    window.detectBrowser = detectBrowser;
     window.connectSerialPort = connectSerialPort;
     window.disconnectSerialPort = disconnectSerialPort;
     window.startRecording = startRecording;

@@ -238,6 +238,40 @@ document.addEventListener('DOMContentLoaded', () => {
             const hiddenSel = document.getElementById('profileSelect');
             if (hiddenSel && hiddenSel.value) sel.value = hiddenSel.value;
         }
+
+        // ── Browser compatibility check ───────────────────────────────
+        const warnEl = document.getElementById('serialCompatWarning');
+        if (warnEl) {
+            if (typeof getSerialCompatInfo === 'function') {
+                const info = getSerialCompatInfo();
+                if (!info.supported) {
+                    document.getElementById('serialCompatMsg').textContent = info.message.split('\n')[0];
+                    document.getElementById('serialCompatDetail').innerHTML =
+                        info.message.split('\n').slice(1).join('<br>') +
+                        '<br><br><a href="https://www.google.com/chrome/" target="_blank" style="color:#58a6ff;">Download Google Chrome</a>';
+                    warnEl.style.display = 'block';
+                    // Disable connect buttons but don't hide them
+                    const tabBtn   = document.getElementById('setupOpenTab');
+                    const chartBtn = document.getElementById('setupOpenInChart');
+                    if (tabBtn)   { tabBtn.disabled = true; tabBtn.title = 'Requires Chrome or Edge'; }
+                    if (chartBtn) { chartBtn.disabled = true; chartBtn.title = 'Requires Chrome or Edge'; }
+                } else {
+                    warnEl.style.display = 'none';
+                    const tabBtn   = document.getElementById('setupOpenTab');
+                    const chartBtn = document.getElementById('setupOpenInChart');
+                    if (tabBtn)   { tabBtn.disabled = false; tabBtn.title = ''; }
+                    if (chartBtn) { chartBtn.disabled = false; chartBtn.title = ''; }
+                }
+            } else if (!('serial' in navigator)) {
+                // Fallback if serial-reader.js hasn't loaded yet
+                document.getElementById('serialCompatMsg').textContent = 'Web Serial API not available in this browser.';
+                document.getElementById('serialCompatDetail').innerHTML =
+                    'Requires <strong>Chrome 89+</strong>, <strong>Edge 89+</strong>, or <strong>Opera 75+</strong>.<br>' +
+                    '<a href="https://www.google.com/chrome/" target="_blank" style="color:#58a6ff;">Download Google Chrome</a>';
+                warnEl.style.display = 'block';
+            }
+        }
+
         detectorModal.classList.add('active');
     }
     function closeDetectorSetup() { detectorModal.classList.remove('active'); }

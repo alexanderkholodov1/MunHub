@@ -723,30 +723,34 @@ const ChartManager = (() => {
         chart.data.datasets.forEach((d, idx) => {
             if (idx >= minuteCount) return;  // skip RT datasets
             d.type = type === 'bar' ? 'bar' : type === 'scatter' ? 'scatter' : 'line';
-            // Reset all point properties first to avoid stale values
-            d.pointStyle = undefined;
-            d.pointHoverRadius = undefined;
-            d.pointHitRadius = undefined;
+            // RESET ALL point properties explicitly to avoid stale values persisting
+            // from a previous chart type (e.g. dots remaining after switching from 'line' to 'line-only')
+            d.pointRadius = 0;
+            d.pointStyle = false;
+            d.pointHoverRadius = 0;
+            d.pointHitRadius = 0;
+            d.showLine = true;
             switch (type) {
                 case 'scatter':
-                    d.pointRadius = 4; d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
+                    d.pointRadius = 4; d.pointStyle = 'circle'; d.pointHoverRadius = 6; d.pointHitRadius = 8;
+                    d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
                     break;
                 case 'bar':
-                    d.pointRadius = 0; d.pointStyle = false; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
+                    d.tension = 0; d.borderWidth = 1.5;
                     break;
                 case 'line-only':
-                    d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0; d.pointHitRadius = 0;
-                    d.showLine = true; d.tension = 0; d.borderWidth = 2;
+                    d.tension = 0; d.borderWidth = 2;
                     break;
                 case 'smooth':
-                    d.pointRadius = 2; d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
+                    d.pointRadius = 2; d.pointStyle = 'circle'; d.pointHoverRadius = 4; d.pointHitRadius = 6;
+                    d.tension = 0.4; d.borderWidth = 2;
                     break;
                 case 'smooth-no-dots':
-                    d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0; d.pointHitRadius = 0;
-                    d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
+                    d.tension = 0.4; d.borderWidth = 2;
                     break;
                 default: // 'line' = Line + Dots
-                    d.pointRadius = 2; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
+                    d.pointRadius = 2; d.pointStyle = 'circle'; d.pointHoverRadius = 4; d.pointHitRadius = 6;
+                    d.tension = 0; d.borderWidth = 1.5;
                     break;
             }
         });
@@ -769,30 +773,34 @@ const ChartManager = (() => {
     /** Style a single dataset object for a given chart type */
     function _styleDatasetForType(d, type) {
         d.type = type === 'bar' ? 'bar' : type === 'scatter' ? 'scatter' : 'line';
-        d.pointStyle = undefined;
-        d.pointHoverRadius = undefined;
-        d.pointHitRadius = undefined;
+        // RESET ALL point properties explicitly to avoid stale values
+        d.pointRadius = 0;
+        d.pointStyle = false;
+        d.pointHoverRadius = 0;
+        d.pointHitRadius = 0;
+        d.showLine = true;
         switch (type) {
             case 'scatter':
-                d.pointRadius = 4; d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
+                d.pointRadius = 4; d.pointStyle = 'circle'; d.pointHoverRadius = 6; d.pointHitRadius = 8;
+                d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
                 break;
             case 'bar':
-                d.pointRadius = 0; d.pointStyle = false; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
+                d.tension = 0; d.borderWidth = 1.5;
                 d.barPercentage = 0.95; d.categoryPercentage = 0.95;
                 break;
             case 'line-only':
-                d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0; d.pointHitRadius = 0;
-                d.showLine = true; d.tension = 0; d.borderWidth = 2;
+                d.tension = 0; d.borderWidth = 2;
                 break;
             case 'smooth':
-                d.pointRadius = 2; d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
+                d.pointRadius = 2; d.pointStyle = 'circle'; d.pointHoverRadius = 4; d.pointHitRadius = 6;
+                d.tension = 0.4; d.borderWidth = 2;
                 break;
             case 'smooth-no-dots':
-                d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0; d.pointHitRadius = 0;
-                d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
+                d.tension = 0.4; d.borderWidth = 2;
                 break;
             default: // 'line' = Line + Dots
-                d.pointRadius = 2; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
+                d.pointRadius = 2; d.pointStyle = 'circle'; d.pointHoverRadius = 4; d.pointHitRadius = 6;
+                d.tension = 0; d.borderWidth = 1.5;
                 break;
         }
     }

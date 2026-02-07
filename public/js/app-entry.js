@@ -120,6 +120,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.chart-type-btn').forEach(btn =>
         btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); ChartManager.cycleChartType(btn.dataset.slot); })
     );
+    document.querySelectorAll('.chart-rt-type-btn').forEach(btn =>
+        btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); ChartManager.cycleRealtimeChartType(btn.dataset.slot); })
+    );
     document.querySelectorAll('.chart-download-btn').forEach(btn =>
         btn.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); ChartManager.downloadChartData(btn.dataset.slot); })
     );

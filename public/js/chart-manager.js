@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.2 — Chart Manager (slot-based)
+ * MuNRa 4.5 — Chart Manager (slot-based)
  *
  * 4 chart SLOTS — each can display any data source.
  * The HTML has <canvas id="chartCanvas0"> … <canvas id="chartCanvas3">
@@ -30,7 +30,7 @@ const ChartManager = (() => {
     const _chartTypes = ['line', 'line', 'line', 'line'];
 
     /** For 5m view: separate chart type for the realtime overlay line, PER SLOT */
-    const _realtimeChartTypes = ['bar', 'bar', 'bar', 'bar'];
+    const _realtimeChartTypes = ['scatter', 'scatter', 'scatter', 'scatter'];
 
     // RAF throttle
     let _updateScheduled = false;
@@ -227,7 +227,7 @@ const ChartManager = (() => {
             termDiv.style.display = '';
 
             // Hide type/download buttons (not relevant for terminal)
-            panel.querySelectorAll('.chart-type-btn, .chart-download-btn').forEach(b => b.style.display = 'none');
+            panel.querySelectorAll('.chart-type-btn, .chart-rt-type-btn, .chart-download-btn').forEach(b => b.style.display = 'none');
         } else {
             // Show canvas, hide terminal
             if (canvas) canvas.style.display = '';
@@ -271,6 +271,8 @@ const ChartManager = (() => {
             if (src) _slotSource[s] = src;
             const ct = localStorage.getItem(`munra_slot${s}_chartType`);
             if (ct) _chartTypes[s] = ct;
+            const rct = localStorage.getItem(`munra_slot${s}_rtChartType`);
+            if (rct) _realtimeChartTypes[s] = rct;
         }
     }
 
@@ -384,6 +386,9 @@ const ChartManager = (() => {
         let rtArrays = null;
         if (_globalTimeRange === 5) {
             rtArrays = _buildRealtimeArrays(cMin, cMax);
+            _updateRtTypeButtons(true);
+        } else {
+            _updateRtTypeButtons(false);
         }
 
         // Push data to each slot's chart (skip terminal slots)
@@ -423,22 +428,47 @@ const ChartManager = (() => {
         if (!filtered.length) return null;
 
         const len = filtered.length;
+
+        // ── Event Rate: aggregate by second (count events & muons per second) ──
+        const evBuckets = _bucketEventsBySecond(filtered);
+
         const arrays = {
-            ev: new Array(len), mu: new Array(len),
+            ev: evBuckets.ev, mu: evBuckets.mu,
             sa: new Array(len),
             tp: new Array(len), pr: new Array(len),
             dt: new Array(len)
         };
         for (let i = 0; i < len; i++) {
             const d = filtered[i];
-            arrays.ev[i] = { x: d.ts, y: 1 };                                    // each event = 1 trigger
-            arrays.mu[i] = { x: d.ts, y: d.coincident || 0 };                     // muon if coincident
             arrays.sa[i] = { x: d.ts, y: d.sipm || 0 };                           // instantaneous SiPM
             arrays.tp[i] = { x: d.ts, y: d.temp != null ? d.temp : null };         // instantaneous temp
             arrays.pr[i] = { x: d.ts, y: d.pressure != null ? d.pressure / 100 : null }; // Pa→hPa
             arrays.dt[i] = { x: d.ts, y: d.deadtime != null ? d.deadtime : null }; // instantaneous deadtime
         }
         return arrays;
+    }
+
+    /**
+     * Bucket events by second: count total events and muon coincidences per second.
+     * Returns { ev: [{x, y}...], mu: [{x, y}...] } where y = count/second.
+     */
+    function _bucketEventsBySecond(data) {
+        const evMap = new Map();   // secondTs → count
+        const muMap = new Map();   // secondTs → count
+
+        for (let i = 0; i < data.length; i++) {
+            const d = data[i];
+            const sec = Math.floor(d.ts / 1000) * 1000;  // bucket to nearest second
+            evMap.set(sec, (evMap.get(sec) || 0) + 1);
+            if (d.coincident) muMap.set(sec, (muMap.get(sec) || 0) + 1);
+        }
+
+        // Convert to sorted arrays
+        const evKeys = [...evMap.keys()].sort((a, b) => a - b);
+        const ev = evKeys.map(k => ({ x: k, y: evMap.get(k) }));
+        const mu = evKeys.map(k => ({ x: k, y: muMap.get(k) || 0 }));
+
+        return { ev, mu };
     }
 
     /** Get realtime data arrays for a specific chart source */
@@ -459,37 +489,29 @@ const ChartManager = (() => {
         if (!chart) return;
 
         // Calculate expected total: minute datasets + realtime datasets
-        let minuteCount;
-        switch (src) {
-            case 'events':   minuteCount = 2; break;
-            case 'sipm':     minuteCount = 3; break;
-            case 'temp':     minuteCount = 2; break;
-            case 'deadtime': minuteCount = 1; break;
-            default: return;
-        }
+        const minuteCount = _getMinuteDatasetCount(src);
         const totalNeeded = minuteCount + rtCount;
+        const rtType = _realtimeChartTypes[slot] || 'scatter';
 
         // Add missing realtime datasets if needed
         while (chart.data.datasets.length < totalNeeded) {
             const rtIdx = chart.data.datasets.length - minuteCount;
             const rtLabel = _getRealtimeLabel(src, rtIdx);
             const rtColor = _getRealtimeColor(src, rtIdx);
-            const rtType = _realtimeChartTypes[slot] || 'bar';
 
-            chart.data.datasets.push({
+            const ds = {
                 label: rtLabel,
                 data: [],
                 borderColor: rtColor,
                 backgroundColor: rtColor,
-                type: rtType === 'bar' ? 'bar' : 'line',
-                pointRadius: rtType === 'bar' ? 0 : 2,
-                borderWidth: 1,
                 fill: false,
                 spanGaps: false,
-                barPercentage: 0.6,
                 yAxisID: src === 'temp' && rtIdx >= 1 ? 'y1' : 'y',
                 order: 10  // render behind minute data
-            });
+            };
+            // Apply proper RT chart type styling
+            _styleDatasetForType(ds, rtType);
+            chart.data.datasets.push(ds);
         }
 
         // Remove extra realtime datasets (when switching away from 5m)
@@ -545,14 +567,8 @@ const ChartManager = (() => {
             if (src === 'terminal') continue;
 
             // Strip any extra realtime-overlay datasets (1m only has base datasets)
-            let minuteCount;
-            switch (src) {
-                case 'events':   minuteCount = 2; break;
-                case 'sipm':     minuteCount = 3; break;
-                case 'temp':     minuteCount = 2; break;
-                case 'deadtime': minuteCount = 1; break;
-                default: continue;
-            }
+            const minuteCount = _getMinuteDatasetCount(src);
+            if (!minuteCount) continue;
             while (_charts[slot].data.datasets.length > minuteCount) {
                 _charts[slot].data.datasets.pop();
             }
@@ -560,12 +576,9 @@ const ChartManager = (() => {
             const datasets = [];
             switch (src) {
                 case 'events': {
-                    const ev = new Array(len), mu = new Array(len);
-                    for (let i = 0; i < len; i++) {
-                        ev[i] = { x: filtered[i].ts, y: 1 };
-                        mu[i] = { x: filtered[i].ts, y: filtered[i].coincident || 0 };
-                    }
-                    datasets.push(ev, mu);
+                    // Aggregate events per second for meaningful Event Rate display
+                    const evBuckets = _bucketEventsBySecond(filtered);
+                    datasets.push(evBuckets.ev, evBuckets.mu);
                     break;
                 }
                 case 'sipm': {
@@ -621,18 +634,13 @@ const ChartManager = (() => {
             const chart = _charts[slot];
             if (!chart) continue;
             const src = _slotSource[slot];
-            let minuteCount;
-            switch (src) {
-                case 'events':   minuteCount = 2; break;
-                case 'sipm':     minuteCount = 3; break;
-                case 'temp':     minuteCount = 2; break;
-                case 'deadtime': minuteCount = 1; break;
-                default: continue;
-            }
+            const minuteCount = _getMinuteDatasetCount(src);
+            if (!minuteCount) continue;
             while (chart.data.datasets.length > minuteCount) {
                 chart.data.datasets.pop();
             }
         }
+        _updateRtTypeButtons(false);
     }
 
     function _updateStats(data) {
@@ -669,10 +677,27 @@ const ChartManager = (() => {
         UIManager.showToast(`Chart: ${CHART_TYPE_LABELS[next] || next}`, 'success');
     }
 
+    /** Cycle the realtime overlay chart type for a slot (5m view only) */
+    function cycleRealtimeChartType(slot) {
+        slot = parseInt(slot);
+        if (isNaN(slot) || slot < 0 || slot >= NUM_SLOTS) return;
+        if (_slotSource[slot] === 'terminal') return;
+
+        const cur = _realtimeChartTypes[slot] || 'scatter';
+        const next = CHART_TYPES[(CHART_TYPES.indexOf(cur) + 1) % CHART_TYPES.length];
+        _realtimeChartTypes[slot] = next;
+        localStorage.setItem(`munra_slot${slot}_rtChartType`, next);
+        _applyRealtimeChartType(slot, next);
+        UIManager.showToast(`RT: ${CHART_TYPE_LABELS[next] || next}`, 'success');
+    }
+
     function _applyChartType(slot, type, silent = false) {
         const chart = _charts[slot];
         if (!chart) return;
-        chart.data.datasets.forEach(d => {
+        const minuteCount = _getMinuteDatasetCount(_slotSource[slot]);
+        // Only apply to minute datasets (indices 0..minuteCount-1)
+        chart.data.datasets.forEach((d, idx) => {
+            if (idx >= minuteCount) return;  // skip RT datasets
             d.type = type === 'bar' ? 'bar' : type === 'scatter' ? 'scatter' : 'line';
             // Reset all point properties first to avoid stale values
             d.pointStyle = undefined;
@@ -701,6 +726,67 @@ const ChartManager = (() => {
             }
         });
         chart.update('none');
+    }
+
+    /** Apply chart type styling to realtime overlay datasets only */
+    function _applyRealtimeChartType(slot, type) {
+        const chart = _charts[slot];
+        if (!chart) return;
+        const minuteCount = _getMinuteDatasetCount(_slotSource[slot]);
+        // Only apply to RT datasets (indices minuteCount..)
+        chart.data.datasets.forEach((d, idx) => {
+            if (idx < minuteCount) return;  // skip minute datasets
+            _styleDatasetForType(d, type);
+        });
+        chart.update('none');
+    }
+
+    /** Style a single dataset object for a given chart type */
+    function _styleDatasetForType(d, type) {
+        d.type = type === 'bar' ? 'bar' : type === 'scatter' ? 'scatter' : 'line';
+        d.pointStyle = undefined;
+        d.pointHoverRadius = undefined;
+        switch (type) {
+            case 'scatter':
+                d.pointRadius = 4; d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
+                break;
+            case 'bar':
+                d.pointRadius = 0; d.pointStyle = false; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
+                d.barPercentage = 0.6;
+                break;
+            case 'line-only':
+                d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0;
+                d.showLine = true; d.tension = 0; d.borderWidth = 2;
+                break;
+            case 'smooth':
+                d.pointRadius = 2; d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
+                break;
+            case 'smooth-no-dots':
+                d.pointRadius = 0; d.pointStyle = false; d.pointHoverRadius = 0;
+                d.showLine = true; d.tension = 0.4; d.borderWidth = 2;
+                break;
+            default: // 'line' = Line + Dots
+                d.pointRadius = 2; d.showLine = true; d.tension = 0; d.borderWidth = 1.5;
+                break;
+        }
+    }
+
+    /** Get number of minute-average datasets for a given source */
+    function _getMinuteDatasetCount(src) {
+        switch (src) {
+            case 'events':   return 2;
+            case 'sipm':     return 3;
+            case 'temp':     return 2;
+            case 'deadtime': return 1;
+            default:         return 0;
+        }
+    }
+
+    /** Show or hide the "RT Type ▸" buttons depending on view mode */
+    function _updateRtTypeButtons(show) {
+        document.querySelectorAll('.chart-rt-type-btn').forEach(btn => {
+            btn.style.display = show ? '' : 'none';
+        });
     }
 
     // ─── Per-Slot CSV Download ──────────────────────────────────────────
@@ -738,6 +824,6 @@ const ChartManager = (() => {
         init, scheduleUpdate, getTimeRange, setTimeRange, setCustomRange,
         isStacked, setStackedMode,
         setSlotSource, getTerminalSlot, appendTerminalLine,
-        cycleChartType, downloadChartData
+        cycleChartType, cycleRealtimeChartType, downloadChartData
     });
 })();

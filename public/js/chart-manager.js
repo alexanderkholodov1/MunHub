@@ -101,6 +101,18 @@ const ChartManager = (() => {
             _createChartForSlot(slot);
         }
 
+        // Set global type button labels to match the current (saved) type
+        const globalBtn = document.getElementById('globalTypeBtn');
+        if (globalBtn) {
+            const curType = _chartTypes[0] || 'line';
+            globalBtn.textContent = CHART_TYPE_LABELS[curType] || curType;
+        }
+        const globalRtBtn = document.getElementById('globalRtTypeBtn');
+        if (globalRtBtn) {
+            const curRtType = _realtimeChartTypes[0] || 'bar';
+            globalRtBtn.textContent = 'RT: ' + (CHART_TYPE_LABELS[curRtType] || curRtType);
+        }
+
         _startAxisTimer();
     }
 
@@ -150,7 +162,7 @@ const ChartManager = (() => {
         const ds = (label, color, extra = {}) => ({
             label, data: [], borderColor: color,
             backgroundColor: color.replace(')', ',0.1)').replace('rgb', 'rgba'),
-            tension: 0, pointRadius: 2, borderWidth: 1.5, fill: false, spanGaps: false, ...extra
+            tension: 0, pointRadius: 0, pointStyle: false, pointHoverRadius: 0, pointHitRadius: 0, borderWidth: 1.5, fill: false, spanGaps: false, ...extra
         });
 
         let config;
@@ -167,8 +179,8 @@ const ChartManager = (() => {
                     type: 'line',
                     data: { datasets: [
                         ds('Avg mV', COLORS.sipmAvg),
-                        ds('Max mV', COLORS.sipmMax, { pointRadius: 1, borderWidth: 1, borderDash: [3, 2] }),
-                        ds('Min mV', COLORS.sipmMin, { pointRadius: 1, borderWidth: 1, borderDash: [3, 2] })
+                        ds('Max mV', COLORS.sipmMax, { borderWidth: 1, borderDash: [3, 2] }),
+                        ds('Min mV', COLORS.sipmMin, { borderWidth: 1, borderDash: [3, 2] })
                     ]},
                     options: commonOpts('mV')
                 };
@@ -289,8 +301,8 @@ const ChartManager = (() => {
     }
 
     function _applySavedChartType(slot) {
-        const type = _chartTypes[slot];
-        if (type && type !== 'line') _applyChartType(slot, type, true);
+        const type = _chartTypes[slot] || 'line';
+        _applyChartType(slot, type, true);
     }
 
     // ─── Throttled Update ───────────────────────────────────────────────
@@ -814,6 +826,9 @@ const ChartManager = (() => {
             localStorage.setItem(`munra_slot${slot}_chartType`, next);
             _applyChartType(slot, next, true);
         }
+        // Update button label to show current type
+        const btn = document.getElementById('globalTypeBtn');
+        if (btn) btn.textContent = CHART_TYPE_LABELS[next] || next;
         UIManager.showToast(`All Charts: ${CHART_TYPE_LABELS[next] || next}`, 'success');
     }
 
@@ -826,6 +841,9 @@ const ChartManager = (() => {
             localStorage.setItem(`munra_slot${slot}_rtChartType`, next);
             _applyRealtimeChartType(slot, next);
         }
+        // Update button label to show current RT type
+        const btn = document.getElementById('globalRtTypeBtn');
+        if (btn) btn.textContent = 'RT: ' + (CHART_TYPE_LABELS[next] || next);
         UIManager.showToast(`All RT: ${CHART_TYPE_LABELS[next] || next}`, 'success');
     }
 

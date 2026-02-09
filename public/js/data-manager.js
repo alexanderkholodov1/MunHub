@@ -269,6 +269,20 @@ const DataManager = (() => {
         _hasRealtimeData = false;
     }
 
+    /**
+     * Push a realtime data point directly to the in-memory buffer.
+     * Used by serial-reader.js to provide immediate chart data
+     * WITHOUT writing to Firebase (which requires enableRealtime).
+     * This makes 1m/5m views work instantly regardless of the enableRealtime setting.
+     */
+    function pushLocalRealtime(point) {
+        _realtimeData.push(point);
+        // Keep within limit
+        while (_realtimeData.length > PERF.REALTIME_LIMIT) _realtimeData.shift();
+        _hasRealtimeData = true;
+        _notifyRealtime();
+    }
+
     // ─── Public API ─────────────────────────────────────────────────────
     return Object.freeze({
         getAllData,
@@ -285,6 +299,7 @@ const DataManager = (() => {
         subscribeToProfile,
         disconnect,
         downsample,
-        cleanupAllRealtime
+        cleanupAllRealtime,
+        pushLocalRealtime
     });
 })();

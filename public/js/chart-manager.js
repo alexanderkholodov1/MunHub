@@ -18,6 +18,9 @@ const ChartManager = (() => {
     /** @type {Chart[]} slot-indexed */
     const _charts = new Array(NUM_SLOTS);
 
+    /** Stacked mode: maps point index → real timestamp (ms) for tick labels */
+    let _stackedRealTimes = [];
+
     /** source key per slot: 'events' | 'sipm' | 'temp' | 'deadtime' | 'terminal' */
     const _slotSource = ['events', 'sipm', 'temp', 'deadtime'];
 
@@ -67,6 +70,8 @@ const ChartManager = (() => {
         localStorage.setItem('munra_range', range);
         // Clean up realtime overlay datasets when leaving 5m view
         if (wasRtRange && range !== 5) _cleanupRealtimeOverlays();
+        // Restart axis timer with appropriate interval for this range
+        _startAxisTimer();
         scheduleUpdate();
     }
     function setCustomRange(start, end) {
@@ -161,8 +166,10 @@ const ChartManager = (() => {
 
         const ds = (label, color, extra = {}) => ({
             label, data: [], borderColor: color,
-            backgroundColor: color.replace(')', ',0.1)').replace('rgb', 'rgba'),
-            tension: 0, pointRadius: 0, pointStyle: false, pointHoverRadius: 0, pointHitRadius: 0, borderWidth: 1.5, fill: false, spanGaps: false, ...extra
+            backgroundColor: color.replace(')', ',0.5)').replace('rgb', 'rgba'),
+            tension: 0, pointRadius: 0, pointStyle: false, pointHoverRadius: 0, pointHitRadius: 0, borderWidth: 1.5, fill: false, spanGaps: false,
+            barThickness: 'flex', maxBarThickness: 40, minBarLength: 2,
+            ...extra
         });
 
         let config;
@@ -213,7 +220,10 @@ const ChartManager = (() => {
         }
 
         _charts[slot] = new Chart(canvas, config);
-        _applySavedChartType(slot);
+        // Apply saved chart type styling inline (NOT via _applySavedChartType to avoid recursion)
+        const savedType = _chartTypes[slot] || 'line';
+        _charts[slot].data.datasets.forEach(d => _styleDatasetForType(d, savedType));
+        _charts[slot].update('none');
     }
 
     // ─── Source switching ────────────────────────────────────────────────
@@ -309,9 +319,11 @@ const ChartManager = (() => {
     function scheduleUpdate() {
         if (_updateScheduled) return;
         const elapsed = performance.now() - _lastUpdateTs;
-        if (elapsed < PERF.CHART_THROTTLE_MS) {
+        // Use faster throttle for realtime views (1m/5m) so charts respond instantly
+        const throttleMs = (_globalTimeRange === 1 || _globalTimeRange === 5) ? 300 : PERF.CHART_THROTTLE_MS;
+        if (elapsed < throttleMs) {
             _updateScheduled = true;
-            setTimeout(() => { _updateScheduled = false; requestAnimationFrame(_updateCharts); }, PERF.CHART_THROTTLE_MS - elapsed);
+            setTimeout(() => { _updateScheduled = false; requestAnimationFrame(_updateCharts); }, throttleMs - elapsed);
         } else {
             _updateScheduled = true;
             requestAnimationFrame(() => { _updateScheduled = false; _updateCharts(); });
@@ -356,17 +368,30 @@ const ChartManager = (() => {
             }
         }
 
-        // STACKED virtual timestamps
+        // STACKED mode: pack data sequentially (no temporal gaps)
+        // X axis uses indices, tick labels show REAL timestamps.
         let chartData = filtered;
         let cMin = minTime, cMax = maxTime;
         if (_isStackedMode && filtered.length) {
-            const base = filtered[0].timestamp * 1000;
+            // Build index-based X values so points are evenly spaced
+            // Store real timestamps for tick labels and tooltips
+            _stackedRealTimes = new Array(filtered.length);
             chartData = new Array(filtered.length);
             for (let i = 0; i < filtered.length; i++) {
                 const d = filtered[i];
-                chartData[i] = { timestamp: d.timestamp, ec: d.ec, cc: d.cc, sm: d.sm, sn: d.sn, sx: d.sx, tp: d.tp, pr: d.pr, dt: d.dt, virtualTs: base + i * 60_000, realTime: d.timestamp * 1000 };
+                _stackedRealTimes[i] = d.timestamp * 1000;
+                // Use fake evenly-spaced timestamp: 1 per minute from a fixed base
+                chartData[i] = {
+                    timestamp: i,   // index, getX will multiply by 1000
+                    ec: d.ec, cc: d.cc, sm: d.sm, sn: d.sn, sx: d.sx,
+                    tp: d.tp, pr: d.pr, dt: d.dt,
+                    realTime: d.timestamp * 1000
+                };
             }
-            cMin = base; cMax = base + (filtered.length - 1) * 60_000;
+            cMin = 0;
+            cMax = (filtered.length - 1) * 1000;  // getX = index * 1000
+        } else {
+            _stackedRealTimes = [];
         }
 
         // ACCURATE gap insertion
@@ -386,7 +411,7 @@ const ChartManager = (() => {
         if (chartData.length > PERF.MAX_CHART_POINTS) chartData = DataManager.downsample(chartData, PERF.MAX_CHART_POINTS);
 
         // Build point arrays for minute averages
-        const getX = d => _isStackedMode ? d.virtualTs : d.timestamp * 1000;
+        const getX = d => d.timestamp * 1000;
         const pt  = (d, f) => ({ x: getX(d), y: d.isGap ? null : (d[f] || 0),   realTime: d.timestamp * 1000 });
         const ptN = (d, f) => ({ x: getX(d), y: d.isGap ? null : (d[f] || null), realTime: d.timestamp * 1000 });
         const ptP = d       => ({ x: getX(d), y: d.isGap ? null : (d.pr ? d.pr / 100 : null), realTime: d.timestamp * 1000 });
@@ -643,12 +668,34 @@ const ChartManager = (() => {
         for (let i = 0; i < datasets.length; i++) {
             if (chart.data.datasets[i]) chart.data.datasets[i].data = datasets[i];
         }
-        const rangeMin = (maxTime - minTime) / 60_000;
-        let unit;
-        if (rangeMin <= 5) unit = 'second'; else if (rangeMin <= 60) unit = 'minute'; else if (rangeMin <= 1440) unit = 'hour'; else unit = 'day';
-        chart.options.scales.x.min = minTime;
-        chart.options.scales.x.max = maxTime;
-        chart.options.scales.x.time.unit = unit;
+
+        if (_isStackedMode && _stackedRealTimes.length > 0) {
+            // STACKED: linear scale with real-time tick labels
+            chart.options.scales.x.type = 'linear';
+            chart.options.scales.x.min = minTime;
+            chart.options.scales.x.max = maxTime;
+            delete chart.options.scales.x.time;
+            chart.options.scales.x.ticks.callback = function(value) {
+                // value = index * 1000, convert back to index
+                const idx = Math.round(value / 1000);
+                if (idx >= 0 && idx < _stackedRealTimes.length) {
+                    return new Date(_stackedRealTimes[idx]).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+                }
+                return '';
+            };
+        } else {
+            // ACCURATE / normal: time scale
+            chart.options.scales.x.type = 'time';
+            if (!chart.options.scales.x.time) chart.options.scales.x.time = {};
+            const rangeMin = (maxTime - minTime) / 60_000;
+            let unit;
+            if (rangeMin <= 5) unit = 'second'; else if (rangeMin <= 60) unit = 'minute'; else if (rangeMin <= 1440) unit = 'hour'; else unit = 'day';
+            chart.options.scales.x.min = minTime;
+            chart.options.scales.x.max = maxTime;
+            chart.options.scales.x.time.unit = unit;
+            chart.options.scales.x.time.displayFormats = { second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm', day: 'MMM d' };
+            delete chart.options.scales.x.ticks.callback;
+        }
         chart.update('none');
     }
 
@@ -682,9 +729,16 @@ const ChartManager = (() => {
     // ─── Time Axis Timer ────────────────────────────────────────────────
     function _startAxisTimer() {
         if (_axisTimerId) clearInterval(_axisTimerId);
+        // Use faster interval for 1m/5m views to keep the sliding window current
+        const interval = (_globalTimeRange === 1 || _globalTimeRange === 5) ? 2000 : PERF.TIME_AXIS_INTERVAL_MS;
         _axisTimerId = setInterval(() => {
-            if (!_isStackedMode && DataManager.getAllData().length > 0) scheduleUpdate();
-        }, PERF.TIME_AXIS_INTERVAL_MS);
+            // Always update for realtime views; for other views only if in ACCURATE mode
+            if (_globalTimeRange === 1 || _globalTimeRange === 5) {
+                scheduleUpdate();
+            } else if (!_isStackedMode && DataManager.getAllData().length > 0) {
+                scheduleUpdate();
+            }
+        }, interval);
     }
 
     // ─── Chart Type Cycling (per slot) ──────────────────────────────────
@@ -718,43 +772,13 @@ const ChartManager = (() => {
     function _applyChartType(slot, type, silent = false) {
         const chart = _charts[slot];
         if (!chart) return;
-        const minuteCount = _getMinuteDatasetCount(_slotSource[slot]);
-        // Only apply to minute datasets (indices 0..minuteCount-1)
-        chart.data.datasets.forEach((d, idx) => {
-            if (idx >= minuteCount) return;  // skip RT datasets
-            d.type = type === 'bar' ? 'bar' : type === 'scatter' ? 'scatter' : 'line';
-            // RESET ALL point properties explicitly to avoid stale values persisting
-            // from a previous chart type (e.g. dots remaining after switching from 'line' to 'line-only')
-            d.pointRadius = 0;
-            d.pointStyle = false;
-            d.pointHoverRadius = 0;
-            d.pointHitRadius = 0;
-            d.showLine = true;
-            switch (type) {
-                case 'scatter':
-                    d.pointRadius = 4; d.pointStyle = 'circle'; d.pointHoverRadius = 6; d.pointHitRadius = 8;
-                    d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
-                    break;
-                case 'bar':
-                    d.tension = 0; d.borderWidth = 1.5;
-                    break;
-                case 'line-only':
-                    d.tension = 0; d.borderWidth = 2;
-                    break;
-                case 'smooth':
-                    d.pointRadius = 2; d.pointStyle = 'circle'; d.pointHoverRadius = 4; d.pointHitRadius = 6;
-                    d.tension = 0.4; d.borderWidth = 2;
-                    break;
-                case 'smooth-no-dots':
-                    d.tension = 0.4; d.borderWidth = 2;
-                    break;
-                default: // 'line' = Line + Dots
-                    d.pointRadius = 2; d.pointStyle = 'circle'; d.pointHoverRadius = 4; d.pointHitRadius = 6;
-                    d.tension = 0; d.borderWidth = 1.5;
-                    break;
-            }
-        });
-        chart.update('none');
+
+        // Set type FIRST, then destroy and recreate.
+        // _createChartForSlot reads _chartTypes[slot] to apply styling.
+        _chartTypes[slot] = type;
+        localStorage.setItem(`munra_slot${slot}_chartType`, type);
+        _createChartForSlot(slot);  // Clean recreation — no recursion
+        scheduleUpdate();           // Refill data on next frame
     }
 
     /** Apply chart type styling to realtime overlay datasets only */
@@ -785,8 +809,20 @@ const ChartManager = (() => {
                 d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
                 break;
             case 'bar':
-                d.tension = 0; d.borderWidth = 1.5;
+                d.tension = 0; d.borderWidth = 1;
+                d.barThickness = 6; d.maxBarThickness = 40; d.minBarLength = 3;
                 d.barPercentage = 0.95; d.categoryPercentage = 0.95;
+                // Ensure visible bar fill regardless of color format (hex or rgb)
+                if (d.borderColor) {
+                    const c = d.borderColor;
+                    if (c.startsWith('#')) {
+                        // Convert hex to rgba with 0.7 opacity
+                        const r = parseInt(c.slice(1,3), 16), g = parseInt(c.slice(3,5), 16), b = parseInt(c.slice(5,7), 16);
+                        d.backgroundColor = `rgba(${r},${g},${b},0.7)`;
+                    } else {
+                        d.backgroundColor = c.replace(')', ',0.7)').replace('rgb', 'rgba');
+                    }
+                }
                 break;
             case 'line-only':
                 d.tension = 0; d.borderWidth = 2;

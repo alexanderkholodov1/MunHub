@@ -92,12 +92,18 @@ STOP_BITS = 1
 PARITY = "none"
 
 # ─── Globals ───────────────────────────────────────────────────────
-connected_clients = set()
-serial_port = None
-running = True
-data_file = None       # Local data file handle
-data_file_path = None  # Local data file path
-save_locally = True    # Whether to save data to local file
+# Use a dict to avoid Python's global scoping issues entirely.
+# Dict method calls (.add, .discard) never need 'global' keyword.
+state = {
+    'clients': set(),      # Connected WebSocket clients
+    'serial': None,        # Serial port handle
+    'running': True,       # Main loop flag
+    'data_file': None,     # Local data file handle
+    'data_file_path': None,# Local data file path
+    'save_locally': True,  # Whether to save data to local file
+}
+
+BRIDGE_VERSION = '1.1'
 
 
 def detect_serial_ports():
@@ -140,7 +146,7 @@ def print_banner():
     os_name = platform.system()
     print()
     print("=" * 60)
-    print("  MuNRa Serial-to-WebSocket Bridge")
+    print("  MuNRa Serial-to-WebSocket Bridge  v" + BRIDGE_VERSION)
     print("  Connects ANY browser to the particle detector")
     print("=" * 60)
     print(f"  OS:        {os_name} ({platform.release()})")
@@ -153,10 +159,9 @@ def print_banner():
 
 def open_serial(port_path):
     """Open the serial port with MuNRa detector settings."""
-    global serial_port
     
     try:
-        serial_port = serial.Serial(
+        state['serial'] = serial.Serial(
             port=port_path,
             baudrate=BAUD_RATE,
             bytesize=serial.EIGHTBITS,
@@ -204,20 +209,20 @@ def os_environ_user():
 
 async def serial_reader():
     """Read serial data and broadcast to all WebSocket clients."""
-    global running, connected_clients
     
     buffer = ""
     lines_sent = 0
     lines_saved = 0
+    sp = state['serial']
     
     print("[OK] Serial reader loop started. Waiting for data...")
-    if data_file:
-        print(f"[OK] Saving data locally to: {data_file_path}")
+    if state['data_file']:
+        print(f"[OK] Saving data locally to: {state['data_file_path']}")
     
-    while running:
+    while state['running']:
         try:
-            if serial_port and serial_port.is_open and serial_port.in_waiting > 0:
-                raw = serial_port.read(serial_port.in_waiting)
+            if sp and sp.is_open and sp.in_waiting > 0:
+                raw = sp.read(sp.in_waiting)
                 text = raw.decode("utf-8", errors="replace")
                 buffer += text
                 
@@ -231,11 +236,11 @@ async def serial_reader():
                         continue
                     
                     # Save to local file (replaces minicom)
-                    if data_file and save_locally:
+                    if state['data_file'] and state['save_locally']:
                         try:
                             ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                            data_file.write(f"{ts}\t{line}\n")
-                            data_file.flush()
+                            state['data_file'].write(f"{ts}\t{line}\n")
+                            state['data_file'].flush()
                             lines_saved += 1
                             if lines_saved == 1:
                                 print(f"[OK] First line saved to file: {line[:80]}")
@@ -245,7 +250,8 @@ async def serial_reader():
                             print(f"[Warning] Could not write to file: {fe}")
                     
                     # Send to all connected WebSocket clients
-                    if connected_clients:
+                    clients = state['clients']
+                    if clients:
                         message = json.dumps({
                             "type": "serial_data",
                             "line": line,
@@ -254,21 +260,21 @@ async def serial_reader():
                         
                         # Send to all clients, remove disconnected ones
                         disconnected = set()
-                        for client in connected_clients:
+                        for client in clients:
                             try:
                                 await client.send(message)
                             except websockets.exceptions.ConnectionClosed:
                                 disconnected.add(client)
                         
                         for c in disconnected:
-                            connected_clients.discard(c)
+                            clients.discard(c)
                         
                         lines_sent += 1
                         
                         if lines_sent == 1:
-                            print(f"[OK] First data sent to {len(connected_clients)} client(s): {line[:80]}")
+                            print(f"[OK] First data sent to {len(clients)} client(s): {line[:80]}")
                         elif lines_sent % 500 == 0:
-                            print(f"[Info] {lines_sent} lines sent to {len(connected_clients)} client(s)")
+                            print(f"[Info] {lines_sent} lines sent to {len(clients)} client(s)")
             
             else:
                 # No data available, sleep briefly
@@ -285,16 +291,16 @@ async def serial_reader():
 
 async def ws_handler(websocket):
     """Handle a single WebSocket connection from the browser."""
-    global connected_clients
     client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}" if hasattr(websocket, 'remote_address') and websocket.remote_address else "unknown"
     print(f"[OK] Browser connected: {client_info}")
-    connected_clients.add(websocket)
+    state['clients'].add(websocket)
     
+    sp = state['serial']
     # Send welcome message with bridge info
     welcome = json.dumps({
         "type": "bridge_info",
-        "version": "1.0",
-        "serial_port": serial_port.port if serial_port else "unknown",
+        "version": BRIDGE_VERSION,
+        "serial_port": sp.port if sp else "unknown",
         "baud_rate": BAUD_RATE,
         "os": platform.system(),
         "message": "MuNRa Serial Bridge connected"
@@ -312,9 +318,9 @@ async def ws_handler(websocket):
                 elif cmd.get("type") == "status":
                     await websocket.send(json.dumps({
                         "type": "status",
-                        "serial_connected": serial_port is not None and serial_port.is_open,
-                        "clients": len(connected_clients),
-                        "serial_port": serial_port.port if serial_port else None
+                        "serial_connected": sp is not None and sp.is_open,
+                        "clients": len(state['clients']),
+                        "serial_port": sp.port if sp else None
                     }))
             except json.JSONDecodeError:
                 pass
@@ -322,19 +328,17 @@ async def ws_handler(websocket):
     except websockets.exceptions.ConnectionClosed:
         pass
     finally:
-        connected_clients.discard(websocket)
+        state['clients'].discard(websocket)
         print(f"[Info] Browser disconnected: {client_info}")
 
 
 async def main():
-    global running, data_file, data_file_path, save_locally
-    
     # ── Parse arguments ────────────────────────────────────────────
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     flags = [a for a in sys.argv[1:] if a.startswith('--')]
     
     if '--no-save' in flags:
-        save_locally = False
+        state['save_locally'] = False
     if '--help' in flags or '-h' in flags:
         print(__doc__)
         sys.exit(0)
@@ -397,21 +401,22 @@ async def main():
         sys.exit(1)
     
     # ── Open local data file ───────────────────────────────────────
-    if save_locally:
+    if state['save_locally']:
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        data_file_path = f"munra_data_{ts}.csv"
+        fpath = f"munra_data_{ts}.csv"
         try:
-            data_file = open(data_file_path, "w", encoding="utf-8")
-            data_file.write(f"# MuNRa Detector Data — {datetime.now().isoformat()}\n")
-            data_file.write(f"# Serial port: {port_path} at {BAUD_RATE} baud\n")
-            data_file.write(f"# Format: timestamp<TAB>raw_line\n")
-            data_file.write(f"# (This file replaces minicom — all data is saved here)\n")
-            data_file.flush()
-            print(f"[OK] Local data file: {os.path.abspath(data_file_path)}")
+            f = open(fpath, "w", encoding="utf-8")
+            f.write(f"# MuNRa Detector Data — {datetime.now().isoformat()}\n")
+            f.write(f"# Serial port: {port_path} at {BAUD_RATE} baud\n")
+            f.write(f"# Format: timestamp<TAB>raw_line\n")
+            f.write(f"# (This file replaces minicom — all data is saved here)\n")
+            f.flush()
+            state['data_file'] = f
+            state['data_file_path'] = fpath
+            print(f"[OK] Local data file: {os.path.abspath(fpath)}")
         except Exception as e:
             print(f"[Warning] Could not create data file: {e}")
             print("[Info] Data will still be forwarded via WebSocket.")
-            data_file = None
     else:
         print("[Info] Local data saving disabled (--no-save)")
     
@@ -420,18 +425,17 @@ async def main():
     print("[Info] Open MuNRa in ANY browser and click 'Connect'")
     print("[Info] Press Ctrl+C to stop\n")
     
-    if data_file:
+    if state['data_file']:
         print("─" * 60)
         print("  DATA IS BEING SAVED LOCALLY (no need for minicom)")
-        print(f"  File: {os.path.abspath(data_file_path)}")
+        print(f"  File: {os.path.abspath(state['data_file_path'])}")
         print("─" * 60)
         print()
     
     # Handle graceful shutdown
     def signal_handler(sig, frame):
-        global running
         print("\n[Info] Shutting down...")
-        running = False
+        state['running'] = False
     
     signal.signal(signal.SIGINT, signal_handler)
     if hasattr(signal, 'SIGTERM'):
@@ -452,15 +456,16 @@ async def main():
             print(f"\n[ERROR] Could not start WebSocket server: {e}")
         sys.exit(1)
     finally:
-        if data_file:
+        if state['data_file']:
             try:
-                data_file.write(f"# Session ended: {datetime.now().isoformat()}\n")
-                data_file.close()
-                print(f"[OK] Data saved to: {os.path.abspath(data_file_path)}")
+                state['data_file'].write(f"# Session ended: {datetime.now().isoformat()}\n")
+                state['data_file'].close()
+                print(f"[OK] Data saved to: {os.path.abspath(state['data_file_path'])}")
             except Exception:
                 pass
-        if serial_port and serial_port.is_open:
-            serial_port.close()
+        sp = state['serial']
+        if sp and sp.is_open:
+            sp.close()
             print("[OK] Serial port closed.")
         print("[OK] Bridge stopped.")
 

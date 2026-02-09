@@ -44,7 +44,8 @@ const ProfileManager = (() => {
 
             const name = profile.name || profile.meta?.name || id;
             const vis  = profile.visibility === 'private' ? 'private' : 'public';
-            const info = { id, name, vis, profile };
+            const canWrite = typeof canEditProfile === 'function' ? canEditProfile(profile, id) : false;
+            const info = { id, name, vis, profile, canWrite };
 
             const isOwner  = uid && profile.ownerUid === uid;
             const isShared = uid && profile.sharedWith?.[uid];
@@ -106,7 +107,7 @@ const ProfileManager = (() => {
                 return;
             }
 
-            items.forEach(({ id, name, vis }) => {
+            items.forEach(({ id, name, vis, canWrite }) => {
                 const div = document.createElement('div');
                 div.className = 'tree-item' + (id === curProfile ? ' active' : '');
                 div.dataset.profileId = id;
@@ -117,7 +118,14 @@ const ProfileManager = (() => {
 
                 const infoSpan = document.createElement('span');
                 infoSpan.className = 'tree-item-info';
-                infoSpan.textContent = vis === 'private' ? '🔒' : '🌐';
+                // Show visibility icon + write/read-only indicator
+                const visIcon = vis === 'private' ? '🔒' : '🌐';
+                const accessIcon = canWrite ? '' : ' 👁';
+                infoSpan.textContent = visIcon + accessIcon;
+                if (!canWrite) {
+                    infoSpan.title = 'Read only — cannot record data to this profile';
+                    infoSpan.style.opacity = '0.7';
+                }
 
                 div.appendChild(nameSpan);
                 div.appendChild(infoSpan);

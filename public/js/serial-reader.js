@@ -854,6 +854,19 @@ function processDataLine(line, enableRealtime) {
     }
     
     try {
+        // Push realtime data to local in-memory buffer for immediate 1m/5m chart display.
+        // This works regardless of enableRealtime — no Firebase writes, no bandwidth.
+        if (recordingProfile && typeof DataManager !== 'undefined' && DataManager.pushLocalRealtime) {
+            DataManager.pushLocalRealtime({
+                ts: parsedData.timestamp,
+                sipm: parsedData.sipm,
+                temp: parsedData.temp,
+                pressure: parsedData.pressure,
+                deadtime: parsedData.deadtime,
+                coincident: parsedData.coincident
+            });
+        }
+        // Only write to Firebase if enableRealtime is ON (uses download bandwidth).
         if (enableRealtime && recordingProfile) {
             saveRealtimeData(parsedData);
         }
@@ -1451,10 +1464,8 @@ async function handleStartRecording() {
         
         appendToTerminal(`[System] Recording started! Session: ${sessionId}`);
         
-        // Start realtime data cleanup if enabled
-        if (enableRealtime) {
-            startRealtimeCleanup();
-        }
+        // Start realtime data cleanup (always, since realtime data is always saved now)
+        startRealtimeCleanup();
     } catch (error) {
         appendToTerminal(`[Error] ${error.message}`);
         if (typeof showToast === 'function') {

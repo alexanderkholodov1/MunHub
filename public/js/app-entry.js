@@ -223,12 +223,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeDetector = document.getElementById('closeDetectorSetup');
 
     function openDetectorSetup() {
-        // Populate profile list in setup modal
+        // Populate profile list in setup modal (only writable profiles)
         const sel = document.getElementById('setupProfileSelect');
         if (sel && typeof ProfileManager !== 'undefined') {
             const allProfiles = ProfileManager.getAllProfiles ? ProfileManager.getAllProfiles() : {};
             sel.innerHTML = '<option value="">Select profile…</option>';
             Object.entries(allProfiles).forEach(([id, p]) => {
+                // Only show profiles the user can WRITE to
+                const canWrite = typeof canEditProfile === 'function' ? canEditProfile(p, id) : true;
+                if (!canWrite) return;
                 const opt = document.createElement('option');
                 opt.value = id;
                 opt.textContent = p.name || id;

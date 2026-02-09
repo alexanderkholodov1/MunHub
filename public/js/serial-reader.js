@@ -486,11 +486,32 @@ async function startRecording(profileId, enableRealtime = false) {
     appendToTerminal(`[System] Session: ${sessionId}`);
     appendToTerminal(`[System] Writing to: profiles/${profileId}/sessions/${sessionId}/`);
     
-    await firebase.database().ref(`profiles/${profileId}/sessions/${sessionId}`).set({
-        startTime: Date.now(),
-        name: `Session ${new Date().toLocaleString()}`,
-        status: 'recording'
-    });
+    try {
+        await firebase.database().ref(`profiles/${profileId}/sessions/${sessionId}`).set({
+            startTime: Date.now(),
+            name: `Session ${new Date().toLocaleString()}`,
+            status: 'recording'
+        });
+    } catch (error) {
+        isRecording = false;
+        recordingProfile = null;
+        recordingSession = null;
+        const errMsg = (error.message || '').toUpperCase();
+        if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('PERMISSION DENIED')) {
+            const user = firebase.auth().currentUser;
+            let detail = 'DATABASE PERMISSION DENIED.\n';
+            detail += 'This is NOT a serial port error — it is a Firebase database error.\n';
+            if (!user) {
+                detail += 'You are NOT LOGGED IN. Log in first, then try recording.\n';
+            } else {
+                detail += `Logged in as: ${user.email}\n`;
+                detail += `This account may not have write access to profile "${profileId}".\n`;
+            }
+            detail += 'Check that you own this profile or have edit permissions.';
+            throw new Error(detail);
+        }
+        throw error;
+    }
     
     appendToTerminal('[OK] Session created in Firebase. Data will be saved every minute.');
     appendToTerminal(`[System] Current minute boundary: ${new Date(Math.floor(Date.now() / 60000) * 60000).toLocaleTimeString()}`);
@@ -1094,7 +1115,21 @@ async function saveMinuteData() {
         appendToTerminal(`[OK] ✓ Minute saved → ${timeStr} | ${avgData.ec} events, SiPM avg ${avgData.sm} mV, Temp ${avgData.tp}°C, Pressure ${avgData.pr} Pa`);
     } catch (error) {
         console.error('Error saving minute data:', error);
-        appendToTerminal(`[Error] Failed to save minute data: ${error.message}`);
+        const errMsg = (error.message || '').toUpperCase();
+        if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('PERMISSION DENIED')) {
+            appendToTerminal('[Error] DATABASE PERMISSION DENIED — this is NOT a serial port error.');
+            appendToTerminal('[Error] Your account does not have write access to this profile.');
+            appendToTerminal('[Error] Check: (1) Are you logged in? (2) Do you own or have edit access to this profile?');
+            const user = firebase.auth().currentUser;
+            if (!user) {
+                appendToTerminal('[Error] You are NOT logged in. Log in first, then try recording again.');
+            } else {
+                appendToTerminal(`[Error] Logged in as: ${user.email} — verify this account owns profile "${recordingProfile}".`);
+            }
+            appendToTerminal('[Error] If the problem persists, check Firebase database rules in the console.');
+        } else {
+            appendToTerminal(`[Error] Failed to save minute data: ${error.message}`);
+        }
     }
 }
 
@@ -1154,9 +1189,17 @@ async function updateLatestData(data) {
         }
     } catch (error) {
         _latestWriteErrors++;
+        const errMsg = (error.message || '').toUpperCase();
         // Log first error and then every 10th error (avoid spam but don't hide issues)
-        if (_latestWriteErrors === 1 || _latestWriteErrors % 10 === 0) {
-            console.error('Error updating latest data:', error);
+        if (_latestWriteErrors === 1) {
+            if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('PERMISSION DENIED')) {
+                appendToTerminal('[Error] DATABASE PERMISSION DENIED on live data write.');
+                appendToTerminal('[Error] Check: Are you logged in? Do you own this profile?');
+            } else {
+                console.error('Error updating latest data:', error);
+                appendToTerminal(`[Error] Firebase write failed: ${error.message}`);
+            }
+        } else if (_latestWriteErrors % 10 === 0) {
             appendToTerminal(`[Error] Firebase write failed (${_latestWriteErrors}x): ${error.message}`);
         }
     }

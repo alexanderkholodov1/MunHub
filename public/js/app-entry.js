@@ -248,8 +248,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.getElementById('serialCompatMsg').textContent = 'WebSocket Bridge Mode';
                 document.getElementById('serialCompatDetail').innerHTML =
                     'Your browser will connect via the bridge script (works with <strong>all browsers</strong>).<br>' +
-                    'Run on your computer: <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:3px;">pip3 install pyserial websockets && python3 tools/serial_bridge.py</code><br>' +
-                    '<a href="tools/serial_bridge.py" download style="color:#3fb950;">Download serial_bridge.py</a>';
+                    '<div style="margin:6px 0;">' +
+                    '<strong style="color:#58a6ff;">Step 1:</strong> Install (one time): <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:3px;color:#e6edf3;">pip3 install pyserial websockets</code><br>' +
+                    '<strong style="color:#58a6ff;">Step 2:</strong> Run the bridge: <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:3px;color:#e6edf3;">python3 tools/serial_bridge.py</code><br>' +
+                    '<strong style="color:#58a6ff;">Step 3:</strong> Click Connect in MuNRa</div>' +
+                    '<a href="tools/serial_bridge.py" download style="color:#3fb950;">Download serial_bridge.py</a>' +
+                    ' <span style="color:#8b949e;">| The bridge also saves data locally (no minicom needed)</span>';
                 warnEl.style.display = 'block';
                 // Buttons stay ENABLED — bridge mode works!
             } else {

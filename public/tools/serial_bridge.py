@@ -8,14 +8,18 @@ This bridge reads data from the detector's serial port and forwards it
 over WebSocket to the browser. It works with ALL browsers (Firefox,
 Safari, Chrome, Edge, Opera — any browser that supports WebSocket).
 
+It also SAVES ALL DATA locally to a timestamped file, so you don't need
+to run minicom or screen separately. Data is saved to:
+    munra_data_YYYYMMDD_HHMMSS.csv
+
 Usage:
     python3 serial_bridge.py                    # Auto-detect port
     python3 serial_bridge.py /dev/ttyACM0       # Specify port (Linux)
     python3 serial_bridge.py COM3               # Specify port (Windows)
+    python3 serial_bridge.py --no-save          # Don't save locally
 
-Requirements:
-    pip install pyserial websockets
-    (or: pip3 install pyserial websockets)
+Requirements (install once):
+    pip3 install pyserial websockets
 
 The bridge runs a WebSocket server on ws://localhost:8765.
 MuNRa's terminal will auto-detect and connect to it.
@@ -27,20 +31,32 @@ serial ports without sudo:
 """
 
 import sys
+import os
 import asyncio
 import json
 import signal
 import time
 import glob
 import platform
+from datetime import datetime
 
 try:
     import serial
     import serial.tools.list_ports
 except ImportError:
-    print("\n[ERROR] 'pyserial' is not installed.")
-    print("  Install it with:  pip3 install pyserial websockets")
-    print("  Or:               pip install pyserial websockets\n")
+    print()
+    print("=" * 50)
+    print("  MISSING DEPENDENCY: pyserial")
+    print("=" * 50)
+    print()
+    print("  Install it by running this command:")
+    print()
+    print("    pip3 install pyserial websockets")
+    print()
+    print("  Then run the bridge again:")
+    print()
+    print("    python3 serial_bridge.py")
+    print()
     sys.exit(1)
 
 try:
@@ -52,9 +68,19 @@ except ImportError:
         # Older websockets versions
         serve = websockets.serve
     except ImportError:
-        print("\n[ERROR] 'websockets' is not installed.")
-        print("  Install it with:  pip3 install pyserial websockets")
-        print("  Or:               pip install pyserial websockets\n")
+        print()
+        print("=" * 50)
+        print("  MISSING DEPENDENCY: websockets")
+        print("=" * 50)
+        print()
+        print("  Install it by running this command:")
+        print()
+        print("    pip3 install pyserial websockets")
+        print()
+        print("  Then run the bridge again:")
+        print()
+        print("    python3 serial_bridge.py")
+        print()
         sys.exit(1)
 
 # ─── Configuration ─────────────────────────────────────────────────
@@ -69,6 +95,9 @@ PARITY = "none"
 connected_clients = set()
 serial_port = None
 running = True
+data_file = None       # Local data file handle
+data_file_path = None  # Local data file path
+save_locally = True    # Whether to save data to local file
 
 
 def detect_serial_ports():
@@ -175,12 +204,15 @@ def os_environ_user():
 
 async def serial_reader():
     """Read serial data and broadcast to all WebSocket clients."""
-    global running
+    global running, connected_clients
     
     buffer = ""
     lines_sent = 0
+    lines_saved = 0
     
     print("[OK] Serial reader loop started. Waiting for data...")
+    if data_file:
+        print(f"[OK] Saving data locally to: {data_file_path}")
     
     while running:
         try:
@@ -198,6 +230,20 @@ async def serial_reader():
                     if not line:
                         continue
                     
+                    # Save to local file (replaces minicom)
+                    if data_file and save_locally:
+                        try:
+                            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                            data_file.write(f"{ts}\t{line}\n")
+                            data_file.flush()
+                            lines_saved += 1
+                            if lines_saved == 1:
+                                print(f"[OK] First line saved to file: {line[:80]}")
+                            elif lines_saved % 500 == 0:
+                                print(f"[Info] {lines_saved} lines saved to local file")
+                        except Exception as fe:
+                            print(f"[Warning] Could not write to file: {fe}")
+                    
                     # Send to all connected WebSocket clients
                     if connected_clients:
                         message = json.dumps({
@@ -214,7 +260,9 @@ async def serial_reader():
                             except websockets.exceptions.ConnectionClosed:
                                 disconnected.add(client)
                         
-                        connected_clients -= disconnected
+                        for c in disconnected:
+                            connected_clients.discard(c)
+                        
                         lines_sent += 1
                         
                         if lines_sent == 1:
@@ -237,6 +285,7 @@ async def serial_reader():
 
 async def ws_handler(websocket):
     """Handle a single WebSocket connection from the browser."""
+    global connected_clients
     client_info = f"{websocket.remote_address[0]}:{websocket.remote_address[1]}" if hasattr(websocket, 'remote_address') and websocket.remote_address else "unknown"
     print(f"[OK] Browser connected: {client_info}")
     connected_clients.add(websocket)
@@ -278,15 +327,25 @@ async def ws_handler(websocket):
 
 
 async def main():
-    global running
+    global running, data_file, data_file_path, save_locally
+    
+    # ── Parse arguments ────────────────────────────────────────────
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    flags = [a for a in sys.argv[1:] if a.startswith('--')]
+    
+    if '--no-save' in flags:
+        save_locally = False
+    if '--help' in flags or '-h' in flags:
+        print(__doc__)
+        sys.exit(0)
     
     print_banner()
     
     # ── Determine serial port ──────────────────────────────────────
     port_path = None
     
-    if len(sys.argv) > 1:
-        port_path = sys.argv[1]
+    if args:
+        port_path = args[0]
         print(f"[Info] Using specified port: {port_path}")
     else:
         # Auto-detect
@@ -337,10 +396,36 @@ async def main():
     if not open_serial(port_path):
         sys.exit(1)
     
+    # ── Open local data file ───────────────────────────────────────
+    if save_locally:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        data_file_path = f"munra_data_{ts}.csv"
+        try:
+            data_file = open(data_file_path, "w", encoding="utf-8")
+            data_file.write(f"# MuNRa Detector Data — {datetime.now().isoformat()}\n")
+            data_file.write(f"# Serial port: {port_path} at {BAUD_RATE} baud\n")
+            data_file.write(f"# Format: timestamp<TAB>raw_line\n")
+            data_file.write(f"# (This file replaces minicom — all data is saved here)\n")
+            data_file.flush()
+            print(f"[OK] Local data file: {os.path.abspath(data_file_path)}")
+        except Exception as e:
+            print(f"[Warning] Could not create data file: {e}")
+            print("[Info] Data will still be forwarded via WebSocket.")
+            data_file = None
+    else:
+        print("[Info] Local data saving disabled (--no-save)")
+    
     # ── Start WebSocket server ─────────────────────────────────────
     print(f"\n[OK] Starting WebSocket server on ws://{WS_HOST}:{WS_PORT}")
-    print("[Info] Open MuNRa in your browser and click 'Connect via Bridge'")
+    print("[Info] Open MuNRa in ANY browser and click 'Connect'")
     print("[Info] Press Ctrl+C to stop\n")
+    
+    if data_file:
+        print("─" * 60)
+        print("  DATA IS BEING SAVED LOCALLY (no need for minicom)")
+        print(f"  File: {os.path.abspath(data_file_path)}")
+        print("─" * 60)
+        print()
     
     # Handle graceful shutdown
     def signal_handler(sig, frame):
@@ -367,6 +452,13 @@ async def main():
             print(f"\n[ERROR] Could not start WebSocket server: {e}")
         sys.exit(1)
     finally:
+        if data_file:
+            try:
+                data_file.write(f"# Session ended: {datetime.now().isoformat()}\n")
+                data_file.close()
+                print(f"[OK] Data saved to: {os.path.abspath(data_file_path)}")
+            except Exception:
+                pass
         if serial_port and serial_port.is_open:
             serial_port.close()
             print("[OK] Serial port closed.")

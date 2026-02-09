@@ -108,19 +108,37 @@
             padding: 14px 24px;
             font-size: 0.9rem;
             line-height: 1.6;
+            color: #c9d1d9;
             display: none; /* shown by JS if needed */
             flex-shrink: 0;
         }
-        .compat-banner strong { color: var(--accent); }
-        .compat-banner a { color: var(--green); text-decoration: underline; }
+        .compat-banner strong { color: #58a6ff; }
+        .compat-banner a { color: #3fb950; text-decoration: underline; }
         .compat-banner .compat-dismiss {
-            float: right; background: none; border: none; color: var(--text2);
+            float: right; background: none; border: none; color: #8b949e;
             cursor: pointer; font-size: 1.2rem; line-height: 1;
         }
         .compat-banner code {
             background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 3px;
             font-family: 'JetBrains Mono', 'Consolas', monospace; font-size: 0.85em;
+            color: #e6edf3;
         }
+        .compat-banner .bridge-steps {
+            margin: 8px 0 4px 0; padding: 0;
+            list-style: none;
+        }
+        .compat-banner .bridge-steps li {
+            padding: 2px 0;
+            color: #c9d1d9;
+        }
+        .compat-banner .bridge-steps li::before {
+            font-weight: 700;
+            color: #58a6ff;
+            margin-right: 6px;
+        }
+        .compat-banner .bridge-steps li:nth-child(1)::before { content: "1."; }
+        .compat-banner .bridge-steps li:nth-child(2)::before { content: "2."; }
+        .compat-banner .bridge-steps li:nth-child(3)::before { content: "3."; }
     </style>
 </head>
 <body>
@@ -258,16 +276,20 @@
             else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) bName = 'Safari';
 
             msgEl.innerHTML =
-                `<strong>WebSocket Bridge Mode</strong> — ${bName} will connect via the bridge script.<br>` +
-                'Run the bridge on your computer: <code>pip3 install pyserial websockets</code> then ' +
-                '<code>python3 tools/serial_bridge.py</code><br>' +
-                '<a href="tools/serial_bridge.py" download>Download serial_bridge.py</a> | ' +
-                'Click <strong>Connect</strong> after the bridge is running.';
+                `<strong>WebSocket Bridge Mode</strong> — ${bName} connects via a small bridge script.<br>` +
+                '<ul class="bridge-steps">' +
+                '<li>Install (one time): <code>pip3 install pyserial websockets</code></li>' +
+                '<li>Run the bridge: <code>python3 tools/serial_bridge.py</code></li>' +
+                '<li>Click <strong>Connect</strong> above</li>' +
+                '</ul>' +
+                '<a href="tools/serial_bridge.py" download>Download serial_bridge.py</a> ' +
+                '| Data is also saved locally by the bridge (no minicom needed)';
             banner.style.display = 'block';
             // DO NOT disable the connect button — WebSocket bridge works!
             termAppend(`[Info] ${bName} detected — will use WebSocket Bridge mode.`, 'term-system');
-            termAppend('[Info] Run: pip3 install pyserial websockets && python3 tools/serial_bridge.py', 'term-system');
-            termAppend('[Info] Then click "Connect" — the bridge handles the serial connection.', 'term-system');
+            termAppend('[Info] Step 1: pip3 install pyserial websockets', 'term-system');
+            termAppend('[Info] Step 2: python3 tools/serial_bridge.py', 'term-system');
+            termAppend('[Info] Step 3: Click "Connect" above.', 'term-system');
 
             document.getElementById('compatDismiss').addEventListener('click', () => {
                 banner.style.display = 'none';

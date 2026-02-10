@@ -354,7 +354,8 @@ const ChartManager = (() => {
             else { minTime = now - 15 * 60_000; maxTime = now; }
         } else if (_globalTimeRange === 'custom' && _customTimeStart && _customTimeEnd) {
             minTime = _customTimeStart; maxTime = _customTimeEnd;
-            filtered = allData.filter(d => { const ts = d.timestamp * 1000; return ts >= minTime && ts <= maxTime; });
+            const bufferMs = PERF.CHART_EDGE_BUFFER_MS || 120_000;
+            filtered = allData.filter(d => { const ts = d.timestamp * 1000; return ts >= (minTime - bufferMs) && ts <= (maxTime + bufferMs); });
         } else {
             const rangeMs = (typeof _globalTimeRange === 'number' ? _globalTimeRange : 15) * 60_000;
             if (_isStackedMode) {
@@ -364,7 +365,13 @@ const ChartManager = (() => {
                 else { minTime = now - rangeMs; maxTime = now; }
             } else {
                 minTime = now - rangeMs; maxTime = now;
-                filtered = allData.filter(d => { const ts = d.timestamp * 1000; return ts >= minTime && ts <= maxTime; });
+                // Include buffer points beyond visible range so lines extend to chart edges.
+                // Chart.js clips rendering at axis min/max, so extra points create edge continuity.
+                const bufferMs = PERF.CHART_EDGE_BUFFER_MS || 120_000;
+                filtered = allData.filter(d => {
+                    const ts = d.timestamp * 1000;
+                    return ts >= (minTime - bufferMs) && ts <= (maxTime + bufferMs);
+                });
             }
         }
 
@@ -473,7 +480,9 @@ const ChartManager = (() => {
         const rtRaw = DataManager.getRealtimeData();
         if (!rtRaw.length) return null;
 
-        const filtered = rtRaw.filter(d => d.ts >= minTime && d.ts <= maxTime);
+        // Include buffer beyond visible range for edge line continuity
+        const bufferMs = PERF.CHART_EDGE_BUFFER_MS || 120_000;
+        const filtered = rtRaw.filter(d => d.ts >= (minTime - bufferMs) && d.ts <= (maxTime + bufferMs));
         if (!filtered.length) return null;
 
         const len = filtered.length;
@@ -596,8 +605,9 @@ const ChartManager = (() => {
         const minTime = now - 60_000;
         const maxTime = now;
 
-        // Filter to last 60 seconds
-        const filtered = rtRaw.filter(d => d.ts >= minTime && d.ts <= maxTime);
+        // Filter to last 60 seconds + buffer for edge continuity
+        const bufferMs = PERF.CHART_EDGE_BUFFER_MS || 120_000;
+        const filtered = rtRaw.filter(d => d.ts >= (minTime - bufferMs) && d.ts <= (maxTime + bufferMs));
 
         if (!filtered.length) {
             // Still update axes even with no data

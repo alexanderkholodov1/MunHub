@@ -1,26 +1,71 @@
 /**
- * MuNRa 4.7.0 - Profile Manager
+ * MuNRa 4.8.0 - Profile Manager
  * 
  * Owns profile CRUD, sharing, renaming, visibility management,
  * and the Manage Profiles modal.
+ * 
+ * v4.8 BANDWIDTH OPTIMIZATION:
+ *   • loadProfiles() no longer downloads the entire 25 MB database.
+ *     It uses REST ?shallow=true to get profile keys (~100 bytes),
+ *     then per-profile reads of metadata fields only (~200 bytes each).
+ *     Total: ~5 KB instead of 25 MB (5000× reduction).
  * 
  * Depends on: config.js, firebase-manager.js, data-manager.js, ui-manager.js, auth.js
  */
 
 const ProfileManager = (() => {
-    /** Cache of all loaded profiles (keyed by id). */
+    /** Cache of all loaded profiles — metadata only (no sessions/realtime). */
     let _allProfiles = {};
 
     function getAllProfiles() { return _allProfiles; }
 
     // ─── Load & Populate Dropdown ───────────────────────────────────────
+    /**
+     * Load profiles using bandwidth-efficient reads:
+     *   1. REST shallow query on /profiles → returns keys only (~100 bytes)
+     *   2. For each key, read only metadata fields (name, visibility, ownerUid,
+     *      ownerEmail, ownerName, sharedWith, meta) — never downloads sessions
+     *      or realtime data.
+     */
     async function loadProfiles() {
         const db = FirebaseManager.getDb();
         if (!db) return;
 
         try {
-            const snap = await db.ref('profiles').once('value');
-            _allProfiles = snap.val() || {};
+            // Step 1: Get profile keys via REST shallow query
+            const url = `${FIREBASE_CONFIG.databaseURL}/profiles.json?shallow=true`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Shallow query failed: ${res.status}`);
+            const keysObj = await res.json();
+            if (!keysObj) { _allProfiles = {}; _populateSelect(); return; }
+
+            const profileKeys = Object.keys(keysObj);
+
+            // Step 2: Fetch only metadata for each profile (parallel)
+            const META_FIELDS = ['name', 'visibility', 'ownerUid', 'ownerEmail', 'ownerName', 'sharedWith', 'meta'];
+            const profiles = {};
+
+            await Promise.all(profileKeys.map(async (key) => {
+                try {
+                    const base = db.ref(`profiles/${key}`);
+                    const snaps = await Promise.all(
+                        META_FIELDS.map(f => base.child(f).once('value'))
+                    );
+                    const profile = {};
+                    META_FIELDS.forEach((f, i) => {
+                        const val = snaps[i].val();
+                        if (val !== null) profile[f] = val;
+                    });
+                    profiles[key] = profile;
+                } catch (e) {
+                    // Permission denied for private profiles we can't access — skip silently
+                    if (!e.message?.includes('permission_denied')) {
+                        console.warn(`[ProfileManager] Error loading profile ${key}:`, e.message);
+                    }
+                }
+            }));
+
+            _allProfiles = profiles;
             _populateSelect();
             UIManager.setConnectionStatus('connected', 'Connected');
         } catch (err) {

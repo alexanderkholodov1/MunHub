@@ -1,10 +1,18 @@
 /**
- * MuNRa 4.0 - Data Manager
+ * MuNRa 4.8.0 - Data Manager
  * 
  * Owns ALL data state: sessions, realtime, processed arrays.
  * Handles Firebase subscriptions for the currently selected profile.
  * Provides the LTTB downsampling algorithm and a change-driven
  * notification so ChartManager only redraws when data actually changes.
+ * 
+ * v4.8 BANDWIDTH OPTIMIZATIONS:
+ *   • Sessions: child_added/changed/removed instead of value listener
+ *     (avoids re-downloading ALL sessions on every minute save)
+ *   • Realtime: child_added instead of value listener
+ *     (avoids re-downloading 500+ entries on every new event)
+ *   • pushLocalRealtime: time-based cleanup (8 min) not count-based
+ *   • cleanupAllRealtime removed — only current profile cleaned
  * 
  * Depends on: config.js, firebase-manager.js
  */
@@ -22,6 +30,10 @@ const DataManager = (() => {
     let _sessionRef = null;
     let _realtimeRef = null;
     let _latestRef = null;
+
+    // Debounce rebuild (child_added fires many times on initial load)
+    let _rebuildTimer = null;
+    const _REBUILD_DEBOUNCE_MS = 150;
 
     // Change-notification callbacks
     /** @type {Function[]} */
@@ -43,7 +55,7 @@ const DataManager = (() => {
         return _realtimeData[_realtimeData.length - 1].ts;
     }
 
-    /** Returns true if realtime data exists but is older than PERF.REALTIME_RETENTION_MS (5 min) */
+    /** Returns true if realtime data exists but is older than PERF.REALTIME_RETENTION_MS */
     function isRealtimeExpired() {
         if (!_hasRealtimeData) return false;
         const lastTs = getLastRealtimeTimestamp();
@@ -52,12 +64,9 @@ const DataManager = (() => {
     }
 
     // ─── Listener Registration ──────────────────────────────────────────
-    /** Register a callback that fires whenever allData changes. */
     function onChange(fn) {
         if (typeof fn === 'function') _listeners.push(fn);
     }
-
-    /** Register a callback that fires whenever realtimeData changes. */
     function onRealtimeChange(fn) {
         if (typeof fn === 'function') _realtimeListeners.push(fn);
     }
@@ -67,7 +76,6 @@ const DataManager = (() => {
             try { fn(); } catch (e) { console.error('[DataManager] listener error:', e); }
         }
     }
-
     function _notifyRealtime() {
         for (const fn of _realtimeListeners) {
             try { fn(); } catch (e) { console.error('[DataManager] realtime listener error:', e); }
@@ -77,9 +85,10 @@ const DataManager = (() => {
     // ─── Profile Subscription ───────────────────────────────────────────
     /**
      * Subscribe to a profile's data in Firebase.
-     * Unsubscribes from the previous profile first.
-     *
-     * @param {string} profileId
+     * Uses efficient listeners to minimize bandwidth:
+     *   • latest: .on('value') — tiny payload, always needed
+     *   • sessions: child_added/changed/removed — only new/changed data
+     *   • realtime: child_added — only new entries, not full re-download
      */
     function subscribeToProfile(profileId) {
         const db = FirebaseManager.getDb();
@@ -88,43 +97,81 @@ const DataManager = (() => {
         // Unsub previous
         _unsubscribe();
         _currentProfile = profileId;
+        _sessionsData = {};
+        _allData = [];
 
         const base = db.ref(`profiles/${profileId}`);
 
-        // Latest value (for live stats)
+        // ── Latest value (for live stats) — tiny, always-on ──
         _latestRef = base.child('latest');
         _latestRef.on('value', snap => {
             _latestData = snap.val();
             if (_latestData) _updateLiveStatus(_latestData);
         });
 
-        // Sessions (minute data)
+        // ── Sessions (minute data) — incremental via child events ──
+        // child_added fires once per existing session, then for new ones.
+        // child_changed fires when minutes are added to a session.
+        // This avoids re-downloading ALL sessions on every change.
         _sessionRef = base.child('sessions');
-        _sessionRef.on('value', snap => {
-            _sessionsData = snap.val() || {};
-            _rebuildAllData();
+
+        _sessionRef.on('child_added', snap => {
+            _sessionsData[snap.key] = snap.val();
+            _scheduleRebuild();
         });
 
-        // Realtime (last 500)
-        _realtimeRef = base.child('realtime');
-        _realtimeRef.orderByChild('ts').limitToLast(PERF.REALTIME_LIMIT).on('value', snap => {
-            const raw = snap.val();
-            _realtimeData = raw
-                ? Object.values(raw).sort((a, b) => a.ts - b.ts)
-                : [];
-            const hadData = _hasRealtimeData;
-            _hasRealtimeData = _realtimeData.length > 0;
-            _notifyRealtime();
-            // Also notify minute listeners if realtime availability changed
-            if (hadData !== _hasRealtimeData) _notify();
+        _sessionRef.on('child_changed', snap => {
+            _sessionsData[snap.key] = snap.val();
+            _scheduleRebuild();
         });
+
+        _sessionRef.on('child_removed', snap => {
+            delete _sessionsData[snap.key];
+            _scheduleRebuild();
+        });
+
+        // ── Realtime — incremental via child_added ──
+        // OLD: .on('value') re-downloaded ALL 500 entries on every new event
+        //      → at 11 events/sec that's ~550 entries * 50 bytes * 11/sec = 300KB/sec!
+        // NEW: .on('child_added') only downloads each new entry once.
+        _realtimeRef = base.child('realtime');
+        _realtimeRef.orderByChild('ts').limitToLast(PERF.REALTIME_LIMIT)
+            .on('child_added', snap => {
+                const val = snap.val();
+                if (val) {
+                    _realtimeData.push(val);
+                    _hasRealtimeData = true;
+                    // Lightweight notify — debounced via chart throttle
+                    _notifyRealtime();
+                }
+            });
+
+        _realtimeRef.orderByChild('ts').limitToLast(PERF.REALTIME_LIMIT)
+            .on('child_removed', snap => {
+                const val = snap.val();
+                if (val) {
+                    const idx = _realtimeData.findIndex(d => d.ts === val.ts);
+                    if (idx !== -1) _realtimeData.splice(idx, 1);
+                    if (!_realtimeData.length) _hasRealtimeData = false;
+                }
+            });
     }
 
     /** Remove all Firebase listeners for the current profile. */
     function _unsubscribe() {
-        if (_latestRef)  { _latestRef.off();  _latestRef = null; }
-        if (_sessionRef) { _sessionRef.off(); _sessionRef = null; }
-        if (_realtimeRef){ _realtimeRef.off(); _realtimeRef = null; }
+        if (_latestRef)   { _latestRef.off();   _latestRef = null; }
+        if (_sessionRef)  { _sessionRef.off();  _sessionRef = null; }
+        if (_realtimeRef) { _realtimeRef.off(); _realtimeRef = null; }
+        if (_rebuildTimer) { clearTimeout(_rebuildTimer); _rebuildTimer = null; }
+    }
+
+    /** Schedule a debounced rebuild (child_added fires many times on initial load). */
+    function _scheduleRebuild() {
+        if (_rebuildTimer) clearTimeout(_rebuildTimer);
+        _rebuildTimer = setTimeout(() => {
+            _rebuildTimer = null;
+            _rebuildAllData();
+        }, _REBUILD_DEBOUNCE_MS);
     }
 
     /** Re-flatten session→minute data into _allData and notify listeners. */
@@ -154,14 +201,6 @@ const DataManager = (() => {
     }
 
     // ─── LTTB Downsampling ──────────────────────────────────────────────
-    /**
-     * Largest-Triangle-Three-Buckets algorithm.
-     * Returns a visually representative subset of `data`.
-     *
-     * @param {Array} data         - Sorted array of objects with `timestamp` and `ec`.
-     * @param {number} targetPoints - Desired output size.
-     * @returns {Array}
-     */
     function downsample(data, targetPoints) {
         if (data.length <= targetPoints) return data;
 
@@ -173,7 +212,6 @@ const DataManager = (() => {
             const rangeStart = Math.floor((i + 1) * bucketSize) + 1;
             const rangeEnd   = Math.min(Math.floor((i + 2) * bucketSize) + 1, data.length - 1);
 
-            // Average point in next bucket
             let avgX = 0, avgY = 0, avgN = 0;
             const nextEnd = Math.min(Math.floor((i + 3) * bucketSize) + 1, data.length);
             for (let j = rangeEnd; j < nextEnd; j++) {
@@ -183,7 +221,6 @@ const DataManager = (() => {
             }
             if (avgN) { avgX /= avgN; avgY /= avgN; }
 
-            // Largest triangle
             let maxArea = -1, bestIdx = rangeStart;
             const last = data[lastIdx];
             for (let j = rangeStart; j < rangeEnd; j++) {
@@ -215,49 +252,6 @@ const DataManager = (() => {
         };
     }
 
-    // ─── Realtime Cleanup ───────────────────────────────────────────────
-    /** Delete realtime entries older than PERF.REALTIME_RETENTION_MS for ALL profiles. */
-    async function cleanupAllRealtime() {
-        const db = FirebaseManager.getDb();
-        if (!db) return;
-
-        try {
-            const snap = await db.ref('profiles').once('value');
-            const profiles = snap.val();
-            if (!profiles) return;
-
-            const cutoff = Date.now() - PERF.REALTIME_RETENTION_MS;
-            let total = 0;
-
-            for (const pid of Object.keys(profiles)) {
-                total += await _cleanupProfileRealtime(pid, cutoff);
-            }
-            if (total > 0) console.log(`[Cleanup] Removed ${total} old realtime records`);
-        } catch (err) {
-            console.error('[Cleanup] Error:', err);
-        }
-    }
-
-    async function _cleanupProfileRealtime(profileId, cutoff) {
-        const db = FirebaseManager.getDb();
-        try {
-            const snap = await db.ref(`profiles/${profileId}/realtime`)
-                .orderByChild('ts').endAt(cutoff).once('value');
-            if (!snap.exists()) return 0;
-
-            const updates = {};
-            snap.forEach(child => { updates[child.key] = null; });
-            const count = Object.keys(updates).length;
-            if (count) await db.ref(`profiles/${profileId}/realtime`).update(updates);
-            return count;
-        } catch (err) {
-            if (!err.message.includes('permission_denied')) {
-                console.error(`[Cleanup] ${profileId}:`, err);
-            }
-            return 0;
-        }
-    }
-
     // ─── Disconnect ─────────────────────────────────────────────────────
     function disconnect() {
         _unsubscribe();
@@ -271,15 +265,17 @@ const DataManager = (() => {
 
     /**
      * Push a realtime data point directly to the in-memory buffer.
-     * Used by serial-reader.js to provide immediate chart data
-     * WITHOUT writing to Firebase (which requires enableRealtime).
-     * This makes 1m/5m views work instantly regardless of the enableRealtime setting.
+     * Uses TIME-BASED cleanup (8 min) instead of count-based.
+     * This ensures 5m charts always have enough data regardless of event rate.
      */
     function pushLocalRealtime(point) {
         _realtimeData.push(point);
-        // Keep within limit
-        while (_realtimeData.length > PERF.REALTIME_LIMIT) _realtimeData.shift();
-        _hasRealtimeData = true;
+        // Time-based cleanup: remove entries older than 8 minutes
+        const cutoff = Date.now() - PERF.REALTIME_RETENTION_MS;
+        while (_realtimeData.length > 0 && _realtimeData[0].ts < cutoff) {
+            _realtimeData.shift();
+        }
+        _hasRealtimeData = _realtimeData.length > 0;
         _notifyRealtime();
     }
 
@@ -299,7 +295,6 @@ const DataManager = (() => {
         subscribeToProfile,
         disconnect,
         downsample,
-        cleanupAllRealtime,
         pushLocalRealtime
     });
 })();

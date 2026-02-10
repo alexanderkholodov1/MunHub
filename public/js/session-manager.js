@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.7.0 — Session Manager
+ * MuNRa 4.8.0 — Session Manager
  *
  * Manages session lifecycle for detector profiles:
  *   • List sessions with full metadata (name, start/end, minute count)

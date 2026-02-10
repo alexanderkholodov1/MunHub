@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.7.0 - Configuration Module
+ * MuNRa 4.8.0 - Configuration Module
  * 
  * Central configuration for Firebase, chart styling, time ranges,
  * performance limits, and data validation constants.
@@ -30,12 +30,14 @@ const PERF = Object.freeze({
     TIME_AXIS_INTERVAL_MS: 10_000,
     /** Realtime cleanup interval (ms) */
     CLEANUP_INTERVAL_MS: 60_000,
-    /** Realtime data retention window (ms) — 5 minutes */
-    REALTIME_RETENTION_MS: 5 * 60 * 1000,
-    /** Max realtime points fetched from Firebase */
-    REALTIME_LIMIT: 500,
+    /** Realtime data retention window (ms) — 8 minutes (buffer for clock skew) */
+    REALTIME_RETENTION_MS: 8 * 60 * 1000,
+    /** Max realtime points in local memory (~8 min at 11 events/sec) */
+    REALTIME_LIMIT: 5000,
     /** Admin data cache TTL (ms) */
-    ADMIN_CACHE_TTL_MS: 30_000
+    ADMIN_CACHE_TTL_MS: 30_000,
+    /** Extra ms of data to include beyond chart edges for line continuity */
+    CHART_EDGE_BUFFER_MS: 2 * 60 * 1000
 });
 
 // ─── Chart Colors ───────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.0 - Configuration Module
+ * MuNRa 4.7.0 - Configuration Module
  * 
  * Central configuration for Firebase, chart styling, time ranges,
  * performance limits, and data validation constants.

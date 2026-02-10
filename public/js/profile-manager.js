@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.0 - Profile Manager
+ * MuNRa 4.7.0 - Profile Manager
  * 
  * Owns profile CRUD, sharing, renaming, visibility management,
  * and the Manage Profiles modal.
@@ -289,6 +289,8 @@ const ProfileManager = (() => {
                   <div style="font-size:11px;color:var(--text-secondary)">ID: ${id} | ${vis}${shared ? ` | Shared: ${shared}` : ''}</div>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                  <button onclick="SessionManager.showSessionsModal('${id}')"
+                    style="padding:6px 12px;border:none;border-radius:6px;background:#198754;color:white;cursor:pointer;font-size:11px">Sessions</button>
                   <button onclick="ProfileManager.showRenameModal('${id}','${_esc(name)}')"
                     style="padding:6px 12px;border:none;border-radius:6px;background:#0d6efd;color:white;cursor:pointer;font-size:11px">Rename ID</button>
                   <button onclick="ProfileManager.toggleVisibility('${id}')"

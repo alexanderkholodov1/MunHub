@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.5.2 - Dual-Mode Serial Data Reader
+ * MunHub 5.0 — Dual-Mode Serial Data Reader
  * 
  * Reads data from particle detector via USB serial port.
  * Supports TWO connection modes for universal browser compatibility:

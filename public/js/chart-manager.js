@@ -1,12 +1,9 @@
 /**
- * MuNRa 4.6 — Chart Manager (slot-based)
+ * MunHub 5.0 — Chart Manager (slot-based)
  *
  * 4 chart SLOTS — each can display any data source.
- * The HTML has <canvas id="chartCanvas0"> … <canvas id="chartCanvas3">
- * and <select data-slot="0"> … <select data-slot="3">.
- *
- * When a slot's source is changed to "terminal", the canvas is hidden
- * and a terminal div is shown in its place.
+ * Supports: line, line-only, smooth, smooth-no-dots, bar, scatter types.
+ * Color management, chart info, customization controls.
  *
  * Depends on: config.js, data-manager.js
  */
@@ -162,15 +159,26 @@ const ChartManager = (() => {
             }
         });
 
-        const ds = (label, color, extra = {}) => ({
-            label, data: [], borderColor: color,
-            backgroundColor: color.replace(')', ',0.5)').replace('rgb', 'rgba'),
-            tension: 0, borderWidth: 1.5, fill: false, spanGaps: false,
-            // Point & bar defaults — _styleDatasetForType() overrides these per chart type
-            pointRadius: 0, pointStyle: false, pointHoverRadius: 0, pointHitRadius: 0,
-            maxBarThickness: 40, minBarLength: 2,
-            ...extra
-        });
+        const ds = (label, color, extra = {}) => {
+            // Convert hex to rgba for backgroundColor
+            let bg = color;
+            if (color.startsWith('#')) {
+                const r = parseInt(color.slice(1,3), 16), g = parseInt(color.slice(3,5), 16), b = parseInt(color.slice(5,7), 16);
+                bg = `rgba(${r},${g},${b},0.5)`;
+            } else if (color.includes('rgb')) {
+                bg = color.replace(')', ',0.5)').replace('rgb', 'rgba');
+            }
+            return {
+                label, data: [], borderColor: color,
+                backgroundColor: bg,
+                pointBackgroundColor: color,
+                pointBorderColor: color,
+                tension: 0, borderWidth: 1.5, fill: false, spanGaps: false,
+                pointRadius: 0, pointStyle: false, pointHoverRadius: 0, pointHitRadius: 0,
+                maxBarThickness: 40, minBarLength: 2,
+                ...extra
+            };
+        };
 
         let config;
         switch (source) {
@@ -708,6 +716,13 @@ const ChartManager = (() => {
             chart.options.scales.x.time.displayFormats = { second: 'HH:mm:ss', minute: 'HH:mm', hour: 'HH:mm', day: 'MMM d' };
             delete chart.options.scales.x.ticks.callback;
         }
+
+        // Bar chart offset: needed for bars to be visible on time axis
+        const hasBar = chart.data.datasets.some(d => d.type === 'bar');
+        if (chart.options.scales.x) {
+            chart.options.scales.x.offset = hasBar;
+        }
+
         chart.update('none');
     }
 
@@ -815,20 +830,28 @@ const ChartManager = (() => {
         d.pointHoverRadius = 0;
         d.pointHitRadius = 0;
         d.showLine = true;
+        delete d.barThickness;
+
+        // Read customization settings from saved preferences
+        const dotSize = _getCustomization('dotSize', CHART_DEFAULTS.dotSize);
+        const tension = _getCustomization('tension', CHART_DEFAULTS.tension);
+
         switch (type) {
             case 'scatter':
-                d.pointRadius = 4; d.pointStyle = 'circle'; d.pointHoverRadius = 6; d.pointHitRadius = 8;
+                d.pointRadius = dotSize; d.pointStyle = 'circle';
+                d.pointHoverRadius = dotSize + 2; d.pointHitRadius = dotSize + 4;
+                d.pointBackgroundColor = d.borderColor;
+                d.pointBorderColor = d.borderColor;
                 d.showLine = false; d.tension = 0; d.borderWidth = 1.5;
                 break;
             case 'bar':
                 d.tension = 0; d.borderWidth = 1;
-                d.barPercentage = 0.85; d.categoryPercentage = 0.9;
+                d.barThickness = 4;  // explicit pixel width for time-axis bars
                 d.maxBarThickness = 40; d.minBarLength = 2;
-                // Ensure visible bar fill regardless of color format (hex or rgb)
+                // Ensure visible bar fill
                 if (d.borderColor) {
                     const c = d.borderColor;
                     if (c.startsWith('#')) {
-                        // Convert hex to rgba with 0.7 opacity
                         const r = parseInt(c.slice(1,3), 16), g = parseInt(c.slice(3,5), 16), b = parseInt(c.slice(5,7), 16);
                         d.backgroundColor = `rgba(${r},${g},${b},0.7)`;
                     } else {
@@ -840,17 +863,40 @@ const ChartManager = (() => {
                 d.tension = 0; d.borderWidth = 2;
                 break;
             case 'smooth':
-                d.pointRadius = 2; d.pointStyle = 'circle'; d.pointHoverRadius = 4; d.pointHitRadius = 6;
-                d.tension = 0.4; d.borderWidth = 2;
+                d.pointRadius = dotSize; d.pointStyle = 'circle';
+                d.pointHoverRadius = dotSize + 2; d.pointHitRadius = dotSize + 4;
+                d.pointBackgroundColor = d.borderColor;
+                d.pointBorderColor = d.borderColor;
+                d.tension = tension; d.borderWidth = 2;
                 break;
             case 'smooth-no-dots':
-                d.tension = 0.4; d.borderWidth = 2;
+                d.tension = tension; d.borderWidth = 2;
                 break;
             default: // 'line' = Line + Dots
-                d.pointRadius = 2; d.pointStyle = 'circle'; d.pointHoverRadius = 4; d.pointHitRadius = 6;
+                d.pointRadius = dotSize; d.pointStyle = 'circle';
+                d.pointHoverRadius = dotSize + 2; d.pointHitRadius = dotSize + 4;
+                d.pointBackgroundColor = d.borderColor;
+                d.pointBorderColor = d.borderColor;
                 d.tension = 0; d.borderWidth = 1.5;
                 break;
         }
+    }
+
+    /** Read a chart customization value from localStorage or use default */
+    function _getCustomization(key, defaultVal) {
+        const saved = localStorage.getItem(`munhub_chart_${key}`);
+        return saved != null ? parseFloat(saved) : defaultVal;
+    }
+
+    /** Save a chart customization value */
+    function setCustomization(key, value) {
+        localStorage.setItem(`munhub_chart_${key}`, value);
+        // Re-apply all chart types and redraw
+        for (let s = 0; s < NUM_SLOTS; s++) {
+            if (_slotSource[s] === 'terminal') continue;
+            _createChartForSlot(s);
+        }
+        scheduleUpdate();
     }
 
     /** Get number of minute-average datasets for a given source */
@@ -927,10 +973,114 @@ const ChartManager = (() => {
         const blob = new Blob([csv], { type: 'text/csv' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `munra_${source}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `munhub_${source}_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(a.href);
         UIManager.showToast(`Downloaded ${source} data`, 'success');
+    }
+
+    // ─── Chart Info Popup ────────────────────────────────────────────
+    function showChartInfo(slot) {
+        slot = parseInt(slot);
+        const panel = document.getElementById(`chartPanel${slot}`);
+        if (!panel) return;
+        // Remove existing popup
+        const existing = panel.querySelector('.chart-info-popup');
+        if (existing) { existing.remove(); return; }
+
+        const src = _slotSource[slot];
+        const info = typeof CHART_INFO !== 'undefined' ? CHART_INFO[src] : null;
+        if (!info) return;
+
+        const popup = document.createElement('div');
+        popup.className = 'chart-info-popup';
+        popup.innerHTML = `<button class="close-info">&times;</button><h4>${info.title}</h4><p>${info.desc}</p>`;
+        popup.querySelector('.close-info').addEventListener('click', () => popup.remove());
+        // Position relative to chart panel
+        panel.style.position = 'relative';
+        panel.appendChild(popup);
+        // Auto-close after 8 seconds
+        setTimeout(() => { if (popup.parentNode) popup.remove(); }, 8000);
+    }
+
+    // ─── Color Management ────────────────────────────────────────────
+    /** Get current colors for all datasets in a slot */
+    function getSlotColors(slot) {
+        const chart = _charts[slot];
+        if (!chart) return [];
+        return chart.data.datasets.map(d => ({ label: d.label, color: d.borderColor }));
+    }
+
+    /** Set color for a specific dataset in a slot */
+    function setDatasetColor(slot, dsIndex, color) {
+        const chart = _charts[slot];
+        if (!chart || !chart.data.datasets[dsIndex]) return;
+        const d = chart.data.datasets[dsIndex];
+        d.borderColor = color;
+        d.pointBackgroundColor = color;
+        d.pointBorderColor = color;
+        // Update backgroundColor based on chart type
+        const type = _chartTypes[slot] || 'line';
+        if (type === 'bar') {
+            const r = parseInt(color.slice(1,3), 16), g = parseInt(color.slice(3,5), 16), b = parseInt(color.slice(5,7), 16);
+            d.backgroundColor = `rgba(${r},${g},${b},0.7)`;
+        } else {
+            const r = parseInt(color.slice(1,3), 16), g = parseInt(color.slice(3,5), 16), b = parseInt(color.slice(5,7), 16);
+            d.backgroundColor = `rgba(${r},${g},${b},0.5)`;
+        }
+        // Save custom color
+        localStorage.setItem(`munhub_color_${slot}_${dsIndex}`, color);
+        chart.update('none');
+    }
+
+    /** Randomize all colors for a slot ensuring contrast */
+    function randomizeSlotColors(slot) {
+        const chart = _charts[slot];
+        if (!chart) return;
+        const colors = _generateDistinctColors(chart.data.datasets.length);
+        chart.data.datasets.forEach((d, i) => setDatasetColor(slot, i, colors[i]));
+    }
+
+    /** Generate N visually distinct colors using golden angle hue spacing */
+    function _generateDistinctColors(n) {
+        const colors = [];
+        const goldenAngle = 137.508;
+        let hue = Math.random() * 360;
+        for (let i = 0; i < n; i++) {
+            hue = (hue + goldenAngle) % 360;
+            const s = 65 + Math.random() * 20; // 65-85% saturation
+            const l = 50 + Math.random() * 15; // 50-65% lightness
+            colors.push(_hslToHex(hue, s, l));
+        }
+        return colors;
+    }
+
+    function _hslToHex(h, s, l) {
+        s /= 100; l /= 100;
+        const a = s * Math.min(l, 1 - l);
+        const f = n => { const k = (n + h / 30) % 12; const c = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1); return Math.round(c * 255).toString(16).padStart(2, '0'); };
+        return `#${f(0)}${f(8)}${f(4)}`;
+    }
+
+    /** Get all dataset labels across all sources (for global color modal) */
+    function getAllDatasetLabels() {
+        const labels = [];
+        for (let s = 0; s < NUM_SLOTS; s++) {
+            if (!_charts[s]) continue;
+            _charts[s].data.datasets.forEach((d, i) => {
+                labels.push({ slot: s, index: i, label: d.label, color: d.borderColor });
+            });
+        }
+        return labels;
+    }
+
+    /** Get current customization values */
+    function getCustomizations() {
+        return {
+            dotSize: _getCustomization('dotSize', CHART_DEFAULTS.dotSize),
+            barWidth: _getCustomization('barWidth', CHART_DEFAULTS.barWidth),
+            tension: _getCustomization('tension', CHART_DEFAULTS.tension)
+        };
     }
 
     // ─── Public API ─────────────────────────────────────────────────────
@@ -940,6 +1090,9 @@ const ChartManager = (() => {
         setSlotSource, getTerminalSlot, appendTerminalLine,
         cycleChartType, cycleRealtimeChartType,
         cycleAllChartTypes, cycleAllRealtimeChartTypes,
-        downloadChartData
+        downloadChartData,
+        showChartInfo,
+        getSlotColors, setDatasetColor, randomizeSlotColors,
+        getAllDatasetLabels, getCustomizations, setCustomization
     });
 })();

@@ -1,5 +1,5 @@
 /**
- * MuNRa Auth System v4.0
+ * MunHub Auth System v5.0
  * Firebase Authentication + User Management + Profile Sharing + i18n
  * 
  * SECURITY: Roles are stored in Firebase database, NOT hardcoded.
@@ -41,7 +41,7 @@ const translations = {
         language: 'Language',
         timezone: 'Timezone',
         database: 'Database',
-        defaultDatabase: 'Default (MuNRa)',
+        defaultDatabase: 'Default (MunHub)',
         customDatabase: 'Custom URL',
         databaseUrl: 'Database URL',
         applyConnect: 'Apply & Connect',
@@ -49,10 +49,6 @@ const translations = {
         uploadSession: 'Upload Session File',
         uploadProfile: 'Upload Profile (ZIP)',
         exportData: 'Export All Data (CSV)',
-        storageStats: 'Storage Statistics',
-        minutesStored: 'Minutes stored',
-        realtimeEntries: 'Realtime entries',
-        connection: 'Connection',
         // Profiles
         createProfile: 'Create New Profile',
         profileName: 'Profile Name',
@@ -136,7 +132,7 @@ const translations = {
         language: 'Idioma',
         timezone: 'Zona Horaria',
         database: 'Base de Datos',
-        defaultDatabase: 'Predeterminada (MuNRa)',
+        defaultDatabase: 'Predeterminada (MunHub)',
         customDatabase: 'URL Personalizada',
         databaseUrl: 'URL de Base de Datos',
         applyConnect: 'Aplicar y Conectar',
@@ -144,10 +140,6 @@ const translations = {
         uploadSession: 'Subir Archivo de Sesión',
         uploadProfile: 'Subir Perfil (ZIP)',
         exportData: 'Exportar Todos los Datos (CSV)',
-        storageStats: 'Estadísticas de Almacenamiento',
-        minutesStored: 'Minutos almacenados',
-        realtimeEntries: 'Entradas en tiempo real',
-        connection: 'Conexión',
         // Profiles
         createProfile: 'Crear Nuevo Perfil',
         profileName: 'Nombre del Perfil',

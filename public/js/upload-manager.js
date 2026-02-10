@@ -1,7 +1,7 @@
 /**
- * MuNRa 4.0 - Upload Manager
- * 
- * Handles session file uploads (raw MuNRa log, JSON, CSV),
+ * MunHub 5.0 — Upload Manager
+ *
+ * Handles session file uploads (raw MunHub log, JSON, CSV),
  * profile uploads (JSON), and full data export (CSV).
  * 
  * Shows a progress modal with step-by-step feedback.
@@ -44,13 +44,13 @@ const UploadManager = (() => {
             return;
         }
 
-        // Raw MuNRa log
+        // Raw MunHub log
         const first = lines[0].trim().split(/\s+/);
         if (first.length < 7) {
             _result(false, 'Unrecognised format', `Need ≥7 columns. Got: "${lines[0].substring(0, 80)}"`);
             return;
         }
-        _step('✅', `Format: MuNRa events (${first.length} cols)`, 'success');
+        _step('✅', `Format: MunHub events (${first.length} cols)`, 'success');
         _bar(15);
 
         // Date from filename
@@ -286,7 +286,7 @@ const UploadManager = (() => {
 
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-        a.download = `munra_export_${DataManager.getCurrentProfile()}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `munhub_export_${DataManager.getCurrentProfile()}_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(a.href);
         UIManager.showToast('Data exported', 'success');

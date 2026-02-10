@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.8.0 - Data Manager
+ * MunHub 5.0 — Data Manager
  * 
  * Owns ALL data state: sessions, realtime, processed arrays.
  * Handles Firebase subscriptions for the currently selected profile.

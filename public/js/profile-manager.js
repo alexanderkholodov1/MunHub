@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.8.0 - Profile Manager
+ * MunHub 5.0 — Profile Manager
  * 
  * Owns profile CRUD, sharing, renaming, visibility management,
  * and the Manage Profiles modal.

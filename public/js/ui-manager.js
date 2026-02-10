@@ -1,9 +1,9 @@
 /**
- * MuNRa 4.0 - UI Manager
- * 
- * Owns toast notifications, connection-status indicator, theme toggle,
- * settings modal, custom-range picker, mode labels, and storage stats.
- * 
+ * MunHub 5.0 — UI Manager
+ *
+ * Toast notifications, connection-status, theme, settings modal,
+ * custom-range picker, mode labels.
+ *
  * Depends on: config.js, firebase-manager.js, data-manager.js, chart-manager.js
  */
 
@@ -64,7 +64,6 @@ const UIManager = (() => {
     function openSettings() {
         _updateSettingsPermissions();
         document.getElementById('settingsModal').classList.add('active');
-        updateStorageStats();
     }
 
     function closeSettings() {
@@ -77,21 +76,9 @@ const UIManager = (() => {
 
         const show = (id, v) => { const e = document.getElementById(id); if (e) e.style.display = v ? 'block' : 'none'; };
 
-        if (isAdmin) {
-            show('userDatabaseOptions', false);
-            show('adminDatabaseOptions', true);
-            show('dataManagementGroup', true);
+        if (isAdmin || isLogged) {
             show('databaseSettingGroup', true);
-            show('applyFirebaseBtnUser', false);
-            show('connectionResultUser', false);
-            show('cmdLinkGroup', true);
-        } else if (isLogged) {
-            show('userDatabaseOptions', true);
-            show('adminDatabaseOptions', false);
             show('dataManagementGroup', true);
-            show('databaseSettingGroup', true);
-            show('applyFirebaseBtnUser', true);
-            show('connectionResultUser', true);
             show('cmdLinkGroup', true);
         } else {
             show('databaseSettingGroup', false);
@@ -99,11 +86,8 @@ const UIManager = (() => {
             show('cmdLinkGroup', false);
         }
 
-        // Populate current URL
+        // Populate current URL into user DB choice
         const saved = localStorage.getItem('munra_firebase_url') || DEFAULT_FIREBASE_URL;
-        const urlInput = document.getElementById('firebaseUrl');
-        if (urlInput) urlInput.value = saved;
-
         const choice = document.getElementById('databaseChoice');
         const custom = document.getElementById('userCustomUrl');
         if (choice && custom) {
@@ -116,111 +100,21 @@ const UIManager = (() => {
     }
 
     // ─── Firebase URL Apply ─────────────────────────────────────────────
-    function applyFirebaseUrl(isAdmin) {
-        const resultId = isAdmin ? 'connectionResult' : 'connectionResultUser';
-        const result = document.getElementById(resultId);
-        let url = '';
+    function applyFirebaseUrl() {
+        const result = document.getElementById('connectionResultUser');
+        const choice = document.getElementById('databaseChoice')?.value;
+        const url = choice === 'default' ? DEFAULT_FIREBASE_URL : (document.getElementById('userCustomUrl')?.value.trim());
 
-        if (isAdmin) {
-            url = document.getElementById('firebaseUrl').value.trim();
-        } else {
-            const choice = document.getElementById('databaseChoice')?.value;
-            url = choice === 'default' ? DEFAULT_FIREBASE_URL : (document.getElementById('userCustomUrl')?.value.trim());
-        }
-
-        if (!url) { result.textContent = 'Enter a URL'; result.className = 'connection-result error'; return; }
-        result.textContent = 'Connecting…'; result.className = 'connection-result';
+        if (!url) { if (result) { result.textContent = 'Enter a URL'; result.className = 'connection-result error'; } return; }
+        if (result) { result.textContent = 'Connecting…'; result.className = 'connection-result'; }
         localStorage.setItem('munra_firebase_url', url);
 
         FirebaseManager.init(url).then(() => {
-            result.textContent = 'Connected!'; result.className = 'connection-result success';
+            if (result) { result.textContent = 'Connected!'; result.className = 'connection-result success'; }
             ProfileManager.loadProfiles();
-            updateStorageStats();
         }).catch(e => {
-            result.textContent = 'Failed: ' + e.message; result.className = 'connection-result error';
+            if (result) { result.textContent = 'Failed: ' + e.message; result.className = 'connection-result error'; }
         });
-    }
-
-    // ─── Database Migration ─────────────────────────────────────────────
-    function showMigrateModal() {
-        const currentUrl = localStorage.getItem('munra_firebase_url') || DEFAULT_FIREBASE_URL;
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay'; modal.id = 'migrateDbModal';
-        modal.innerHTML = `
-        <div class="modal-content" style="max-width:600px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:12px;padding:24px">
-            <h2 style="margin-bottom:10px;color:var(--text-primary)">Database Migration</h2>
-            <div style="background:#f8d7da;border:2px solid #f5c2c7;border-radius:8px;padding:15px;margin-bottom:15px">
-                <h3 style="color:#842029;margin:0 0 10px">⚠ CRITICAL OPERATION</h3>
-                <p style="color:#842029;font-size:13px;margin:0">This copies ALL data. Cannot be undone. Verify destination URL.</p>
-            </div>
-            <div style="margin-bottom:15px">
-                <label style="display:block;margin-bottom:5px;color:var(--text-secondary);font-size:14px">Source (current):</label>
-                <input type="text" value="${currentUrl}" disabled style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-secondary);font-size:12px">
-            </div>
-            <div style="margin-bottom:15px">
-                <label style="display:block;margin-bottom:5px;color:var(--text-secondary);font-size:14px">Destination URL:</label>
-                <input type="text" id="migrateDestUrl" placeholder="https://new-db.firebaseio.com/"
-                    style="width:100%;padding:10px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-primary);font-size:14px">
-            </div>
-            <div id="migrateProgress" style="display:none;margin-bottom:15px">
-                <div style="background:var(--bg-tertiary);border-radius:8px;padding:15px">
-                    <div style="background:var(--bg-secondary);border-radius:4px;height:20px;overflow:hidden">
-                        <div id="migrateProgressBar" style="background:linear-gradient(135deg,#00d4ff,#7b2cbf);height:100%;width:0%;transition:width 0.3s"></div>
-                    </div>
-                    <p id="migrateStatus" style="margin:10px 0 0;color:var(--text-secondary);font-size:12px">Preparing…</p>
-                </div>
-            </div>
-            <div style="display:flex;gap:10px;justify-content:flex-end">
-                <button onclick="document.getElementById('migrateDbModal').remove()"
-                    style="padding:10px 20px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer">Cancel</button>
-                <button onclick="UIManager.executeMigration()" id="startMigrateBtn"
-                    style="padding:10px 20px;border:none;border-radius:8px;background:#dc3545;color:white;cursor:pointer;font-weight:600">Start Migration</button>
-            </div>
-        </div>`;
-        document.body.appendChild(modal);
-    }
-
-    async function executeMigration() {
-        const dest = document.getElementById('migrateDestUrl').value.trim();
-        if (!dest) { showToast('Enter destination URL', 'error'); return; }
-        if (!confirm('FIRST: Migrate ALL data to:\n' + dest + '\n\nContinue?')) return;
-        if (!confirm('SECOND: This CANNOT be undone. Proceed?')) return;
-        if (prompt('Type "MIGRATE" to confirm:') !== 'MIGRATE') { showToast('Cancelled', 'info'); return; }
-
-        document.getElementById('migrateProgress').style.display = 'block';
-        document.getElementById('startMigrateBtn').disabled = true;
-        const bar = document.getElementById('migrateProgressBar');
-        const status = document.getElementById('migrateStatus');
-
-        try {
-            status.textContent = 'Reading source…'; bar.style.width = '10%';
-            const data = (await FirebaseManager.getDb().ref('/').once('value')).val() || {};
-            bar.style.width = '30%';
-            status.textContent = 'Connecting to destination…';
-
-            const destApp = firebase.initializeApp({ ...FIREBASE_CONFIG, databaseURL: dest }, 'migrationDest');
-            const destDb = destApp.database();
-
-            const keys = Object.keys(data);
-            for (let i = 0; i < keys.length; i++) {
-                status.textContent = `Writing ${keys[i]}…`;
-                await destDb.ref(keys[i]).set(data[keys[i]]);
-                bar.style.width = `${30 + Math.floor(60 * (i + 1) / keys.length)}%`;
-            }
-
-            await destApp.delete();
-            bar.style.width = '100%';
-            status.textContent = 'Migration completed!'; status.style.color = '#2ea043';
-            showToast('Migration completed!', 'success');
-
-            if (confirm('Switch to new database now?')) {
-                localStorage.setItem('munra_firebase_url', dest);
-                location.reload();
-            }
-        } catch (e) {
-            status.textContent = 'Failed: ' + e.message; status.style.color = '#dc3545';
-            document.getElementById('startMigrateBtn').disabled = false;
-        }
     }
 
     // ─── Custom Range Picker ────────────────────────────────────────────
@@ -256,14 +150,6 @@ const UIManager = (() => {
         document.getElementById('customRangeModal').classList.remove('active');
     }
 
-    // ─── Storage Stats ──────────────────────────────────────────────────
-    function updateStorageStats() {
-        const s = DataManager.getStorageStats();
-        document.getElementById('statsMinutes').textContent   = s.minutes.toLocaleString();
-        document.getElementById('statsRealtime').textContent  = s.realtime.toLocaleString();
-        document.getElementById('statsConnection').textContent = s.connected ? 'Active' : 'Not connected';
-    }
-
     // ─── Public API ─────────────────────────────────────────────────────
     return Object.freeze({
         showToast,
@@ -275,11 +161,8 @@ const UIManager = (() => {
         openSettings,
         closeSettings,
         applyFirebaseUrl,
-        showMigrateModal,
-        executeMigration,
         openCustomRange,
         applyCustomRange,
-        closeCustomRange,
-        updateStorageStats
+        closeCustomRange
     });
 })();

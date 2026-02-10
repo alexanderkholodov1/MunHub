@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.8.1 — Database Administration Module
+ * MunHub 5.0 — Database Administration Module
  *
  * Provides the "Database" tab in Admin Panel with:
  *   - Current DB URL display
@@ -22,6 +22,25 @@ const DbAdmin = (() => {
     });
 
     let _statsCache = null;
+
+    // ─── Auth Token Helper (fixes 401 on secured DBs) ───────────────────
+    async function _getAuthToken() {
+        try {
+            const user = firebase.auth().currentUser;
+            if (user) return await user.getIdToken();
+        } catch (e) { /* no user */ }
+        return null;
+    }
+    function _authQuery(baseUrl, extraParams = '') {
+        // Returns URL with auth param if available (sync fallback)
+        return baseUrl + extraParams;
+    }
+    async function _fetchWithAuth(url) {
+        const token = await _getAuthToken();
+        const sep = url.includes('?') ? '&' : '?';
+        const finalUrl = token ? `${url}${sep}auth=${token}` : url;
+        return fetch(finalUrl);
+    }
 
     // ─── Get Active DB URL ──────────────────────────────────────────────
     /** Returns the currently active database URL (respects user override). */
@@ -117,7 +136,7 @@ const DbAdmin = (() => {
             const dbUrl = getActiveDbUrl();
 
             // Step 1: Get top-level keys with shallow query
-            const shallowRes = await fetch(`${dbUrl}/.json?shallow=true`);
+            const shallowRes = await _fetchWithAuth(`${dbUrl}/.json?shallow=true`);
             if (!shallowRes.ok) throw new Error(`HTTP ${shallowRes.status}`);
             const topKeys = await shallowRes.json() || {};
 
@@ -128,7 +147,7 @@ const DbAdmin = (() => {
             const measurements = await Promise.all(
                 Object.keys(topKeys).map(async (key) => {
                     try {
-                        const res = await fetch(`${dbUrl}/${key}.json`);
+                        const res = await _fetchWithAuth(`${dbUrl}/${key}.json`);
                         const text = await res.text();
                         const sizeBytes = new Blob([text]).size;
                         const data = JSON.parse(text);
@@ -344,7 +363,7 @@ const DbAdmin = (() => {
 
             // Read source data via REST (avoids SDK bandwidth counting)
             const dbUrl = getActiveDbUrl();
-            const res = await fetch(`${dbUrl}/.json`);
+            const res = await _fetchWithAuth(`${dbUrl}/.json`);
             if (!res.ok) throw new Error(`Failed to read source: HTTP ${res.status}`);
             const data = await res.json();
             if (!data) throw new Error('Source database is empty');
@@ -393,7 +412,7 @@ const DbAdmin = (() => {
         <div class="modal-content" style="max-width:600px;background:var(--bg-secondary);border:2px solid #f85149;border-radius:12px;padding:24px">
             <h2 style="margin-bottom:6px;color:#f85149">Change Root Database</h2>
             <p style="color:var(--text-secondary);font-size:13px;margin-bottom:16px">
-                Switch the ENTIRE MuNRa application to a different Firebase Realtime Database.
+                Switch the ENTIRE MunHub application to a different Firebase Realtime Database.
                 This affects the current session. Other users and terminals must reconnect.
             </p>
 
@@ -454,7 +473,7 @@ const DbAdmin = (() => {
         result.textContent = 'Testing connection...';
 
         try {
-            const res = await fetch(`${newUrl}/.json?shallow=true`);
+            const res = await _fetchWithAuth(`${newUrl}/.json?shallow=true`);
             if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
             const data = await res.json();
             const keys = data ? Object.keys(data) : [];

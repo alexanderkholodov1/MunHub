@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.0 - Firebase Manager
+ * MunHub 5.0 — Firebase Manager
  * 
  * Owns the Firebase app lifecycle: initialise, re-initialise (when the
  * user switches databases), and expose the live `db` reference.

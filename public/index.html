@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MuNRa — Cosmic Ray Monitor</title>
+    <title>MunHub — Cosmic Ray Data Platform</title>
+    <meta name="description" content="MunHub: Real-time cosmic ray muon detection, data visualization and storage platform. Part of the MuNRa international detector network.">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <link rel="shortcut icon" type="image/svg+xml" href="favicon.svg">
 
@@ -16,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 
-    <link rel="stylesheet" href="css/main.css?v=4.8.0">
+    <link rel="stylesheet" href="css/main.css?v=5.0">
 </head>
 <body>
 
@@ -24,10 +25,11 @@
     <header class="topbar">
         <div class="topbar-left">
             <div class="brand">
-                <span class="brand-mu">μ</span>
-                <span class="brand-name">MuNRa</span>
-                <span class="brand-sub">Cosmic Ray Monitor</span>
+                <div class="brand-logo"><img src="favicon.svg" alt="MunHub"></div>
+                <span class="brand-name">MunHub</span>
+                <span class="brand-sub">Cosmic Ray Platform</span>
             </div>
+            <button class="about-btn" id="aboutBtn" title="About MunHub">i</button>
             <div class="status-indicator" id="connectionStatus">
                 <span class="status-dot"></span>
                 <span class="status-text">Connecting…</span>
@@ -78,21 +80,21 @@
         </div>
 
         <div class="topbar-right">
-            <!-- Profiles — opens overlay panel -->
-            <button class="action-btn" id="profilesBtn">
-                <span class="action-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+            <!-- Profiles -->
+            <button class="action-btn" id="profilesBtn" title="Browse Profiles">
+                <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
                 <span class="action-text">Profiles</span>
             </button>
 
-            <!-- Connect Detector — clear text, hidden for guests -->
-            <button class="action-btn" id="serialTerminalBtn" style="display:none">
-                <span class="action-icon"><svg viewBox="0 0 24 24"><path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m8 0h6M4.93 19.07l4.24-4.24m5.66-5.66l4.24-4.24"/></svg></span>
-                <span class="action-text">Connect Detector</span>
+            <!-- Connect Detector — hidden for guests -->
+            <button class="action-btn" id="serialTerminalBtn" style="display:none" title="Connect Detector">
+                <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66l4.24 4.24M2 12h6m8 0h6M4.93 19.07l4.24-4.24m5.66-5.66l4.24-4.24"/></svg></span>
+                <span class="action-text">Detector</span>
             </button>
 
-            <!-- Settings — text label -->
-            <button class="action-btn" id="settingsBtn">
-                <span class="action-icon"><svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
+            <!-- Settings -->
+            <button class="action-btn" id="settingsBtn" title="Settings">
+                <span class="action-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg></span>
                 <span class="action-text">Settings</span>
             </button>
 
@@ -176,7 +178,7 @@
         </div>
     </nav>
 
-    <!-- ═══════════════ MAIN CONTENT — full width ═══════════════ -->
+    <!-- ═══════════════ MAIN CONTENT ═══════════════ -->
     <div class="app-body">
         <main class="content">
             <!-- Stats row -->
@@ -190,11 +192,12 @@
                 <div class="stat-item stat-profile"><span class="stat-label">Profile</span><span class="stat-value" id="statProfileName">None</span></div>
                 <div class="stat-item stat-type-btn">
                     <button class="global-type-btn" id="globalTypeBtn" title="Change chart type for all charts">Line + Dots</button>
-                    <button class="global-type-btn" id="globalRtTypeBtn" title="Change realtime chart type for all charts" style="display:none">RT: Bar Chart</button>
+                    <button class="global-type-btn" id="globalColorBtn" title="Color &amp; style settings">⚙ Colors</button>
+                    <button class="global-type-btn" id="globalRtTypeBtn" title="Change realtime chart type" style="display:none">RT: Bar</button>
                 </div>
             </div>
 
-            <!-- 2×2 Charts Grid — each cell has source selector -->
+            <!-- 2x2 Charts Grid -->
             <div class="charts-grid" id="chartsGrid">
                 <div class="chart-panel" id="chartPanel0" data-slot="0" data-source="events">
                     <div class="chart-header">
@@ -208,8 +211,10 @@
                                 <option value="terminal">Terminal</option>
                             </select>
                             <button class="chart-btn chart-type-btn" data-slot="0" title="Change chart type"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 18 8 10 12 14 16 6 20 12"/></svg></button>
-                            <button class="chart-btn chart-rt-type-btn" data-slot="0" title="Change realtime chart type" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="3" height="12"/><rect x="10" y="4" width="3" height="16"/><rect x="16" y="10" width="3" height="10"/></svg></button>
-                            <button class="chart-btn chart-download-btn" data-slot="0" title="Download CSV">↓</button>
+                            <button class="chart-btn chart-color-btn" data-slot="0" title="Color settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg></button>
+                            <button class="chart-btn chart-rt-type-btn" data-slot="0" title="Realtime chart type" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="3" height="12"/><rect x="10" y="4" width="3" height="16"/><rect x="16" y="10" width="3" height="10"/></svg></button>
+                            <button class="chart-btn chart-download-btn" data-slot="0" title="Download data">↓</button>
+                            <button class="chart-info-btn" data-slot="0" title="What is this?">i</button>
                         </div>
                     </div>
                     <div class="chart-container"><canvas id="chartCanvas0"></canvas></div>
@@ -227,8 +232,10 @@
                                 <option value="terminal">Terminal</option>
                             </select>
                             <button class="chart-btn chart-type-btn" data-slot="1" title="Change chart type"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 18 8 10 12 14 16 6 20 12"/></svg></button>
-                            <button class="chart-btn chart-rt-type-btn" data-slot="1" title="Change realtime chart type" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="3" height="12"/><rect x="10" y="4" width="3" height="16"/><rect x="16" y="10" width="3" height="10"/></svg></button>
-                            <button class="chart-btn chart-download-btn" data-slot="1" title="Download CSV">↓</button>
+                            <button class="chart-btn chart-color-btn" data-slot="1" title="Color settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg></button>
+                            <button class="chart-btn chart-rt-type-btn" data-slot="1" title="Realtime chart type" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="3" height="12"/><rect x="10" y="4" width="3" height="16"/><rect x="16" y="10" width="3" height="10"/></svg></button>
+                            <button class="chart-btn chart-download-btn" data-slot="1" title="Download data">↓</button>
+                            <button class="chart-info-btn" data-slot="1" title="What is this?">i</button>
                         </div>
                     </div>
                     <div class="chart-container"><canvas id="chartCanvas1"></canvas></div>
@@ -246,8 +253,10 @@
                                 <option value="terminal">Terminal</option>
                             </select>
                             <button class="chart-btn chart-type-btn" data-slot="2" title="Change chart type"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 18 8 10 12 14 16 6 20 12"/></svg></button>
-                            <button class="chart-btn chart-rt-type-btn" data-slot="2" title="Change realtime chart type" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="3" height="12"/><rect x="10" y="4" width="3" height="16"/><rect x="16" y="10" width="3" height="10"/></svg></button>
-                            <button class="chart-btn chart-download-btn" data-slot="2" title="Download CSV">↓</button>
+                            <button class="chart-btn chart-color-btn" data-slot="2" title="Color settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg></button>
+                            <button class="chart-btn chart-rt-type-btn" data-slot="2" title="Realtime chart type" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="3" height="12"/><rect x="10" y="4" width="3" height="16"/><rect x="16" y="10" width="3" height="10"/></svg></button>
+                            <button class="chart-btn chart-download-btn" data-slot="2" title="Download data">↓</button>
+                            <button class="chart-info-btn" data-slot="2" title="What is this?">i</button>
                         </div>
                     </div>
                     <div class="chart-container"><canvas id="chartCanvas2"></canvas></div>
@@ -265,8 +274,10 @@
                                 <option value="terminal">Terminal</option>
                             </select>
                             <button class="chart-btn chart-type-btn" data-slot="3" title="Change chart type"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 18 8 10 12 14 16 6 20 12"/></svg></button>
-                            <button class="chart-btn chart-rt-type-btn" data-slot="3" title="Change realtime chart type" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="3" height="12"/><rect x="10" y="4" width="3" height="16"/><rect x="16" y="10" width="3" height="10"/></svg></button>
-                            <button class="chart-btn chart-download-btn" data-slot="3" title="Download CSV">↓</button>
+                            <button class="chart-btn chart-color-btn" data-slot="3" title="Color settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg></button>
+                            <button class="chart-btn chart-rt-type-btn" data-slot="3" title="Realtime chart type" style="display:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="3" height="12"/><rect x="10" y="4" width="3" height="16"/><rect x="16" y="10" width="3" height="10"/></svg></button>
+                            <button class="chart-btn chart-download-btn" data-slot="3" title="Download data">↓</button>
+                            <button class="chart-info-btn" data-slot="3" title="What is this?">i</button>
                         </div>
                     </div>
                     <div class="chart-container"><canvas id="chartCanvas3"></canvas></div>
@@ -275,8 +286,81 @@
         </main>
     </div>
 
-    <!-- Hidden <select> for backwards-compat with profile-manager -->
+    <!-- Hidden select for backward compat with profile-manager -->
     <select id="profileSelect" style="display:none"><option value="">Select</option></select>
+
+    <!-- ═══════════════ ABOUT MODAL ═══════════════ -->
+    <div class="modal" id="aboutModal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>About MunHub</h2>
+                <button class="modal-close" id="closeAbout">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="about-content">
+                    <div class="about-logo"><img src="favicon.svg" alt="MunHub"></div>
+                    <h3 class="about-title">MunHub</h3>
+                    <p class="about-subtitle">Cosmic Ray Data Platform</p>
+                    <p class="about-version">v5.0 &middot; Feb 2026</p>
+
+                    <p class="about-desc">
+                        MunHub is a web-based platform for real-time cosmic ray muon detection,
+                        data acquisition, storage and visualization. It interfaces with
+                        <strong>CosmicWatch</strong> desktop muon detectors — open-source,
+                        affordable particle physics instruments designed for education and research.
+                    </p>
+
+                    <div class="about-section">
+                        <h4>The MuNRa Network</h4>
+                        <p class="about-desc">
+                            MunHub is the software backbone of the <strong>MuNRa</strong> (Muon Network for Research and Academia)
+                            international detector network. The MuNRa network is developed within the
+                            <strong>EL-BONGO Physics</strong> project, funded by the European Union through the
+                            <strong>Erasmus+ CBHE</strong> programme, connecting universities across Latin America and Europe
+                            for collaborative cosmic ray research.
+                        </p>
+                    </div>
+
+                    <div class="about-section">
+                        <h4>Team</h4>
+                        <ul class="about-credits">
+                            <li>
+                                <span>Alexander Kholodov</span>
+                                <span class="credit-role">Software Development — CS Engineering, USFQ</span>
+                            </li>
+                            <li>
+                                <span>Dennis Cazar</span>
+                                <span class="credit-role">Project Supervisor — USFQ</span>
+                            </li>
+                            <li>
+                                <span>Andrés Gavilanez</span>
+                                <span class="credit-role">Detector Hardware — Mechanical Eng., USFQ</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="about-section">
+                        <h4>Institution</h4>
+                        <p class="about-desc" style="margin-bottom:0">
+                            Universidad San Francisco de Quito (USFQ), Ecuador.
+                            Developed at the LeopardLab research group.
+                        </p>
+                    </div>
+
+                    <div class="about-links">
+                        <a href="https://github.com/alexanderkholodov1/MunHub" target="_blank" rel="noopener">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                            GitHub
+                        </a>
+                        <a href="mailto:leopardlab.usfq@gmail.com">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                            Contact
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- ═══════════════ DETECTOR SETUP MODAL ═══════════════ -->
     <div class="modal" id="detectorSetupModal">
@@ -286,21 +370,16 @@
                 <button class="modal-close" id="closeDetectorSetup">&times;</button>
             </div>
             <div class="modal-body">
-                <!-- Connection mode info (shown if Web Serial not available — bridge mode) -->
-                <div id="serialCompatWarning" style="display:none; background:#0d2137; color:#c9d1d9; border:1px solid #58a6ff; border-radius:8px; padding:14px 18px; margin-bottom:16px; font-size:0.9rem; line-height:1.6;">
-                    <strong style="color:#58a6ff;" id="serialCompatMsg">WebSocket Bridge Mode</strong><br>
+                <div id="serialCompatWarning" style="display:none; background:rgba(80,144,224,0.08); color:var(--text-primary); border:1px solid var(--info); border-radius:8px; padding:14px 18px; margin-bottom:16px; font-size:0.9rem; line-height:1.6;">
+                    <strong style="color:var(--info);" id="serialCompatMsg">WebSocket Bridge Mode</strong><br>
                     <span id="serialCompatDetail"></span>
                 </div>
-
                 <div class="setup-steps">
                     <div class="setup-step">
                         <h4><span class="step-num">1</span> Select Profile</h4>
                         <p>Choose which profile will receive the recorded data.</p>
-                        <select id="setupProfileSelect">
-                            <option value="">Select profile…</option>
-                        </select>
+                        <select id="setupProfileSelect"><option value="">Select profile…</option></select>
                     </div>
-
                     <div class="setup-step">
                         <h4><span class="step-num">2</span> Options</h4>
                         <div class="setup-option">
@@ -309,13 +388,12 @@
                             <span class="option-note">(uses more bandwidth)</span>
                         </div>
                     </div>
-
                     <div class="setup-step">
                         <h4><span class="step-num">3</span> Start Recording</h4>
                         <p>Choose where to run the data terminal:</p>
                         <div class="setup-actions">
                             <button class="btn btn-primary" id="setupOpenTab">Open in New Tab</button>
-                            <button class="btn btn-purple" id="setupOpenInChart">Open in Chart Slot</button>
+                            <button class="btn btn-teal" id="setupOpenInChart">Open in Chart Slot</button>
                         </div>
                     </div>
                 </div>
@@ -323,7 +401,7 @@
         </div>
     </div>
 
-    <!-- ═══════════════ SETTINGS MODAL ═══════════════ -->
+    <!-- ═══════════════ SETTINGS MODAL (cleaned) ═══════════════ -->
     <div class="modal" id="settingsModal">
         <div class="modal-content modal-lg">
             <div class="modal-header">
@@ -352,29 +430,17 @@
                 </section>
 
                 <section class="settings-section">
-                    <h3>Database</h3>
+                    <h3>Database Connection</h3>
                     <div id="databaseSettingGroup">
-                        <div id="userDatabaseOptions">
-                            <div class="setting-group">
-                                <label>Source</label>
-                                <select id="databaseChoice">
-                                    <option value="default">Default (MuNRa)</option>
-                                    <option value="custom">Custom URL</option>
-                                </select>
-                            </div>
-                            <input type="text" id="userCustomUrl" placeholder="https://your-project.firebaseio.com/" style="display:none">
+                        <p class="help-text">Connect to a custom Firebase Realtime Database, or use the default MunHub server.</p>
+                        <div class="setting-group">
+                            <label>Source</label>
+                            <select id="databaseChoice">
+                                <option value="default">Default (MunHub)</option>
+                                <option value="custom">Custom URL</option>
+                            </select>
                         </div>
-                        <div id="adminDatabaseOptions" style="display:none">
-                            <div class="warning-box">⚠ Admin: Changing the URL affects ALL users.</div>
-                            <div class="setting-group">
-                                <input type="text" id="firebaseUrl" placeholder="https://your-project.firebaseio.com/">
-                            </div>
-                            <div class="btn-row">
-                                <button class="btn btn-primary" id="applyFirebaseBtn">Apply &amp; Connect</button>
-                                <button class="btn btn-purple" id="migrateDbBtn">Migrate DB</button>
-                            </div>
-                            <div class="connection-result" id="connectionResult"></div>
-                        </div>
+                        <input type="text" id="userCustomUrl" placeholder="https://your-project-default-rtdb.firebaseio.com/" style="display:none">
                         <button class="btn btn-primary" id="applyFirebaseBtnUser" style="margin-top:8px">Apply &amp; Connect</button>
                         <div class="connection-result" id="connectionResultUser"></div>
                     </div>
@@ -394,24 +460,7 @@
                 <section class="settings-section" id="cmdLinkGroup">
                     <h3>CMD / Terminal Link</h3>
                     <p class="help-text">Connect your Python CMD application to your web account.</p>
-                    <button class="btn btn-green" onclick="if(typeof showCmdLinkModal==='function')showCmdLinkModal()">Link CMD Session</button>
-                </section>
-
-                <section class="settings-section">
-                    <h3>Storage Statistics</h3>
-                    <div class="storage-stats">
-                        <p>Minutes stored: <span id="statsMinutes">—</span></p>
-                        <p>Realtime entries: <span id="statsRealtime">—</span></p>
-                        <p>Connection: <span id="statsConnection">—</span></p>
-                    </div>
-                </section>
-
-                <section class="settings-section">
-                    <h3>About</h3>
-                    <div class="storage-stats">
-                        <p>Version: <span style="color:var(--accent-primary);font-weight:600">MuNRa 4.8.1</span></p>
-                        <p>Build: <span style="color:var(--text-secondary)">Feb 2026</span></p>
-                    </div>
+                    <button class="btn btn-teal" onclick="if(typeof showCmdLinkModal==='function')showCmdLinkModal()">Link CMD Session</button>
                 </section>
             </div>
         </div>
@@ -499,7 +548,6 @@
                     </table>
                 </div>
                 <div class="admin-panel" id="databasePanel" style="display:none">
-                    <!-- DB Admin content rendered by DbAdmin.js -->
                     <div id="dbAdminContent">
                         <p style="color:var(--text-secondary);text-align:center;padding:20px">Loading database info...</p>
                     </div>
@@ -508,21 +556,34 @@
         </div>
     </div>
 
+    <!-- ═══════════════ GLOBAL COLOR & STYLE MODAL ═══════════════ -->
+    <div class="modal" id="globalColorModal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Colors &amp; Style</h2>
+                <button class="modal-close" id="closeGlobalColor">&times;</button>
+            </div>
+            <div class="modal-body" id="globalColorBody">
+                <!-- Populated dynamically by chart-manager.js -->
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
 
     <!-- ═══════════════ SCRIPTS ═══════════════ -->
-    <script src="js/config.js?v=4.8.1"></script>
-    <script src="js/ui-manager.js?v=4.8.1"></script>
-    <script src="js/firebase-manager.js?v=4.8.1"></script>
-    <script src="js/data-manager.js?v=4.8.1"></script>
-    <script src="js/chart-manager.js?v=4.8.1"></script>
-    <script src="js/profile-manager.js?v=4.8.1"></script>
-    <script src="js/session-manager.js?v=4.8.1"></script>
-    <script src="js/upload-manager.js?v=4.8.1"></script>
-    <script src="js/db-admin.js?v=4.8.1"></script>
-    <script src="js/auth.js?v=4.8.1"></script>
-    <script src="js/serial-reader.js?v=4.8.1"></script>
-    <script src="js/app-entry.js?v=4.8.1"></script>
+    <script src="js/config.js?v=5.0"></script>
+    <script src="js/ui-manager.js?v=5.0"></script>
+    <script src="js/firebase-manager.js?v=5.0"></script>
+    <script src="js/data-manager.js?v=5.0"></script>
+    <script src="js/chart-manager.js?v=5.0"></script>
+    <script src="js/profile-manager.js?v=5.0"></script>
+    <script src="js/session-manager.js?v=5.0"></script>
+    <script src="js/upload-manager.js?v=5.0"></script>
+    <script src="js/db-admin.js?v=5.0"></script>
+    <script src="js/auth.js?v=5.0"></script>
+    <script src="js/serial-reader.js?v=5.0"></script>
+    <script src="js/app-entry.js?v=5.0"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 /**
- * MuNRa 4.8.1 — Session Manager
+ * MunHub 5.0 — Session Manager
  *
  * Manages session lifecycle for detector profiles:
  *   • List sessions with full metadata (name, start/end, minute count)
@@ -117,8 +117,8 @@ const SessionManager = (() => {
                     </div>
                 </div>
                 <div style="display:flex;gap:6px;flex-wrap:wrap;align-self:center">
-                    <button onclick="SessionManager.downloadSession('${profileId}','${sid}')"
-                        style="padding:5px 12px;border:none;border-radius:5px;background:#0d6efd;color:#fff;cursor:pointer;font-size:11px" title="Download CSV">⬇ CSV</button>
+                    <button onclick="SessionManager.showDownloadOptions('${profileId}','${sid}')"
+                        style="padding:5px 12px;border:none;border-radius:5px;background:#0d6efd;color:#fff;cursor:pointer;font-size:11px" title="Download">⬇ Download</button>
                     <button onclick="SessionManager.deleteSession('${profileId}','${sid}','${_esc(name)}')"
                         style="padding:5px 12px;border:none;border-radius:5px;background:#f85149;color:#fff;cursor:pointer;font-size:11px">Delete</button>
                 </div>
@@ -127,10 +127,53 @@ const SessionManager = (() => {
     }
 
     /* ═══════════════════════════════════════════════════════════════════
-       DOWNLOAD SESSION
+       DOWNLOAD SESSION — Multi-format
        ═══════════════════════════════════════════════════════════════════ */
 
-    async function downloadSession(profileId, sessionId) {
+    /** Show per-session download format picker */
+    function showDownloadOptions(profileId, sessionId) {
+        // Remove any existing popup
+        document.querySelectorAll('.download-format-popup').forEach(p => p.remove());
+
+        const btn = event?.target;
+        const popup = document.createElement('div');
+        popup.className = 'download-format-popup';
+        popup.style.cssText = 'position:absolute;z-index:1000;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:8px;padding:10px;box-shadow:0 4px 16px rgba(0,0,0,0.3);min-width:160px';
+        popup.innerHTML = `
+            <div style="font-size:12px;font-weight:600;margin-bottom:8px;color:var(--text-primary)">Download Format</div>
+            <button class="dl-fmt-btn" data-fmt="csv" style="display:block;width:100%;text-align:left;padding:6px 10px;margin-bottom:4px;border:none;border-radius:4px;background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px">📊 CSV (spreadsheet)</button>
+            <button class="dl-fmt-btn" data-fmt="raw" style="display:block;width:100%;text-align:left;padding:6px 10px;margin-bottom:4px;border:none;border-radius:4px;background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px">📝 Raw Log (.log)</button>
+            <button class="dl-fmt-btn" data-fmt="serial" style="display:block;width:100%;text-align:left;padding:6px 10px;border:none;border-radius:4px;background:var(--bg-tertiary);color:var(--text-primary);cursor:pointer;font-size:12px">🔌 Serial Format (.txt)</button>
+        `;
+
+        popup.querySelectorAll('.dl-fmt-btn').forEach(b => {
+            b.addEventListener('click', () => {
+                popup.remove();
+                downloadSession(profileId, sessionId, b.dataset.fmt);
+            });
+        });
+
+        // Position near button
+        if (btn) {
+            const rect = btn.getBoundingClientRect();
+            popup.style.position = 'fixed';
+            popup.style.left = rect.left + 'px';
+            popup.style.top = (rect.bottom + 4) + 'px';
+        } else {
+            popup.style.position = 'fixed';
+            popup.style.top = '50%'; popup.style.left = '50%';
+            popup.style.transform = 'translate(-50%,-50%)';
+        }
+        document.body.appendChild(popup);
+
+        // Close on outside click
+        setTimeout(() => {
+            const close = (e) => { if (!popup.contains(e.target)) { popup.remove(); document.removeEventListener('click', close); } };
+            document.addEventListener('click', close);
+        }, 0);
+    }
+
+    async function downloadSession(profileId, sessionId, format = 'csv') {
         const db = FirebaseManager.getDb();
         if (!db) return;
 
@@ -145,21 +188,40 @@ const SessionManager = (() => {
                 .map(([ts, d]) => ({ ts: parseInt(ts, 10), ...d }))
                 .sort((a, b) => a.ts - b.ts);
 
-            let csv = 'Timestamp,DateTime,Events,Muons,SiPM_Avg,SiPM_Min,SiPM_Max,Temperature,Pressure,DeadTime\n';
-            for (const d of sorted) {
-                csv += `${d.ts},${new Date(d.ts * 1000).toISOString()},`;
-                csv += `${d.ec ?? ''},${d.cc ?? ''},${d.sm ?? ''},${d.sn ?? ''},${d.sx ?? ''},`;
-                csv += `${d.tp ?? ''},${d.pr ?? ''},${d.dt ?? ''}\n`;
+            let content, ext, mime;
+
+            if (format === 'raw') {
+                // Raw log: JSON-like format with all original fields
+                const lines = sorted.map(d => JSON.stringify(d));
+                content = lines.join('\n');
+                ext = 'log'; mime = 'text/plain';
+            } else if (format === 'serial') {
+                // Serial.log format: tab-separated like detector output
+                // Columns: EventCount CosmicCount SiPM_Avg SiPM_Min SiPM_Max Temperature Pressure DeadTime
+                const lines = sorted.map(d =>
+                    `${d.ec ?? 0}\t${d.cc ?? 0}\t${d.sm ?? 0}\t${d.sn ?? 0}\t${d.sx ?? 0}\t${d.tp ?? 0}\t${d.pr ?? 0}\t${d.dt ?? 0}`
+                );
+                content = lines.join('\n');
+                ext = 'txt'; mime = 'text/plain';
+            } else {
+                // CSV (default)
+                let csv = 'Timestamp,DateTime,Events,Muons,SiPM_Avg,SiPM_Min,SiPM_Max,Temperature,Pressure,DeadTime\n';
+                for (const d of sorted) {
+                    csv += `${d.ts},${new Date(d.ts * 1000).toISOString()},`;
+                    csv += `${d.ec ?? ''},${d.cc ?? ''},${d.sm ?? ''},${d.sn ?? ''},${d.sx ?? ''},`;
+                    csv += `${d.tp ?? ''},${d.pr ?? ''},${d.dt ?? ''}\n`;
+                }
+                content = csv; ext = 'csv'; mime = 'text/csv';
             }
 
-            const blob = new Blob([csv], { type: 'text/csv' });
+            const blob = new Blob([content], { type: mime });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `munra_${profileId}_${sessionId}.csv`;
+            a.download = `munhub_${profileId}_${sessionId}.${ext}`;
             a.click();
             URL.revokeObjectURL(a.href);
 
-            UIManager.showToast(`Downloaded ${sorted.length} minutes`, 'success');
+            UIManager.showToast(`Downloaded ${sorted.length} minutes (${format.toUpperCase()})`, 'success');
         } catch (e) {
             UIManager.showToast('Download error: ' + e.message, 'error');
         }
@@ -804,6 +866,7 @@ const SessionManager = (() => {
     return Object.freeze({
         showSessionsModal,
         downloadSession,
+        showDownloadOptions,
         deleteSession,
         triggerUpload,
         closeModal,

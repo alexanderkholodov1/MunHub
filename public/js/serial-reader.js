@@ -351,7 +351,7 @@ async function connectWebSocketBridge() {
             lines.push('  tools/serial_bridge.py');
             lines.push('');
             lines.push('Download it from the MuNRa website if needed:');
-            lines.push('  https://munra-1.web.app/tools/serial_bridge.py');
+            lines.push(`  ${window.location.origin}/tools/serial_bridge.py`);
             reject(new Error(lines.join('\n')));
         }, 3000);  // 3 second timeout
 

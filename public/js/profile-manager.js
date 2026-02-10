@@ -33,7 +33,9 @@ const ProfileManager = (() => {
 
         try {
             // Step 1: Get profile keys via REST shallow query
-            const url = `${FIREBASE_CONFIG.databaseURL}/profiles.json?shallow=true`;
+            // Use the active DB URL (supports custom/migrated databases)
+            const activeDbUrl = localStorage.getItem('munra_firebase_url') || DEFAULT_FIREBASE_URL;
+            const url = `${activeDbUrl}/profiles.json?shallow=true`;
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Shallow query failed: ${res.status}`);
             const keysObj = await res.json();

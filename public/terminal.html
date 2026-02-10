@@ -153,7 +153,7 @@
         <div class="term-brand">
             <span class="term-brand-mu">μ</span>
             <span>MuNRa — Data Terminal</span>
-            <span style="font-size:0.7rem;color:var(--text2);margin-left:8px;font-weight:400">v4.8.0</span>
+            <span style="font-size:0.7rem;color:var(--text2);margin-left:8px;font-weight:400">v4.8.1</span>
         </div>
         <div class="term-controls">
             <div class="term-status disconnected" id="termStatus">Disconnected</div>
@@ -179,7 +179,7 @@
     </div>
 
     <!-- Shared modules (order matters) -->
-    <script src="js/config.js?v=4.8.0"></script>
+    <script src="js/config.js?v=4.8.1"></script>
 
     <script>
     // ── Minimal shims so serial-reader.js works standalone ─────────────
@@ -203,13 +203,18 @@
     window.showToast = UIManager.showToast;
 
     // FirebaseManager shim — real Firebase, just minimal init
+    // Respects dynamic DB URL from localStorage (set via admin panel)
     const FirebaseManager = (() => {
         let _db = null;
         async function init() {
             try {
-                if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+                const customUrl = localStorage.getItem('munra_firebase_url');
+                const config = customUrl
+                    ? { ...FIREBASE_CONFIG, databaseURL: customUrl }
+                    : FIREBASE_CONFIG;
+                if (!firebase.apps.length) firebase.initializeApp(config);
                 _db = firebase.database();
-                termAppend('[OK] Firebase connected.', 'term-good');
+                termAppend('[OK] Firebase connected: ' + (customUrl || FIREBASE_CONFIG.databaseURL), 'term-good');
             } catch (e) { termAppend('[Error] Firebase: ' + e.message, 'term-error'); }
         }
         function getDb() { return _db; }
@@ -407,6 +412,6 @@
     </script>
 
     <!-- Serial reader — core data collection logic -->
-    <script src="js/serial-reader.js?v=4.8.0"></script>
+    <script src="js/serial-reader.js?v=4.8.1"></script>
 </body>
 </html>

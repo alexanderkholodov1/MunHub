@@ -96,11 +96,9 @@ const ChartManager = (() => {
     function init() {
         _loadPreferences();
 
-        // Set global point defaults to 0 so line-only / smooth-no-dots never flash dots
-        if (Chart.defaults.elements && Chart.defaults.elements.point) {
-            Chart.defaults.elements.point.radius = 0;
-            Chart.defaults.elements.point.hoverRadius = 0;
-        }
+        // NOTE: Do NOT set Chart.defaults.elements.point.radius = 0 here.
+        // Global defaults interfere with dataset-level pointRadius settings.
+        // Instead, _styleDatasetForType() fully controls point visibility per type.
 
         for (let slot = 0; slot < NUM_SLOTS; slot++) {
             _createChartForSlot(slot);
@@ -167,8 +165,10 @@ const ChartManager = (() => {
         const ds = (label, color, extra = {}) => ({
             label, data: [], borderColor: color,
             backgroundColor: color.replace(')', ',0.5)').replace('rgb', 'rgba'),
-            tension: 0, pointRadius: 0, pointStyle: false, pointHoverRadius: 0, pointHitRadius: 0, borderWidth: 1.5, fill: false, spanGaps: false,
-            barThickness: 'flex', maxBarThickness: 40, minBarLength: 2,
+            tension: 0, borderWidth: 1.5, fill: false, spanGaps: false,
+            // Point & bar defaults — _styleDatasetForType() overrides these per chart type
+            pointRadius: 0, pointStyle: false, pointHoverRadius: 0, pointHitRadius: 0,
+            maxBarThickness: 40, minBarLength: 2,
             ...extra
         });
 
@@ -219,11 +219,13 @@ const ChartManager = (() => {
                 break;
         }
 
-        _charts[slot] = new Chart(canvas, config);
-        // Apply saved chart type styling inline (NOT via _applySavedChartType to avoid recursion)
+        // Apply chart type styling BEFORE creating the Chart instance.
+        // This ensures Chart.js resolves pointRadius/pointStyle from the
+        // dataset config at construction time — not patched after.
         const savedType = _chartTypes[slot] || 'line';
-        _charts[slot].data.datasets.forEach(d => _styleDatasetForType(d, savedType));
-        _charts[slot].update('none');
+        config.data.datasets.forEach(d => _styleDatasetForType(d, savedType));
+
+        _charts[slot] = new Chart(canvas, config);
     }
 
     // ─── Source switching ────────────────────────────────────────────────
@@ -820,8 +822,8 @@ const ChartManager = (() => {
                 break;
             case 'bar':
                 d.tension = 0; d.borderWidth = 1;
-                d.barThickness = 6; d.maxBarThickness = 40; d.minBarLength = 3;
-                d.barPercentage = 0.95; d.categoryPercentage = 0.95;
+                d.barPercentage = 0.85; d.categoryPercentage = 0.9;
+                d.maxBarThickness = 40; d.minBarLength = 2;
                 // Ensure visible bar fill regardless of color format (hex or rgb)
                 if (d.borderColor) {
                     const c = d.borderColor;

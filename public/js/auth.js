@@ -599,9 +599,14 @@ function setupAuthListeners() {
             const tabName = tab.dataset.tab;
             document.getElementById('usersPanel').style.display = tabName === 'users' ? 'block' : 'none';
             document.getElementById('profilesPanel').style.display = tabName === 'profiles' ? 'block' : 'none';
+            const dbPanel = document.getElementById('databasePanel');
+            if (dbPanel) dbPanel.style.display = tabName === 'database' ? 'block' : 'none';
             
             if (tabName === 'profiles') {
                 loadAdminProfiles();
+            }
+            if (tabName === 'database' && typeof DbAdmin !== 'undefined') {
+                DbAdmin.renderPanel();
             }
         });
     });

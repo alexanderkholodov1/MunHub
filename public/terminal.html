@@ -60,6 +60,29 @@
         .term-controls {
             display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
         }
+        .term-help-btn {
+            padding: 8px 18px; border-radius: 6px; border: 1px solid #30363d;
+            background: #0d2137; color: #58a6ff; cursor: pointer;
+            font-size: 0.9rem; font-weight: 500; transition: background 0.15s;
+        }
+        .term-help-btn:hover { background: #122d4e; }
+        .term-help-panel {
+            display: none; background: #0d1b2a; border-bottom: 2px solid var(--accent);
+            padding: 18px 24px; font-size: 0.88rem; line-height: 1.7; color: #c9d1d9;
+            flex-shrink: 0; max-height: 50vh; overflow-y: auto;
+        }
+        .term-help-panel.open { display: block; }
+        .term-help-panel h3 { color: #58a6ff; margin-bottom: 10px; font-size: 1rem; }
+        .term-help-panel h4 { color: #f0c040; margin: 14px 0 6px; font-size: 0.92rem; }
+        .term-help-panel code {
+            background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 3px; font-size: 0.85em; color: #e6edf3;
+        }
+        .term-help-panel a { color: #3fb950; }
+        .term-help-panel ul { padding-left: 18px; margin: 4px 0; }
+        .term-help-panel li { padding: 2px 0; }
+        .help-section { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid #21262d; }
+        .help-section:last-child { border-bottom: none; }
+        .driver-link { display: inline-block; background: #122d4e; padding: 4px 10px; border-radius: 4px; margin: 2px 0; }
         .term-status {
             padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600;
         }
@@ -149,11 +172,70 @@
         <div id="compatMessage"></div>
     </div>
 
+    <!-- Help / Troubleshooting panel (toggled by Help button) -->
+    <div class="term-help-panel" id="helpPanel">
+        <button class="compat-dismiss" id="helpDismiss" style="float:right">&times;</button>
+        <h3>Connection Guide &amp; Troubleshooting</h3>
+
+        <div class="help-section">
+            <h4>Quick Start (3 steps)</h4>
+            <ol>
+                <li><strong>Plug in</strong> the detector via USB &mdash; make sure the cable supports data (not charge-only).</li>
+                <li><strong>Click "Connect"</strong> &mdash; a popup will show available serial ports. Select your detector.</li>
+                <li><strong>Click "▶ Record"</strong> &mdash; data will start flowing to the terminal and Firebase.</li>
+            </ol>
+        </div>
+
+        <div class="help-section">
+            <h4>Port Picker is Empty? (most common issue)</h4>
+            <p>If you click Connect and the popup shows <strong>no ports</strong>, your OS is missing the USB-to-Serial driver.</p>
+            <p style="margin-top:6px;"><strong>Windows &mdash; Install the correct driver:</strong></p>
+            <ul>
+                <li><strong>CH340</strong> (most common for Arduino-based detectors):<br>
+                    <a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html" target="_blank" class="driver-link">Download CH340 Driver</a></li>
+                <li><strong>CP2102</strong> (Silicon Labs):<br>
+                    <a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" class="driver-link">Download CP2102 Driver</a></li>
+                <li><strong>FTDI</strong>:<br>
+                    <a href="https://ftdichip.com/drivers/vcp-drivers/" target="_blank" class="driver-link">Download FTDI Driver</a></li>
+            </ul>
+            <p style="margin-top:6px"><em>Not sure which chip? Try <strong>CH340</strong> first &mdash; it's the most common.</em></p>
+            <p style="margin-top:8px"><strong>After installing:</strong></p>
+            <ol>
+                <li>Unplug and replug the USB cable</li>
+                <li>Open <strong>Device Manager</strong> (Win+X) → check that a COM port appears under "Ports (COM &amp; LPT)"</li>
+                <li>Click "Connect" again in MunHub</li>
+            </ol>
+
+            <p style="margin-top:8px;"><strong>macOS:</strong> Most drivers are built-in. For CH340: <code>brew install --cask wch-ch34x-usb-serial-driver</code></p>
+            <p><strong>Linux:</strong> Run <code>ls /dev/ttyACM* /dev/ttyUSB*</code>. If nothing: <code>dmesg | tail -20</code>. Add yourself to dialout: <code>sudo usermod -a -G dialout $USER</code> (then log out/in).</p>
+        </div>
+
+        <div class="help-section">
+            <h4>Other Connection Issues</h4>
+            <ul>
+                <li><strong>"Port is busy"</strong> &mdash; Close Arduino IDE, PuTTY, minicom, or any other serial monitor using the port.</li>
+                <li><strong>"Permission denied"</strong> (Linux) &mdash; Run <code>sudo chmod 666 /dev/ttyACM0</code> or add yourself to dialout group.</li>
+                <li><strong>Wrong browser</strong> &mdash; Web Serial requires <strong>Chrome, Edge, or Opera</strong>. Firefox/Safari will use the WebSocket Bridge instead.</li>
+                <li><strong>Data appears but nothing is recorded</strong> &mdash; Make sure you're logged in and clicked "▶ Record".</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
+            <h4>Alternative: WebSocket Bridge (any browser)</h4>
+            <p>If Web Serial doesn't work, use the bridge script (works with <strong>any browser</strong>):</p>
+            <ol>
+                <li><code>pip3 install pyserial websockets</code></li>
+                <li><code>python3 tools/serial_bridge.py</code></li>
+                <li>Click "Connect" &mdash; it will auto-detect the bridge</li>
+            </ol>
+        </div>
+    </div>
+
     <header class="term-header">
         <div class="term-brand">
             <span class="term-brand-mu">μ</span>
             <span>MunHub — Data Terminal</span>
-            <span style="font-size:0.7rem;color:var(--text2);margin-left:8px;font-weight:400">v4.8.1</span>
+            <span style="font-size:0.7rem;color:var(--text2);margin-left:8px;font-weight:400">v5.0</span>
         </div>
         <div class="term-controls">
             <div class="term-status disconnected" id="termStatus">Disconnected</div>
@@ -161,6 +243,7 @@
             <button class="term-btn term-btn-danger" id="disconnectBtn" disabled>Disconnect</button>
             <button class="term-btn term-btn-primary" id="startBtn" disabled>▶ Record</button>
             <button class="term-btn" id="stopBtn" disabled>■ Stop</button>
+            <button class="term-help-btn" id="helpBtn">? Help</button>
         </div>
     </header>
 
@@ -179,7 +262,7 @@
     </div>
 
     <!-- Shared modules (order matters) -->
-    <script src="js/config.js?v=4.8.1"></script>
+    <script src="js/config.js?v=5.0"></script>
 
     <script>
     // ── Minimal shims so serial-reader.js works standalone ─────────────
@@ -301,6 +384,14 @@
             });
         }
 
+        // Help panel toggle
+        document.getElementById('helpBtn').addEventListener('click', () => {
+            document.getElementById('helpPanel').classList.toggle('open');
+        });
+        document.getElementById('helpDismiss').addEventListener('click', () => {
+            document.getElementById('helpPanel').classList.remove('open');
+        });
+
         // Auth — try restoring session
         firebase.auth().onAuthStateChanged(user => {
             if (user) {
@@ -328,10 +419,16 @@
                     termAppend(`[OK] Connected via ${mode === 'Bridge' ? 'WebSocket Bridge' : 'Web Serial API'}.`, 'term-good');
                 } catch (e) {
                     // Display multi-line diagnostics (serial-reader provides detailed messages)
-                    const lines = (e.message || 'Unknown error').split('\n');
+                    const msg = e.message || 'Unknown error';
+                    const lines = msg.split('\n');
                     lines.forEach(line => {
                         if (line.trim()) termAppend('[Error] ' + line, 'term-error');
                     });
+                    // Auto-open help panel if it looks like an empty-ports / driver issue
+                    if (msg.includes('NO SERIAL PORT') || msg.includes('driver') || msg.includes('Device Manager')) {
+                        document.getElementById('helpPanel').classList.add('open');
+                        termAppend('[System] Opened the Help panel above with driver download links.', 'term-system');
+                    }
                 }
             } else {
                 termAppend('[Error] Serial reader module not loaded.', 'term-error');
@@ -381,6 +478,7 @@
         });
 
         termAppend('[System] Ready. Click "Connect" to start.', 'term-system');
+        termAppend('[System] First time? Click the "? Help" button for a connection guide.', 'term-system');
     });
 
     // ── Live info bar updater ─────────────────────────────────────────
@@ -412,6 +510,6 @@
     </script>
 
     <!-- Serial reader — core data collection logic -->
-    <script src="js/serial-reader.js?v=4.8.1"></script>
+    <script src="js/serial-reader.js?v=5.0"></script>
 </body>
 </html>

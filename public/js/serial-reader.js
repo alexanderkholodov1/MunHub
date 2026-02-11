@@ -200,7 +200,7 @@ function _buildSerialErrorDiagnostic(error) {
         lines.push('Common culprits:');
         lines.push('  - minicom / screen / picocom');
         lines.push('  - Arduino IDE Serial Monitor');
-        lines.push('  - Another browser tab with MuNRa');
+        lines.push('  - Another browser tab with MunHub');
         lines.push('  - PuTTY or other serial terminal\n');
         if (os === 'linux') {
             lines.push('Find what is using the port:');
@@ -283,7 +283,57 @@ async function connectSerialPort() {
     } catch (pickError) {
         // User cancelled the dialog, or no ports available
         if (pickError.name === 'NotFoundError' || (pickError.message || '').toLowerCase().includes('cancel')) {
-            throw new Error('No serial port was selected.\nClick "Connect" again and choose your detector from the list.\n\nIf no ports appear in the list:\n  - Check that the detector is plugged in via USB\n  - Try a different USB cable or port');
+            const os = detectOS();
+            const lines = [
+                'NO SERIAL PORT SELECTED',
+                '',
+                'The port picker was empty or you cancelled.',
+                ''
+            ];
+            if (os === 'windows') {
+                lines.push('On Windows this usually means a USB driver is missing.');
+                lines.push('');
+                lines.push('STEP 1 — Check Device Manager:');
+                lines.push('  • Press Win+X → Device Manager');
+                lines.push('  • Look under "Ports (COM & LPT)"');
+                lines.push('  • If nothing appears (or a ⚠ yellow icon), install the driver below');
+                lines.push('');
+                lines.push('STEP 2 — Install the correct USB driver:');
+                lines.push('  • CH340 chip (most common):');
+                lines.push('    https://www.wch-ic.com/downloads/CH341SER_EXE.html');
+                lines.push('  • CP2102 chip (Silicon Labs):');
+                lines.push('    https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers');
+                lines.push('  • FTDI chip:');
+                lines.push('    https://ftdichip.com/drivers/vcp-drivers/');
+                lines.push('');
+                lines.push('STEP 3 — After installing:');
+                lines.push('  1. Unplug and replug the detector USB cable');
+                lines.push('  2. Verify a COM port appears in Device Manager');
+                lines.push('  3. Click "Connect" again in MunHub');
+                lines.push('');
+                lines.push('TIP: If you don\'t know which chip your detector uses,');
+                lines.push('try CH340 first — it\'s the most common for Arduino-based detectors.');
+            } else if (os === 'macos') {
+                lines.push('On macOS:');
+                lines.push('  1. Check if a device appears: ls /dev/tty.usb*');
+                lines.push('  2. Most modern macOS versions include USB drivers');
+                lines.push('  3. For CH340: brew install --cask wch-ch34x-usb-serial-driver');
+                lines.push('  4. Unplug/replug the USB cable and try again');
+            } else if (os === 'linux') {
+                lines.push('On Linux:');
+                lines.push('  1. Check: ls -la /dev/ttyACM* /dev/ttyUSB*');
+                lines.push('  2. If no device: check dmesg | tail -20');
+                lines.push('  3. If device exists but empty picker: try');
+                lines.push('     sudo chmod 666 /dev/ttyACM0');
+                lines.push('  4. Add yourself to dialout: sudo usermod -a -G dialout $USER');
+            } else {
+                lines.push('Make sure the detector is connected via USB and drivers are installed.');
+            }
+            lines.push('');
+            lines.push('Still stuck? Try the WebSocket Bridge as an alternative:');
+            lines.push('  pip3 install pyserial websockets');
+            lines.push('  python3 tools/serial_bridge.py');
+            throw new Error(lines.join('\n'));
         }
         throw new Error(_buildSerialErrorDiagnostic(pickError));
     }

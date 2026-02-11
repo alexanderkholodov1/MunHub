@@ -374,6 +374,28 @@
                     <strong style="color:var(--info);" id="serialCompatMsg">WebSocket Bridge Mode</strong><br>
                     <span id="serialCompatDetail"></span>
                 </div>
+
+                <!-- Prerequisites / driver info -->
+                <details style="margin-bottom:16px;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:0;">
+                    <summary style="padding:12px 16px;cursor:pointer;font-weight:600;font-size:0.92rem;color:var(--accent);list-style:none;display:flex;align-items:center;gap:8px">
+                        <span style="font-size:1.1rem">&#9432;</span> First time? Check prerequisites
+                    </summary>
+                    <div style="padding:4px 16px 14px;font-size:0.85rem;line-height:1.7;color:var(--text-secondary)">
+                        <p style="margin-bottom:8px"><strong style="color:var(--text-primary)">Requirements:</strong></p>
+                        <ul style="padding-left:18px;margin-bottom:10px">
+                            <li><strong>Chrome, Edge, or Opera</strong> (for Web Serial API)</li>
+                            <li>USB data cable (not charge-only)</li>
+                            <li>USB driver for your detector's chip</li>
+                        </ul>
+                        <p style="margin-bottom:4px"><strong style="color:var(--text-primary)">Windows &mdash; USB Driver (if port picker is empty):</strong></p>
+                        <ul style="padding-left:18px;margin-bottom:8px">
+                            <li><a href="https://www.wch-ic.com/downloads/CH341SER_EXE.html" target="_blank" style="color:var(--success)">CH340 Driver</a> (most common)</li>
+                            <li><a href="https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers" target="_blank" style="color:var(--success)">CP2102 Driver</a> (Silicon Labs)</li>
+                            <li><a href="https://ftdichip.com/drivers/vcp-drivers/" target="_blank" style="color:var(--success)">FTDI Driver</a></li>
+                        </ul>
+                        <p style="font-size:0.82rem;color:var(--text-tertiary)">After installing a driver: unplug &amp; replug USB, check Device Manager shows a COM port, then try again.</p>
+                    </div>
+                </details>
                 <div class="setup-steps">
                     <div class="setup-step">
                         <h4><span class="step-num">1</span> Select Profile</h4>

@@ -8,6 +8,11 @@ firebase_credentials.json
 # Firebase cache
 .firebase/
 
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+
 # Environment files
 .env
 .env.local

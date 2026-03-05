@@ -9,7 +9,7 @@
 
 ---
 
-**MunHub** (formerly MuNRa) is a web-based platform for monitoring cosmic ray muon detectors in real time. Researchers, universities, and enthusiasts worldwide can connect their particle detectors, collect data continuously, visualize multiple data streams, and collaborate through a shared cloud database.
+**MunHub** is a web-based platform for monitoring cosmic ray muon detectors in real time. Researchers, universities, and enthusiasts worldwide can connect their particle detectors, collect data continuously, visualize multiple data streams, and collaborate through a shared cloud database.
 
 **Live instance:** [https://munra-1.web.app](https://munra-1.web.app)
 

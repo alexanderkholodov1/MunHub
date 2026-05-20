@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import firebase_admin; print\\('firebase_admin OK'\\)\")",
+      "Bash(python private/migrate_to_munhub.py)"
+    ]
+  }
+}

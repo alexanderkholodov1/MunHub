@@ -12,14 +12,16 @@ const APP_NAME    = 'MunHub';
 const APP_BUILD   = 'Feb 2026';
 
 // ─── Firebase ───────────────────────────────────────────────────────────────
+// TODO: Replace apiKey, messagingSenderId, appId with munhub-1 values from:
+//   Firebase Console → munhub-1 → Project Settings → Your apps → </> web app
 const FIREBASE_CONFIG = Object.freeze({
-    apiKey: 'AIzaSyBEK9jPwoEuFRK_5HBTzZxaLYH3PrLW0xA',
-    authDomain: 'munra-1.firebaseapp.com',
-    databaseURL: 'https://munra-1-default-rtdb.firebaseio.com',
-    projectId: 'munra-1',
-    storageBucket: 'munra-1.appspot.com',
-    messagingSenderId: '182767247922',
-    appId: '1:182767247922:web:86bd4e2e3e3fa699a3d22b'
+    apiKey: 'REPLACE_WITH_MUNHUB1_API_KEY',
+    authDomain: 'munhub-1.firebaseapp.com',
+    databaseURL: 'https://munhub-1-default-rtdb.firebaseio.com',
+    projectId: 'munhub-1',
+    storageBucket: 'munhub-1.appspot.com',
+    messagingSenderId: 'REPLACE_WITH_MUNHUB1_SENDER_ID',
+    appId: 'REPLACE_WITH_MUNHUB1_APP_ID'
 });
 
 const DEFAULT_FIREBASE_URL = FIREBASE_CONFIG.databaseURL;

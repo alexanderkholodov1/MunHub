@@ -1269,30 +1269,27 @@ async function updateLatestData(data) {
 }
 
 /**
- * Cleanup old real-time data (older than 5 minutes)
- * Uses orderByChild('ts') for proper numeric comparison
+ * Cleanup real-time data older than REALTIME_RETENTION_MS from a profile.
+ * Called both during active recording (periodic) and on profile load (one-shot).
  */
 async function cleanupRealtimeData(profileId) {
     if (!profileId) return;
-    
-    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-    
+
+    const cutoff = Date.now() - PERF.REALTIME_RETENTION_MS;
+
     try {
         const ref = firebase.database().ref(`profiles/${profileId}/realtime`);
-        // Use orderByChild('ts') for proper numeric comparison
-        const snapshot = await ref.orderByChild('ts').endAt(fiveMinutesAgo).once('value');
-        
+        const snapshot = await ref.orderByChild('ts').endAt(cutoff).once('value');
+
         const updates = {};
-        snapshot.forEach(child => {
-            updates[child.key] = null;
-        });
-        
+        snapshot.forEach(child => { updates[child.key] = null; });
+
         if (Object.keys(updates).length > 0) {
             await ref.update(updates);
-            console.log(`Cleaned up ${Object.keys(updates).length} old realtime records`);
+            console.log(`[Cleanup] Deleted ${Object.keys(updates).length} stale realtime records from ${profileId}`);
         }
     } catch (error) {
-        console.error('Error cleaning up realtime data:', error);
+        console.error('[Cleanup] Error cleaning realtime data:', error);
     }
 }
 
@@ -1577,32 +1574,34 @@ function startRealtimeCleanup() {
 
 /**
  * Schedule cleanup to wind down after recording stops.
- * Continues for 5 more minutes, then stops when no realtime data remains in DB.
+ * Runs a final pass after 1 minute, then stops.
+ * Using 1 min (not 8 min) so stale data is removed even if the browser
+ * closes shortly after the user stops recording.
  */
 function stopRealtimeCleanup() {
-    // Cancel the start timeout if cleanup hasn't begun yet
+    // Cancel the start timeout if cleanup hasn't begun yet (recording < 8 min)
     if (cleanupStartTimeout) {
         clearTimeout(cleanupStartTimeout);
         cleanupStartTimeout = null;
-        console.log('[Cleanup] Recording stopped before cleanup started. Cancelled.');
+        // Run one immediate pass to catch data written before cleanup started
+        _runCleanupNow();
+        console.log('[Cleanup] Recording stopped early — running immediate cleanup pass.');
         return;
     }
 
-    if (!cleanupInterval) return; // nothing running
+    if (!cleanupInterval) return;
 
-    console.log('[Cleanup] Recording stopped. Cleanup continues for 5 more minutes...');
+    console.log('[Cleanup] Recording stopped. Final cleanup in 60 s...');
 
     cleanupStopTimeout = setTimeout(async () => {
         cleanupStopTimeout = null;
-        // Final cleanup pass
         await _runCleanupNow();
-        // Stop interval
         if (cleanupInterval) {
             clearInterval(cleanupInterval);
             cleanupInterval = null;
         }
-        console.log('[Cleanup] Final cleanup complete. Cleanup stopped.');
-    }, PERF.REALTIME_RETENTION_MS); // 5 minutes after stop
+        console.log('[Cleanup] Final cleanup complete.');
+    }, 60_000); // 1 minute is enough — data is already > RETENTION_MS old
 }
 
 /** Execute a single cleanup pass for the recording profile */

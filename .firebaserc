@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "munra-1"
+    "default": "munhub-1",
+    "munra": "munra-1",
+    "munhub": "munhub-1"
   }
 }

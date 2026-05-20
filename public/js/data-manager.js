@@ -135,6 +135,11 @@ const DataManager = (() => {
         //      → at 11 events/sec that's ~550 entries * 50 bytes * 11/sec = 300KB/sec!
         // NEW: .on('child_added') only downloads each new entry once.
         _realtimeRef = base.child('realtime');
+
+        // Cleanup stale realtime records left over from crashed/unclosed sessions.
+        // Runs once on profile load, silently, so orphaned data never accumulates.
+        _cleanupStaleRealtime(db, profileId);
+
         _realtimeRef.orderByChild('ts').limitToLast(PERF.REALTIME_LIMIT)
             .on('child_added', snap => {
                 const val = snap.val();
@@ -237,6 +242,23 @@ const DataManager = (() => {
 
         result.push(data[data.length - 1]);
         return result;
+    }
+
+    // ─── Startup Realtime Cleanup ───────────────────────────────────
+    function _cleanupStaleRealtime(db, profileId) {
+        if (!db || !profileId) return;
+        const cutoff = Date.now() - PERF.REALTIME_RETENTION_MS;
+        db.ref(`profiles/${profileId}/realtime`)
+            .orderByChild('ts').endAt(cutoff).once('value')
+            .then(snap => {
+                const updates = {};
+                snap.forEach(child => { updates[child.key] = null; });
+                if (Object.keys(updates).length > 0) {
+                    db.ref(`profiles/${profileId}/realtime`).update(updates);
+                    console.log(`[DataManager] Cleaned ${Object.keys(updates).length} stale realtime records`);
+                }
+            })
+            .catch(() => { /* non-critical, ignore permission errors on read-only profiles */ });
     }
 
     // ─── Storage Stats ──────────────────────────────────────────────────

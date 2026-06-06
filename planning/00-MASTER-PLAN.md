@@ -1,0 +1,215 @@
+# MunHub Lab v6.0 — Plan Maestro de Reconstrucción
+
+> **Estado:** Capa 1 (decisiones fundacionales) CERRADA. Documento vivo.
+> **Propósito:** Fuente de verdad de alto nivel para la reconstrucción completa de MunHub.
+> Orientado a desarrollo agéntico (Spec-Driven Development). Los agentes leen este
+> documento + `/specs` antes de actuar y NO se desvían de lo aquí acordado.
+> **Regla de oro:** ningún agente hace `git commit` ni `git push`. El humano (Alexander)
+> revisa y commitea. Los agentes proponen, escriben archivos y dejan todo listo.
+
+---
+
+## 0. Contexto y motivación
+
+MunHub Lab es una plataforma web para adquisición, almacenamiento, visualización y
+análisis en tiempo real de datos de detectores de rayos cósmicos (CosmicWatch / muones).
+Nace como aporte de Alexander Kholodov a la investigación de Dennis Cazar en el laboratorio
+LEOPARD (USFQ), dentro del proyecto EL-BONGO / Erasmus+ CBHE. Apunta a ser una **red
+internacional multi-universidad en Latinoamérica**.
+
+**Problemas de la v5.0 que motivan la reconstrucción:**
+- Arquitectura no profesional: ~9.700 líneas de Vanilla JS en 12 IIFEs, sin build, sin
+  tipos, sin tests, sin separación de capas. Lógica monolítica (serial 1641 líneas,
+  auth 1563, charts 1098).
+- Firebase Realtime DB **saturada y bloqueada** (límite 1 GB del plan gratuito).
+- Sin landing pública, sin base científica explícita, visualización pobre, sin comparación
+  con eventos externos, sin offline real, metadatos insuficientes para estadística valiosa.
+- Lectura serial dependiente de scripts manuales de Python en Firefox/Safari.
+
+**Visión v6.0:** plataforma profesional, modular, escalable a varios países, con fundamento
+científico sólido, redundancia de datos como prioridad #1, desplegable tanto en nube
+(Firebase puente) como en servidor propio (Red Clara, Supabase self-hosted), preparada para
+una IA propia, y construida con flujo agéntico auditable.
+
+---
+
+## 1. Decisiones fundacionales (CERRADAS)
+
+| # | Decisión | Elección | Fundamento |
+|---|----------|----------|------------|
+| D1 | **Frontend** | React + Next.js + TypeScript | SSR para landing/SEO + mapa, mayor ecosistema de charts/librerías científicas, mayor base de talento para colaboración multi-universidad. |
+| D2 | **Backend/DB destino** | Supabase self-hosted + TimescaleDB | Postgres auto-hospedable en Red Clara, con auth/RLS, realtime y storage. Sin lock-in. TimescaleDB para series temporales científicas. |
+| D3 | **Backend/DB puente** | Firebase `munhub-1` (proyecto fresco) | Red Clara aún no provisiona recursos. Se despliega YA en Firebase nuevo y se migra después. Service account en `private/` (NUNCA commitear). |
+| D4 | **Capa de datos** | `DataProvider` agnóstico (FirebaseProvider \| SupabaseProvider) | Permite Fase A (Firebase) → Fase B (Supabase) sin reescribir la app. **Esta capa ES la herramienta de migración/importación de admin.** |
+| D5 | **Lectura detector + offline** | Agente local instalable (Tauri) | Lee serial en cualquier SO sin Python manual + respaldo local SQLite + cola de sincronización offline. Resuelve serial + redundancia + offline. |
+| D6 | **Estructura de código** | Monorepo (pnpm + Turborepo) | Tipos/esquema compartidos, una sola fuente de verdad, ideal para coordinación agéntica. |
+| D7 | **Hardware objetivo** | Mayormente 1 SiPM (individual) | Restricción física: no se separa limpiamente muón vs electrón con un centellador delgado. La ciencia se basa en tasa, espectro de amplitud y coincidencia cuando exista. |
+| D8 | **Multi-tenant** | Híbrido: Institución → Usuarios → Detectores, + usuarios independientes | Flexibilidad para universidades y para investigadores/estudiantes sueltos. |
+| D9 | **Clasificación de partículas** | Por fases: honesta (física) → ML | Fase 1 rigurosa (amplitud + coincidencia + incertidumbre declarada). Fase 2 ML cuando haya datos. No sobreprometer. |
+| D10 | **Redundancia de datos (prioridad #1)** | 3 capas: SQLite local + DB nube primaria + respaldos fríos automáticos | Local en cada PC del detector + nube primaria + dumps periódicos a almacenamiento frío barato. |
+| D11 | **APIs externas** | NMDB + NOAA SWPC + NASA DONKI + Dst/Kp | Correlación científica con clima espacial. NMDB es lo más comparable (monitores de neutrones ↔ muones, decrecimientos Forbush). |
+| D12 | **IA** | ML clásico primero, diseñado para escalar a DL | Anomalías, corrección barométrica, forecasting, Forbush, insights, "valores normales", self-heal/retraining. DL si luego hay GPU. Solo diseño ahora. |
+| D13 | **Backlog/specs** | Specs en `/specs` (Markdown, SDD) + GitHub Issues/Projects | Specs versionadas junto al código (los agentes las leen); Issues para seguimiento/asignación. |
+| D14 | **Licencia** | MIT | Permisiva y simple; máxima adopción por universidades/entusiastas; ciencia abierta. |
+| D15 | **Toolkit frontend** | Tailwind + shadcn/ui + **Plotly** + **MapLibre** | Plotly para gráficos científicos (log, error bars, export); shadcn/ui accesible; MapLibre mapas vectoriales gratis (OSM). |
+| D16 | **Almacenamiento frío (capa 3)** | Cloudflare R2 | S3-compatible, 10GB gratis, sin egreso; dumps automáticos; migrable a Red Clara. |
+| D17 | **Idiomas (i18n)** | ES + EN + PT-BR | Cubre casi toda LatAm + ciencia internacional + Brasil. |
+
+---
+
+## 2. Arquitectura objetivo (alto nivel)
+
+```
+                         ┌─────────────────────────────────────────┐
+   [Detector USB] ──────▶│  AGENTE LOCAL (Tauri, multiplataforma)   │
+                         │  • Lee serial (todos los SO)             │
+                         │  • Respaldo local SQLite (capa 1)        │
+                         │  • Cola de sync offline → reintenta      │
+                         └───────────────────┬─────────────────────┘
+                                             │ (HTTPS/WSS, autenticado)
+                                             ▼
+                         ┌─────────────────────────────────────────┐
+                         │     CAPA DE DATOS AGNÓSTICA (D4)         │
+                         │  DataProvider ──┬── FirebaseProvider     │  Fase A
+                         │                 └── SupabaseProvider     │  Fase B
+                         └───────────────────┬─────────────────────┘
+                                             ▼
+              ┌──────────────────────────────────────────────────────┐
+              │  DB primaria (capa 2)    +   Respaldos fríos (capa 3) │
+              │  Firebase munhub-1  →  Supabase/Postgres+TimescaleDB  │
+              └───────────────────┬──────────────────────────────────┘
+                                  ▼
+   ┌──────────────────────────────────────────────────────────────────┐
+   │                    WEB (Next.js, React, TS)                       │
+   │  • Landing pública (mapa de detectores, demo en vivo, educación)  │
+   │  • Dashboard de detector (charts, stats, espectros, clasificación)│
+   │  • Dashboard de cuenta / institución                             │
+   │  • Dashboard de administrador del sistema (DB, migración, usuarios)│
+   │  • Páginas de correlación con APIs externas (clima espacial)      │
+   └──────────────────────────────────────────────────────────────────┘
+                                  ▲
+   ┌──────────────────────────────┴───────────────────────────────────┐
+   │   SERVICIOS (Fase B, servidor Red Clara)                          │
+   │  • api/  servicios backend / edge functions                       │
+   │  • ai/   pipeline ML (Python): anomalías, forecasting, insights   │
+   │  • ingest de APIs externas (NMDB, NOAA SWPC, DONKI, Dst/Kp)        │
+   └──────────────────────────────────────────────────────────────────┘
+```
+
+### Layout del monorepo (propuesto)
+
+```
+munhub/
+├─ apps/
+│  ├─ web/              # Next.js: landing + dashboards + admin
+│  └─ agent/            # Tauri: serial + SQLite local + sync offline
+├─ services/
+│  ├─ api/              # (Fase B) backend / edge functions
+│  └─ ai/              # (diseño ahora) pipeline ML en Python
+├─ packages/
+│  ├─ shared/           # tipos, esquema, constantes, validación (zod)
+│  ├─ data-provider/    # capa agnóstica D4 (Firebase | Supabase)
+│  ├─ ui/               # design system / componentes reutilizables
+│  └─ physics/          # cálculos científicos (corrección barométrica, flujo, espectros)
+├─ specs/               # Spec-Driven Development: una carpeta por feature
+├─ docs/
+│  ├─ user/             # manual de usuario + FAQ
+│  ├─ technical/        # arquitectura, despliegue, ADRs
+│  ├─ research/         # fundamento científico (reporte teórico base)
+│  └─ paper/            # borrador del artículo (baja prioridad)
+├─ infra/               # docker, IaC, configs de despliegue (Red Clara)
+└─ .github/             # CI/CD, plantillas de issues/PR
+```
+
+---
+
+## 3. Modelo de datos (lineamientos; detalle en spec dedicada)
+
+**Entidades:** `institutions`, `users`, `detectors` (perfiles), `sessions`,
+`minute_records` (series temporales), `realtime_records` (ventana corta),
+`external_events` (APIs), `ai_insights`.
+
+**Metadatos OBLIGATORIOS de detector (para estadística valiosa):**
+- Ubicación: ciudad, país, **latitud, longitud, altitud (msnm)**.
+- Institución (si aplica).
+- Emplazamiento: piso, subsuelo, exterior, blindaje, orientación.
+- Hardware: modelo de detector, ¿individual o coincidencia?, # de SiPM.
+
+**Compatibilidad hacia atrás (máxima):** perfiles/usuarios v5.0 sin estos metadatos se
+importan igual; la app muestra una **notificación no intrusiva** que impulsa a completarlos
+(sin bloquear el flujo). Los campos se vuelven obligatorios solo en altas nuevas.
+
+**Invariante científico (heredado, NO negociable):** todos los valores por minuto son
+**promedios, nunca sumas** (`ec`, `cc`, `sm/sx/sn`, `tp`, `pr`, `d`). Sin filtrado de eventos.
+
+---
+
+## 4. Hoja de ruta por fases
+
+| Fase | Nombre | Resultado | Backend |
+|------|--------|-----------|---------|
+| **F0** | Planificación (ACTUAL) | Specs, research físico, arquitectura, ADRs, backlog | — |
+| **F1** | Cimientos | Monorepo + `data-provider` + `shared` schema + auth/multi-tenant + migración de datos v5→v6 | Firebase munhub-1 |
+| **F2** | Núcleo de adquisición y visualización | Agente Tauri (serial+SQLite+sync) + dashboards reconstruidos (muchos más charts, espectros, stats, comparación) | Firebase |
+| **F3** | Landing pública | Mapa de detectores activos, demo en vivo de detector público, secciones educativas/info | Firebase |
+| **F4** | Correlación externa | Ingesta NMDB/NOAA/DONKI/Dst-Kp + vistas de correlación con eventos terrestres/solares | Firebase |
+| **F5** | Admin avanzado | Página dedicada: gestión de DB, **migración entre proveedores**, importación/conversión de DB externa, gestión de usuarios/roles, respaldos fríos | Firebase |
+| **F6** | Migración a servidor propio | Despliegue Supabase self-hosted + TimescaleDB en Red Clara; switch del DataProvider | → Supabase |
+| **F7** | IA | Despliegue del pipeline ML (anomalías, forecasting, insights, self-heal) | Supabase + ai/ |
+| **F8** | Documentación + paper | Manual usuario/FAQ, doc técnica completa, base del artículo científico | — |
+
+> La compatibilidad hacia atrás y la **seguridad/redundancia de datos** son transversales a
+> todas las fases, no una fase aparte.
+
+---
+
+## 5. Roster de agentes y flujo Spec-Driven (resumen; detalle en Capa 4)
+
+- 🔬 **Físico investigador** — fundamento teórico, qué es medible con 1 SiPM, validez de stats.
+- 🏗️ **Arquitecto** — diseño de sistema, esquema, ADRs, revisión de coherencia.
+- 💻 **Dev Frontend / Backend / Agente-local** — implementación por specs.
+- 🗄️ **Ingeniero de datos/DB** — migración, redundancia, time-series.
+- 🤖 **Ingeniero ML** — diseño del modelo propio + plan de recursos.
+- 🔐 **Seguridad** — auth, RLS, integridad y redundancia de datos.
+- 📖 **Documentación** — manuales + paper.
+- 🧭 **Orquestador** — mantiene a los agentes en su carril (specs como contrato).
+
+**Flujo SDD:** Idea → Spec (`/specs/NNN-feature/`) con requisitos + criterios de aceptación
+→ revisión humana → tareas atómicas → implementación → verificación contra criterios.
+
+---
+
+## 6. Entregables de planificación (estado)
+
+- [x] `00-MASTER-PLAN.md` (este documento)
+- [x] `research/PHYSICS-DEEP-RESEARCH-PROMPT.md` → ejecutado; resultados en
+  `research/DEEP-RESEARCH-RESULTS.md` (temporal, descartable tras destilar)
+- [x] `01-ARCHITECTURE.md` — arquitectura detallada + ADRs clave
+- [x] `02-DATA-MODEL.md` — esquema completo + metadatos + migración v5→v6
+- [x] `03-AGENTS-AND-SDD.md` — roster, prompts base de agentes, plantillas de spec
+- [x] `04-BACKLOG.md` — épicas → specs → tareas con criterios de aceptación
+- [x] `05-REDUNDANCY-AND-SECURITY.md` — diseño de 3 capas + auth/RLS
+- [x] `06-AI-DESIGN.md` — diseño del modelo propio (solo planificación)
+- [x] `07-EXTERNAL-APIS.md` — contratos de NMDB/NOAA/DONKI/Dst-Kp
+- [x] `RED-CLARA-RESOURCE-TIERS.md` — 3 tiers de recursos a solicitar (tras fijar arquitectura+IA)
+- [x] `docs/research/THEORETICAL-FOUNDATION.md` — reporte teórico final (base científica oficial)
+
+---
+
+## 7. Decisiones aún PENDIENTES (próximas rondas con el humano)
+
+1. **Dominio y branding** definitivos (¿munhub.lab? ¿subdominio USFQ?).
+2. **Alcance del primer landing** (¿cuánta educación/documentación entra en F3?).
+3. **Detalles finos del modelo de datos** (se resuelven al redactar `02-DATA-MODEL.md`).
+4. **Recursos Red Clara** (se cuantifican en `RED-CLARA-RESOURCE-TIERS.md` tras arquitectura+IA).
+
+---
+
+## 8. Notas de seguridad operativa
+
+- **Llaves en `private/` (ambas en `.gitignore`, NUNCA commitear; en prod por entorno/secreto):**
+  - `munra-1-firebase-adminsdk-*.json` → proyecto **viejo v5** (DB 1GB saturada/bloqueada) =
+    **fuente** de la migración v5→v6.
+  - `munhub-1-firebase-adminsdk-*.json` → proyecto **nuevo v6** = **destino** (Fase A).
+- Toda config sensible (claves Firebase, futuras de Supabase) vive en `.env` (no versionado)
+  y se documenta en `.env.example` (sin valores reales).

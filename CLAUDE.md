@@ -75,11 +75,21 @@ Minute record fields: `ec` (events/min), `cc` (coincidences/min), `sm`/`sx`/`sn`
 - Roles are read from `/users/{uid}/role` in the database, never hardcoded. The first admin must be set manually in Firebase Console.
 - `database.rules.json` enforces: public profiles readable by anyone; private profiles only by owner, shared users, or admins; users can only read/write their own account.
 
+### Serial Data Formats
+
+`serial-reader.js` auto-detects four incoming formats from the USB detector:
+- **CosmicWatch** — space-separated: `<ardu_time> <event> <adc> <SiPM_mV> <temp> <deadtime> [<sipm2>]`
+- **JSON** — `{"ec":1,"sm":450,...}`
+- **Key-Value** — `ec=1,sm=450,...`
+- **CSV** — header row on first line, values on subsequent lines
+
 ### Non-Obvious Constraints
 
-- **Realtime auto-expiry:** If realtime data is >8 min old, the 1m/5m time-range buttons disable and the view silently falls back to 15m. This is intentional — no user notification.
+- **Realtime auto-expiry:** If realtime data is >8 min old, the 1m/5m time-range buttons disable and the view silently falls back to 15m. This is intentional — no user notification. The realtime node is capped at 5000 records (`REALTIME_LIMIT` in `config.js`).
+- **Chart gap detection:** A gap of ≥2 minutes between consecutive data points breaks the chart line (`GAP_THRESHOLD` in `config.js`). Don't lower this — minute-boundary saves can arrive slightly late.
 - **Serial browser support:** Web Serial API requires Chrome/Edge/Opera. Firefox/Safari users must run `serial_bridge.py` locally (listens on `ws://localhost:8765`).
 - **localStorage for prefs:** Theme, time range, chart slot sources are persisted per-browser only. No cross-device sync.
 - **Admin panel:** `db-admin.js` features render only when `auth.js` detects `role === 'admin'` from the database.
-- **Cache-busting:** JS/CSS files use `?v=5.0` query strings in `index.html`. Bump these when deploying breaking changes.
+- **Cache-busting:** All JS/CSS `<script>`/`<link>` tags in `index.html` use `?v=5.0` query strings. Bump these when deploying breaking changes.
 - **CSS variables:** Light/dark theme is handled entirely via CSS variable swapping in `ui-manager.js` — no class toggling on `<body>`.
+- **`/terminal.html`:** A separate HTML page (not part of the SPA rewrite) used for diagnostics. It has its own script tags and is deployed alongside `index.html`.

@@ -1,0 +1,26 @@
+{
+  "name": "@munhub/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MunHub Lab web app (Next.js static export): public landing, station dashboards, admin console",
+  "license": "MIT",
+  "scripts": {
+    "build": "echo 'web build stub — Next.js wired in S09'",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "dev": "echo 'dev server stub — Next.js wired in S09'",
+    "clean": "rm -rf .next dist"
+  },
+  "devDependencies": {
+    "jsdom": "^29.1.1",
+    "typescript": "*",
+    "vitest": "*"
+  },
+  "dependencies": {
+    "@munhub/data-provider": "workspace:*",
+    "@munhub/physics": "workspace:*",
+    "@munhub/shared": "workspace:*",
+    "@munhub/ui": "workspace:*"
+  }
+}

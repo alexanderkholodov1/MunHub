@@ -7,7 +7,14 @@
       "WebFetch(domain:arxiv.org)",
       "Bash(gh auth *)",
       "Bash(gh repo *)",
-      "PowerShell($gh = Get-Command gh -ErrorAction SilentlyContinue; if \\($gh\\) { Write-Output \"gh found at: $\\($gh.Source\\)\"; gh --version; Write-Output \"---AUTH---\"; gh auth status } else { Write-Output \"gh NOT installed\" })"
+      "PowerShell($gh = Get-Command gh -ErrorAction SilentlyContinue; if \\($gh\\) { Write-Output \"gh found at: $\\($gh.Source\\)\"; gh --version; Write-Output \"---AUTH---\"; gh auth status } else { Write-Output \"gh NOT installed\" })",
+      "Bash(corepack enable *)",
+      "Bash(pnpm --version)",
+      "Bash(npm install *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm --filter @munhub/shared exec tsc)",
+      "Bash(pnpm --filter @munhub/physics exec tsc)",
+      "Bash(pnpm --filter @munhub/data-provider exec tsc)"
     ]
   }
 }

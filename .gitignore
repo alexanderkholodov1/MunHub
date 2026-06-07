@@ -47,3 +47,24 @@ logs/
 dist/
 build/
 .tmp/
+.next/
+out/
+
+# pnpm / Turborepo
+.pnpm-store/
+.turbo/
+
+# Tauri build artifacts
+src-tauri/target/
+
+# SQLite databases (local agent data — backed up separately)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Test coverage
+coverage/
+*.lcov
+
+# Misc
+*.tsbuildinfo

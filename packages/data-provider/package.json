@@ -1,0 +1,30 @@
+{
+  "name": "@munhub/data-provider",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Provider-agnostic DataProvider interface + FirebaseProvider (Phase A) + SupabaseProvider (Phase B)",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "*"
+  },
+  "dependencies": {
+    "@munhub/shared": "workspace:*"
+  }
+}

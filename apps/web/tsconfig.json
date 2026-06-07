@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM"],
+    "jsx": "preserve",
+    "moduleResolution": "bundler",
+    "allowJs": true
+  },
+  "include": ["src", "next.config.*"],
+  "references": [
+    { "path": "../../packages/shared" },
+    { "path": "../../packages/data-provider" },
+    { "path": "../../packages/ui" },
+    { "path": "../../packages/physics" }
+  ]
+}

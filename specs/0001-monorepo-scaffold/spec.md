@@ -1,6 +1,6 @@
 # 0001 — Scaffold del monorepo y tooling base
 
-- **Estado:** approved
+- **Estado:** ✅ implemented (2026-06-07)
 - **Agente responsable:** Arquitecto de software
 - **Depende de:** D1, D6, D14 (plan maestro); ninguna spec previa
 - **Fase:** F1 · **Épica:** EPIC-0 · **Backlog:** S01
@@ -35,19 +35,19 @@ la primera spec: sin un esqueleto correcto, nada más puede empezar.
   validar la tubería; el contenido real llega en sus specs (S03, S04, S05, …).
 
 ## Criterios de aceptación (verificables)
-- [ ] CA1: `pnpm install` instala el workspace sin errores.
-- [ ] CA2: `pnpm build && pnpm test && pnpm lint && pnpm typecheck` corren verde.
-- [ ] CA3: `git status` no muestra `private/` ni `.env` (están ignorados).
-- [ ] CA4: existe `LICENSE` (MIT) y `.env.example`.
-- [ ] CA5: la estructura de carpetas coincide con `01-ARCHITECTURE.md §2`.
+- [x] CA1: `pnpm install` instala el workspace sin errores.
+- [x] CA2: `pnpm build && pnpm test && pnpm lint && pnpm typecheck` corren verde (12/12 tasks).
+- [x] CA3: `private/` y `.env*` verificados como ignorados por git.
+- [x] CA4: `LICENSE` (MIT, 2026 Alexander Kholodov) y `.env.example` presentes.
+- [x] CA5: estructura `apps/{web,agent}`, `services/{api,ai}`, `packages/{shared,data-provider,ui,physics}`, `infra/`, `specs/`, `docs/` verificada.
 
 ## Fuera de alcance
 - Lógica real de cualquier paquete (va en sus propias specs).
 - CI/CD (es S02, spec aparte).
 
 ## Tareas
-- [ ] T1: `pnpm-workspace.yaml` + `turbo.json` + `tsconfig.base.json` (arquitecto).
-- [ ] T2: crear los paquetes/apps como stubs que compilan (arquitecto).
-- [ ] T3: ESLint/Prettier/Vitest base (arquitecto).
-- [ ] T4: `LICENSE` (MIT), `.gitignore`, `.env.example` (arquitecto).
-- [ ] T5: verificar CA1–CA5; dejar listo para commit humano.
+- [x] T1: `pnpm-workspace.yaml` + `turbo.json` + `tsconfig.base.json` (arquitecto).
+- [x] T2: stubs creados y compilando: `packages/{shared,physics,data-provider,ui}`, `apps/{web,agent}`, `services/{api,ai}`.
+- [x] T3: ESLint flat config (`eslint.config.mjs`), Prettier (`.prettierrc.json`), Vitest por paquete con `passWithNoTests`.
+- [x] T4: `LICENSE` (MIT 2026), `.gitignore` extendido (pnpm/Turbo/Tauri/SQLite), `.env.example`.
+- [x] T5: CA1–CA5 verificados. Working tree listo para revisión y commit de Alexander.

@@ -1,0 +1,24 @@
+{
+  "name": "@munhub/agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MunHub Lab local agent (Tauri): serial reading, SQLite local backup, offline sync queue",
+  "license": "MIT",
+  "scripts": {
+    "build": "echo 'agent build stub — Tauri wired in S16'",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "dev": "echo 'agent dev stub — Tauri wired in S16'",
+    "clean": "rm -rf dist src-tauri/target"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "*"
+  },
+  "dependencies": {
+    "@munhub/shared": "workspace:*",
+    "@munhub/data-provider": "workspace:*",
+    "@munhub/physics": "workspace:*"
+  }
+}

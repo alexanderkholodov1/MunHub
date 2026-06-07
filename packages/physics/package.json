@@ -1,0 +1,30 @@
+{
+  "name": "@munhub/physics",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Pure scientific calculations: dead-time correction, barometric correction, flux, Landau spectrum",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "vitest": "*"
+  },
+  "dependencies": {
+    "@munhub/shared": "workspace:*"
+  }
+}

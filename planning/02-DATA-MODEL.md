@@ -184,9 +184,9 @@ Un solo SiPM NO distingue muón/electrón/gamma (todos MIP ~2 MeV — `THEORETIC
 
 ## 8. Migración v5 → v6
 
-1. **Export v5:** leer `/profiles`, `/users`, `/organizations` del Firebase v5 **`munra-1`**
-   (service account en `private/munra-1-firebase-adminsdk-*.json`), o de un dump.
-   ⚠️ **Confirmar primero que `munra-1` es legible** (riesgo R1 en `08-RISKS`).
+1. **Export v5:** la fuente es el **dump frío** `private/munra-1_realtime_database_backup/
+   *_data.json.gz` (~1GB; munra-1 está deshabilitada por cuota, R1). Descomprimir y leer
+   `/profiles`, `/users`, `/organizations` desde el archivo (no desde la DB en vivo).
 2. **Transformar** (adaptador en `data-provider`/`shared`):
    - `profile → Estación` (+ metadatos null) **+ crear un Detector** con defaults de calibración
      por hw_version + `device_token` generado.

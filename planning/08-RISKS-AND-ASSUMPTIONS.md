@@ -9,7 +9,7 @@
 
 | # | Riesgo | Sev. | Mitigación | Dueño |
 |---|--------|------|-----------|-------|
-| R1 | **Datos de `munra-1` inaccesibles para migrar.** El proyecto v5 está "saturado/bloqueado"; si el bloqueo limita lecturas, no podremos exportar el histórico. | 🔴 Alta | **Validar lectura YA** (antes de F1): probar export con el service account. Plan B: exportar vía Firebase Console (backup/Export JSON) o `firebase database:get`; si hay bloqueo de billing, habilitar temporalmente Blaze solo para extraer. Guardar un **dump frío** del v5 cuanto antes. | Ing. DB |
+| R1 | `munra-1` RTDB sobre cuota y deshabilitada (~1GB). No se puede leer por API en vivo. | 🟢 **MITIGADO** | ✅ **Backup frío asegurado** (Console *Export JSON*, ~1.05GB descomprimido) en `private/munra-1_realtime_database_backup/`. La **migración S07 se hará desde este dump**, no desde la DB en vivo. Riesgo de pérdida del histórico v5 → resuelto. | Alexander ✓ |
 | R2 | **Pérdida de datos del único detector real** durante la transición v5→v6. | 🔴 Alta | No apagar el flujo v5 hasta que el MVP v6 grabe en paralelo y se valide; doble escritura temporal si hace falta. | Ing. DB |
 | R3 | **Reloj de la flota desincronizado.** Timestamps del agente dependen del reloj del PC; deriva afecta gaps, orden y futura coincidencia. | 🟠 Media | El agente sincroniza por **NTP** y registra offset; timestamps en UTC; documentar timezone del detector (ya en metadatos). Coincidencia por software asume ventana ~10 ms (ver foundation §7). | Dev Agente |
 | R4 | **Límite/costo de Firebase munhub-1** (plan gratuito ~1GB) se vuelve a saturar antes de migrar a Red Clara. | 🟠 Media | Esquema eficiente + retención de realtime + respaldos fríos a R2 + monitoreo de uso; la corrección/derivados se calculan en el borde (no inflar la DB). Si crece, pasar a Blaze controlado. | Ing. DB |
@@ -38,7 +38,9 @@
 
 ## 4. Supuestos (a confirmar)
 
-- **A1:** El service account de `munra-1` permite leer el histórico (⚠️ ver R1 — confirmar pronto).
+- **A1:** ✅ **RESUELTO.** munra-1 quedó deshabilitada por cuota, pero el histórico v5 ya está
+  respaldado como **dump frío** (`private/munra-1_realtime_database_backup/`, ~1GB). La
+  migración usará el dump.
 - **A2:** El detector USFQ emite uno de los 4 formatos serial ya soportados en v5.
 - **A3:** `munhub-1` arranca en plan gratuito; se pasará a Blaze si el volumen lo exige.
 - **A4:** τ_DT del hardware actual ≈ 50 ms (CosmicWatch v2) — confirmar la versión real.

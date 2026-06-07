@@ -33,22 +33,25 @@
 - Rama `feature-spec-driven-development` **eliminada** tras el merge.
 - Secretos (FIREBASE_TOKEN o, mejor, cuenta de servicio) con acceso a munhub-1.
 
-## 3. Bug a arreglar: munhub-1 usando la DB de munra-1
+## 3. Bug a arreglar: munhub-1 usando la DB de munra-1 — ✅ ARREGLADO (working tree)
 
-Causa probable: el `FIREBASE_CONFIG` desplegado apunta a la RTDB de munra-1 (o `databaseURL`
-correcto pero claves de munra-1). **Fix:** en `config.js` (v6: en `.env`/config del frontend),
-poner **todas** las claves web de **munhub-1** (Console → munhub-1 → Project settings → Web app):
-`apiKey, authDomain, databaseURL, projectId, storageBucket, messagingSenderId, appId` — todas de
-munhub-1. Verificar que `databaseURL` = `https://munhub-1-default-rtdb.firebaseio.com`.
+Causa: `config.js` tenía claves placeholder y `storageBucket` incorrecto. **Hecho:** se
+pusieron las **claves web reales de munhub-1** (obtenidas vía Firebase Management API con el
+service account): `apiKey`, `messagingSenderId`, `appId`, y `storageBucket` corregido a
+`munhub-1.firebasestorage.app`. `databaseURL` ya apuntaba a `munhub-1-default-rtdb`. (La apiKey
+web es pública.) **Pendiente:** que Alexander commitee este cambio; al desplegar munhub-1 desde
+`main`, la app usará su propia DB.
 
 ## 4. Secuencia de cutover (cuando se apruebe; reversible)
 
 > Pre-requisito: tener las **claves web reales de munhub-1** (pendiente A2/setup).
 
-1. **Backup primero** (riesgo R1/R2): exportar un **dump frío de munra-1** (datos v5) y de
-   munhub-1 si tuviera algo. No tocar munra-1 hasta tener el dump.
-2. **Arreglar config**: poner claves munhub-1 reales en la config del frontend. Verificar en un
-   deploy preview (canal de PR) que la app lee/escribe la **DB de munhub-1**.
+1. **Backup primero (BLOQUEADO — acción de Alexander):** `munra-1` está **deshabilitada por
+   cuota** (R1 confirmado) → primero **habilitar Blaze temporal con budget bajo en munra-1**,
+   exportar el histórico v5 (Console *Export JSON*), guardar dump frío, luego volver a Spark.
+   **No avanzar el cutover de datos sin este respaldo.**
+2. **Arreglar config**: ✅ HECHO (claves reales de munhub-1 en `config.js`). Falta verificar en
+   un deploy preview (canal de PR) que la app lee/escribe la **DB de munhub-1**.
 3. **Hosting site `munhub-lab`**: crear el site `munhub-lab` en el proyecto munhub-1 y configurar
    el target/`site` en `firebase.json` para desplegar ahí (→ `munhub-lab.web.app`).
 4. **Merge** `architectural-redesign-v6` → `main` (cuando el plan/u obra esté lista). A partir de

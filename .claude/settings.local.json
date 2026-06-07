@@ -4,7 +4,10 @@
       "Bash(python -c \"import firebase_admin; print\\('firebase_admin OK'\\)\")",
       "Bash(python private/migrate_to_munhub.py)",
       "WebSearch",
-      "WebFetch(domain:arxiv.org)"
+      "WebFetch(domain:arxiv.org)",
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "PowerShell($gh = Get-Command gh -ErrorAction SilentlyContinue; if \\($gh\\) { Write-Output \"gh found at: $\\($gh.Source\\)\"; gh --version; Write-Output \"---AUTH---\"; gh auth status } else { Write-Output \"gh NOT installed\" })"
     ]
   }
 }

@@ -41,9 +41,12 @@
   - CA: interfaz cubre lectura/escritura/realtime/CRUD/export/import (ver `01-ARCH §3`).
 - **S06 — `FirebaseProvider`** sobre munhub-1; listeners incrementales (no `once('value')`).
   - CA: lee/escribe detectores, minutes, realtime; respeta reglas; sin re-descarga masiva.
-- **S07 — Migración v5→v6** (export → transform → `importAll`).
+- **S07 — Migración v5→v6** (dump → transform → `importAll`).
+  - Fuente: **dump frío de ~1GB** `private/munra-1_realtime_database_backup/*_data.json.gz`
+    (munra-1 deshabilitada). **Parsear en streaming** (no cargar 1GB en memoria).
   - CA: idempotente, reanudable; reporte de migrados/cuarentena/sin-metadatos.
-  - CA: `profiles→detectors`, `organizations→institutions`, `sharedWith→detector_shares`.
+  - CA: `profiles→Estación` **+ crear un Detector** (con device_token y calibración por defecto);
+    `organizations→Institución`; `sharedWith→station_shares`; `d→dt`, presión a hPa.
 - **S08 — Config munhub-1**: reemplazar claves Firebase, reglas v6, índices.
   - CA: reglas deny-by-default; detectores public/unlisted legibles; tests de reglas.
 

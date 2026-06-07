@@ -23,6 +23,10 @@
    del detector (agente Tauri) — promedios por minuto, features, validación — para **aliviar
    al servidor**. La nube/servidor se reserva para ML y procesos globales (correlación
    multi-detector, agregados de red). Esto reduce la carga de servidor y el ancho de banda.
+8. **Máxima configurabilidad (D23):** preferir lo informativo, configurable y ajustable.
+   Guardar **todos los metadatos posibles**; exponer ajustes avanzados (calibración, umbrales,
+   device token, etc.) **sin estorbar el flujo básico** — patrón: defaults sensatos + override
+   opcional + botón "volver a defaults".
 
 ---
 
@@ -64,20 +68,22 @@ provider → import a otro).
 export interface DataProvider {
   // --- Auth & tenancy ---
   getCurrentUser(): Promise<User | null>;
-  // --- Lectura ---
-  listDetectors(filter?: DetectorFilter): Promise<Detector[]>;
-  getDetector(id: string): Promise<Detector>;
+  // --- Estaciones (perfil/sitio) ---
+  listStations(filter?: StationFilter): Promise<Station[]>;
+  getStation(id: string): Promise<Station>;
+  upsertStation(s: Station): Promise<void>;
+  // --- Detectores (dispositivo físico, bajo una estación) ---
+  listDetectors(stationId: string): Promise<Detector[]>;
+  upsertDetector(d: Detector): Promise<void>;
+  // --- Datos (por detector) ---
   getMinuteRecords(detectorId: string, range: TimeRange): Promise<MinuteRecord[]>;
   subscribeRealtime(detectorId: string, cb: (r: RealtimeRecord) => void): Unsubscribe;
   getLatest(detectorId: string): Promise<MinuteRecord | null>;
-  // --- Escritura (agente/ingest) ---
-  pushMinuteRecord(detectorId: string, rec: MinuteRecord): Promise<void>;
+  pushMinuteRecord(detectorId: string, rec: MinuteRecord): Promise<void>;   // agente/ingest
   pushRealtimeRecord(detectorId: string, rec: RealtimeRecord): Promise<void>;
-  // --- CRUD perfiles/usuarios/instituciones ---
-  upsertDetector(d: Detector): Promise<void>;
+  // --- Instituciones / admin ---
   upsertInstitution(i: Institution): Promise<void>;
-  // --- Migración / admin ---
-  exportAll(opts: ExportOptions): AsyncIterable<DataChunk>;   // streaming
+  exportAll(opts: ExportOptions): AsyncIterable<DataChunk>;   // migración (streaming)
   importAll(chunks: AsyncIterable<DataChunk>): Promise<ImportReport>;
 }
 
@@ -159,8 +165,15 @@ serial (USB) ─▶ parser (4 formatos: CosmicWatch/JSON/KV/CSV)
 | Realtime | listeners Firebase | Supabase Realtime / WS |
 | Storage | Firebase Storage | Supabase Storage |
 | Reglas | `database.rules.json` | RLS Postgres |
-| Hosting | Firebase Hosting / Vercel | Servidor Red Clara (Docker) |
+| Hosting | **Firebase Hosting (Spark, gratis) + Next.js static export** | Servidor Red Clara (Docker, SSR completo) |
 | Lo que NO cambia | **toda la app**: vive sobre `DataProvider`. Solo se cambia la implementación + esquema adaptado. |
+
+> **Hosting Fase A (D18) — billing-proof.** Next.js con `output: 'export'` (SSG en build →
+> SEO del landing; datos dinámicos vía SDK cliente de Firebase). Se sirve en Firebase Hosting
+> plan **Spark (gratis)**, que **bloquea al exceder cuota, no cobra**. **Evitar App
+> Hosting/Blaze** salvo necesidad real; si se activa Blaze, configurar **budget alerts +
+> cuotas**. Dominio propio se conecta gratis a Firebase Hosting cuando se decida. La Fase B
+> (Red Clara) habilita SSR en tiempo de request; la app no cambia (vive sobre el router de Next).
 
 ---
 
@@ -170,6 +183,9 @@ serial (USB) ─▶ parser (4 formatos: CosmicWatch/JSON/KV/CSV)
 - **GitHub Actions:** lint + typecheck + tests en cada PR; deploy en merge a `main`.
 - **Calidad:** TypeScript estricto, ESLint + Prettier, tests (Vitest) — al menos en
   `packages/physics` (cálculos científicos) y `packages/data-provider` (contratos).
+- **Idioma del código = inglés (D28):** identificadores, comentarios, commits, esquema de DB,
+  nombres de API y claves i18n en inglés (source locale). Considerar una regla de lint/CI que
+  marque texto no-inglés en código. es/pt-BR son solo traducciones de la UI.
 - **Tests científicos:** `packages/physics` con casos de referencia verificables (p. ej.
   corrección barométrica contra valores conocidos del reporte teórico).
 

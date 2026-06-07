@@ -1,205 +1,204 @@
 # MunHub Lab v6.0 — Modelo de datos y migración
 
 > Depende de: [`00-MASTER-PLAN.md`](00-MASTER-PLAN.md), [`01-ARCHITECTURE.md`](01-ARCHITECTURE.md).
-> Define el esquema canónico v6, su mapeo a Firebase (Fase A) y Postgres/TimescaleDB
-> (Fase B), los metadatos obligatorios, y la migración v5→v6 con compatibilidad hacia atrás.
+> Define el esquema canónico v6 (modelo de **dos niveles: Estación + Detector**, D21), su mapeo
+> a Firebase (Fase A) y Postgres/TimescaleDB (Fase B), los metadatos obligatorios, y la
+> migración v5→v6 con compatibilidad hacia atrás.
+> **Principio rector (D23):** mientras más informativo, configurable y ajustable, mejor.
+> Guardar **todos los metadatos posibles**; exponer ajustes avanzados sin estorbar el flujo básico.
 
 ---
 
-## 1. Esquema v5.0 actual (punto de partida)
+## 1. Vocabulario (resuelve la colisión "detector aparato" vs "Detector perfil")
 
-```
-/users/{uid}                         → role (admin|user|guest), displayName, email
-/profiles/{profileId}
-  ├─ ownerUid, visibility(private|public), sharedWith/{uid}: 'edit'|...
-  ├─ sessions/{sid}/minutes/{ts}     → ec, cc, sm, sx, sn, tp, pr, d/dt  (promedios)
-  ├─ realtime/{ts}                   → registros por evento (ventana 8 min, tope 5000)
-  └─ latest                          → último punto
-/organizations/{orgId}               → owner, members/{uid}
-```
+| Término v6 | Qué es | Era en v5 |
+|---|---|---|
+| **Institución** | Universidad/organización que agrupa usuarios y estaciones | organization |
+| **Usuario** | Cuenta de persona | user |
+| **Estación** | El **perfil/sitio** registrado: ubicación, metadatos, visibilidad. Lo que sale en el mapa y tiene dueño/institución. | profile |
+| **Detector** | El **dispositivo físico** CosmicWatch dentro de una estación: device token, firmware, calibración. Los DATOS van por detector. | (no existía aparte) |
+| **Sesión** | Una corrida de toma de datos de un detector | session |
 
-**Inconsistencias detectadas (reconciliar en v6 — fuente única en `packages/shared`):**
-
-| Campo | v5 (CLAUDE.md) | v5 (config.js) | Decisión v6 |
-|-------|----------------|----------------|-------------|
-| Dead time | `d` | `dt` (label "Dead Time %") | **`dt`** (canónico); migración acepta ambos |
-| Presión | `pr` "Pa" | CHART_INFO dice "hPa" | **`pr` en hPa** (la corrección barométrica usa hPa) |
-| `cc` | "coincidences/min" | label "Muons/min" | **`cc` = coincidencias/min**; "muones" solo si hay coincidencia real (ver §7) |
+> "Detector" ahora SIEMPRE significa el aparato físico. "Estación" es el perfil.
 
 ---
 
-## 2. Entidades v6 y relaciones
+## 2. Entidades y relaciones
 
 ```
-Institution 1 ──── N User           (institution_id en User, NULLABLE → usuario independiente)
-Institution 1 ──── N Detector       (institution_id en Detector, NULLABLE)
-User        1 ──── N Detector       (owner_uid; + tabla detector_shares para compartir)
-Detector    1 ──── N Session
-Detector    1 ──── N MinuteRecord   (serie temporal, retención indefinida)
-Detector    1 ──── N RealtimeRecord (ventana corta, expira)
-Detector    1 ──── 1 LatestRecord
-ExternalEvent (global, de APIs)     (NMDB, NOAA, DONKI, Dst/Kp)
-AiInsight    N ──── 1 Detector      (resultados del pipeline ML, Fase 7)
+Institución 1 ── N Usuario        (institution_id en Usuario, NULLABLE → independiente)
+Institución 1 ── N Estación       (institution_id en Estación, NULLABLE)
+Usuario     1 ── N Estación       (owner_uid; + station_shares para compartir)
+Estación    1 ── N Detector       (normalmente 1; varios con aviso de consistencia)
+Detector    1 ── N Sesión
+Detector    1 ── N MinuteRecord   (serie temporal, retención indefinida)
+Detector    1 ── N RealtimeRecord (ventana corta, expira)
+Detector    1 ── 1 LatestRecord
+ExternalEvent (global, de APIs)   (NMDB, NOAA, DONKI, Dst/Kp)
+AiInsight   N ── 1 Detector/Estación (resultados ML, Fase 7)
 ```
 
-> Nota: "perfil" (v5) = "detector" (v6). Un detector ES un perfil con metadatos físicos.
-> "organization" (v5) = "institution" (v6).
+- Los **datos (sesiones, minutos, realtime) cuelgan del Detector** (porque la calibración es
+  por dispositivo). Para una estación de 1 detector (caso 99%) es 1:1 y la UI lo muestra
+  transparente. La **vista de Estación agrega** sus detectores.
+- Una **Estación de coincidencia** (telescopio de muones) = una estación con ≥2 detectores
+  (futuro; el esquema ya lo soporta).
 
 ---
 
-## 3. Metadatos OBLIGATORIOS (para estadística valiosa)
+## 3. Metadatos (OBLIGATORIOS marcados ✓; el resto, opcional pero deseable)
 
-### Detector
+### Estación (sitio/perfil)
 | Campo | Tipo | Oblig. | Nota |
 |-------|------|--------|------|
 | name | string | ✓ | nombre legible |
 | owner_uid | string | ✓ | dueño |
 | institution_id | string\|null | — | null = independiente |
-| visibility | enum(public/private/unlisted) | ✓ | |
-| **latitude** | number | ✓ | grados decimales |
-| **longitude** | number | ✓ | grados decimales |
-| **altitude_m** | number | ✓ | msnm (clave para flujo) |
-| city | string | ✓ | |
-| country | string (ISO-3166) | ✓ | |
+| **visibility** | enum(public/institution/private) | ✓ | **elección obligatoria al crear, SIN default** (D22, D24) |
+| ml_training_opt_out | bool | — | excluir esta estación del entrenamiento ML (default: usar pref. del usuario) |
+| embargo_until | date\|null | — | privado hasta esta fecha, luego público (capacidad opcional) |
+| **latitude** | number | ✓ | grados decimales (ingreso **manual**, no geolocalización) |
+| **longitude** | number | ✓ | grados decimales (manual) |
+| **altitude_m** | number | ✓ | msnm (clave para el flujo) |
+| city | string | ✓ | (define la burbuja del mapa, D20) |
+| country | string ISO-3166 | ✓ | |
 | **placement** | enum(ground/indoor/basement/underground/outdoor/rooftop) | ✓ | afecta blindaje |
-| floor | int\|null | — | piso |
-| shielding | string\|null | — | descripción de blindaje |
+| **type** | enum(single/coincidence) | ✓ | tipo de estación |
+| timezone | string IANA | ✓ | análisis diurno |
+| floor, shielding, orientation, notes | varios | — | cuanto más, mejor (D23) |
+
+### Detector (dispositivo físico)
+| Campo | Tipo | Oblig. | Nota |
+|-------|------|--------|------|
+| id, station_id | — | ✓ | pertenece a una estación |
+| label | string | — | "principal", "superior", etc. |
+| **device_token** | string | ✓ (autogenerado) | identidad del aparato; **no estorba el registro**; visible en ajustes avanzados; habilita el aviso de "dispositivo distinto" |
 | **hardware_model** | string | ✓ | p.ej. "CosmicWatch v2" |
-| **detector_type** | enum(single/coincidence) | ✓ | single = 1 SiPM |
+| **firmware_version** | string | ✓ | guardar todo lo posible |
+| hw_version | enum(v2/v3X/…) | ✓ | define **τ_DT** (v2≈50 ms, v3X≈400 µs) |
 | sipm_count | int | ✓ | 1 por defecto |
-| orientation | string\|null | — | |
-| timezone | string (IANA) | ✓ | para análisis diurno |
-| notes | text\|null | — | |
+| **calibration** | objeto | — | `{ adc_to_mv:[…], saturation_mv, trigger_adc_min }`. **Defaults por hw_version**; **edición avanzada opcional** + botón "volver a defaults" |
+| status | enum(active/inactive) | ✓ | |
 
-### User
-| Campo | Oblig. | Nota |
-|-------|--------|------|
-| uid, email, display_name | ✓ | |
-| role | ✓ | admin\|institution_admin\|user\|guest |
-| institution_id | — | null = independiente |
-| country | ✓ | |
-| preferred_language | ✓ | es\|en\|pt-BR |
+> **Compatibilidad hacia atrás (ADR-004):** estaciones/usuarios v5 sin metadatos se importan
+> igual (null) y la app muestra una **notificación no intrusiva** para completarlos. Solo se
+> exigen en **altas nuevas**. La migración crea automáticamente **un Detector** por cada
+> perfil v5 con defaults + token generado.
 
-### Institution
-| Campo | Oblig. | Nota |
-|-------|--------|------|
-| id, name | ✓ | |
-| country, city | ✓ | |
-| admin_uids | ✓ | quién la administra |
-| website, logo_url | — | para landing |
-
-> **Compatibilidad hacia atrás (D17/ADR-004):** detectores/usuarios v5 sin estos campos se
-> importan igual (campos null). La app muestra una **notificación no intrusiva** ("Completa
-> los metadatos de tu detector para habilitar estadísticas avanzadas") que NO bloquea el flujo.
-> Los campos solo son obligatorios en **altas nuevas** (validación `zod` en formularios).
+> **Aviso de consistencia (caso device token):** si llega data con un device_token distinto al
+> registrado en un Detector (o se comparte edición y se conecta otro aparato), la app avisa:
+> "no recomendamos mezclar dispositivos; la calibración puede diferir y afectar la consistencia;
+> te sugerimos crear una nueva estación/detector". Si el usuario continúa, el Detector queda con
+> varios aparatos registrados (trazable).
 
 ---
 
-## 4. Registros de serie temporal (núcleo científico)
+## 4. Registros de serie temporal (núcleo científico) — por Detector
 
 ### MinuteRecord (retención indefinida) — **promedios, NUNCA sumas**
 | Campo | Unidad | Descripción |
 |-------|--------|-------------|
 | ts | epoch ms | inicio del minuto |
 | ec | conteo/min | tasa de eventos (partículas cargadas) |
-| cc | conteo/min | coincidencias/min (solo significativo si detector_type=coincidence) |
-| sm | mV | amplitud SiPM promedio |
-| sx | mV | amplitud SiPM máx |
-| sn | mV | amplitud SiPM mín |
+| cc | conteo/min | coincidencias/min (solo significativo en `type=coincidence`) |
+| sm / sx / sn | mV | amplitud SiPM prom/máx/mín (el firmware ya entrega mV) |
 | tp | °C | temperatura |
 | pr | hPa | presión atmosférica |
 | dt | % | tiempo muerto |
-| *(v6 nuevos, calculados — `packages/physics`)* | | |
-| ec_dt | conteo/min | tasa **corregida por tiempo muerto**: `R/(1−R·τ_DT)` (τ_DT según hardware: v2≈50 ms, v3X≈400 µs) |
-| ec_corr | conteo/min | tasa corregida por presión (sobre `ec_dt`), con **β LOCAL por regresión** (no universal) |
-| flux | 1/cm²/min | flujo si hay área efectiva configurada |
+| *(derivados — `packages/physics`)* | | |
+| ec_dt | conteo/min | corregida por tiempo muerto: `R/(1−R·τ_DT)` |
+| ec_corr | conteo/min | corregida por presión (sobre `ec_dt`), **β LOCAL por regresión** |
+| flux | 1/cm²/min | si hay área efectiva configurada |
 
-> **Pipeline de corrección (orden obligatorio):** cruda → tiempo muerto (`ec_dt`) →
-> barométrica (`ec_corr`, β local) → (opcional) térmica. Ver `docs/research/THEORETICAL-FOUNDATION.md`
-> §4 y §8. Omitir el tiempo muerto causa subestimación sistemática (grave en sitios andinos).
+> **Pipeline (orden obligatorio):** cruda → tiempo muerto → barométrica (β local) → térmica.
+> Ver `docs/research/THEORETICAL-FOUNDATION.md` §4 y §8.
 
 ### RealtimeRecord (ventana corta, expira)
-- Por evento: `ts`, `adc/sipm_mv`, `temp`, `deadtime`, etc.
-- Retención: 8 min (config v5). Tope 5000 (Firebase). En Postgres: política de retención.
+Por evento: `ts`, `sipm_mv`, `temp`, `deadtime`, … Retención 8 min (tope 5000 en Firebase;
+retention policy en Postgres).
 
-> **Invariantes NO negociables:** valores por minuto siempre promedios; sin filtrado de
-> eventos; gaps ≥2 min rompen línea; realtime >8 min → auto-expiry. Validados en `shared`.
+> **Inconsistencias v5 reconciliadas en `packages/shared`:** dead time canónico = **`dt`**
+> (no `d`); presión en **hPa**; `cc` = coincidencias (no "muones", ver §7).
+> **Invariantes NO negociables:** promedios nunca sumas; sin filtrado de eventos; gaps ≥2 min
+> rompen línea; realtime >8 min → auto-expiry. Validados con `zod` en `packages/shared`.
 
 ---
 
 ## 5. Esquema Fase A — Firebase (munhub-1)
 
-Mantiene estructura v5 extendida (mínima fricción para desplegar ya):
 ```
-/users/{uid}                  → + institution_id, country, preferred_language
-/institutions/{id}            → (renombre de organizations) name, country, admin_uids, …
-/detectors/{id}               → (renombre de profiles) + metadatos §3
-  ├─ sessions/{sid}/minutes/{ts}
-  ├─ realtime/{ts}            (.indexOn ts)
-  └─ latest
-/external_events/{source}/{id}  → cache de APIs externas
+/users/{uid}                       → role, displayName, email, institution_id, country, language
+/institutions/{id}                 → name, country, city, admin_uids, website, logo_url
+/stations/{id}                     → owner_uid, institution_id, visibility, embargo_until,
+  │                                   latitude, longitude, altitude_m, city, country,
+  │                                   placement, type, timezone, floor, shielding, notes,
+  │                                   shares/{uid}: 'view'|'edit'
+  └─ detectors/{detId}             → device_token, hardware_model, firmware_version,
+       │                              hw_version, sipm_count, calibration{…}, status
+       ├─ sessions/{sid}/minutes/{ts}
+       ├─ realtime/{ts}            (.indexOn ts)
+       └─ latest
+/external_events/{source}/{id}     → cache de APIs externas
 ```
-Reglas: portar `database.rules.json` v5 con los renombres + lectura pública de detectores
-public/unlisted, deny-by-default en el resto (ver `01-ARCHITECTURE.md` §6).
+Reglas: deny-by-default; `stations` public/unlisted legibles por cualquiera; privado solo
+dueño/compartido/admin de institución/admin global (ver `05`).
 
 ## 6. Esquema Fase B — Postgres + TimescaleDB
 
 ```sql
--- Entidades relacionales
 institutions(id pk, name, country, city, website, logo_url, created_at)
-users(uid pk, email, display_name, role, institution_id fk null, country,
-      preferred_language, created_at)
-detectors(id pk, name, owner_uid fk, institution_id fk null, visibility,
-          latitude, longitude, altitude_m, city, country, placement, floor,
-          shielding, hardware_model, detector_type, sipm_count, orientation,
-          timezone, notes, created_at)
-detector_shares(detector_id fk, uid fk, permission)   -- compartir
+users(uid pk, email, display_name, role, institution_id fk null, country, language, created_at)
+stations(id pk, name, owner_uid fk, institution_id fk null, visibility, embargo_until,
+         latitude, longitude, altitude_m, city, country, placement, type, timezone,
+         floor, shielding, orientation, notes, created_at)
+station_shares(station_id fk, uid fk, permission)
+detectors(id pk, station_id fk, label, device_token, hardware_model, firmware_version,
+          hw_version, sipm_count, calibration jsonb, status, added_at)
 sessions(id pk, detector_id fk, started_at, ended_at, source_file_hash)
 
--- Hypertables TimescaleDB (particionadas por tiempo)
+-- Hypertables TimescaleDB
 minute_records(detector_id fk, ts timestamptz, ec, cc, sm, sx, sn, tp, pr, dt,
-               ec_corr, flux)            -- PK (detector_id, ts)  → hypertable
-realtime_records(detector_id fk, ts timestamptz, sipm_mv, temp, deadtime, …)
-                                          -- hypertable + retention policy 8 min
+               ec_dt, ec_corr, flux)        -- PK (detector_id, ts) → hypertable
+realtime_records(detector_id fk, ts timestamptz, sipm_mv, temp, deadtime, …)  -- + retención
 external_events(id pk, source, kind, ts, payload jsonb, fetched_at)
-ai_insights(id pk, detector_id fk, kind, ts_range, result jsonb, model_version)
+ai_insights(id pk, station_id fk null, detector_id fk null, kind, ts_range, result jsonb,
+            model_version, confidence)
 ```
-- **TimescaleDB:** `minute_records` y `realtime_records` como *hypertables*; continuous
-  aggregates para vistas por hora/día (acelera charts de rangos largos sin LTTB pesado).
-- **RLS:** políticas por fila equivalentes a las rules de Fase A.
-- **Índices:** `(detector_id, ts)`; índices geoespaciales (lat/lon) para el mapa del landing.
+- TimescaleDB: hypertables + continuous aggregates (hora/día) para charts de rango largo.
+- RLS por fila equivalente a las reglas Fase A. Índices `(detector_id, ts)` + geoespacial
+  (lat/lon) para el mapa.
 
 ---
 
 ## 7. Nota científica sobre `cc`/"muones" (honestidad, D7/D9)
 
-Un solo SiPM NO distingue muón/electrón/gamma (todos son MIP, ~2 MeV — ver
-`THEORETICAL-FOUNDATION.md` §5). La v6 debe:
-- Para `detector_type=single`: la métrica principal se llama **"Tasa integral de partículas
-  cargadas" / "tasa de eventos tipo-MIP"**, NO "muones". Mostrar también el **espectro de
-  amplitud (Landau, MPV)**. La dominancia muónica (75–80% a nivel del mar) es solo **agregada**
-  y **disminuye en altitud** (Andes) → declararlo, no etiquetar eventos individuales como muón.
-- Para `detector_type=coincidence`: `cc` sí es selección de muones (>99% pureza) y permite
-  direccionalidad.
-- La UI toma los textos exactos de `docs/research/THEORETICAL-FOUNDATION.md` para tooltips.
+Un solo SiPM NO distingue muón/electrón/gamma (todos MIP ~2 MeV — `THEORETICAL-FOUNDATION.md`
+§5). Por tanto:
+- Estación `type=single`: métrica principal = **"Tasa integral de partículas cargadas /
+  tipo-MIP"**, NO "muones". Mostrar **espectro de amplitud (Landau, MPV)**. La dominancia
+  muónica (75–80% a nivel del mar) es solo **agregada** y **baja en altitud** (Andes).
+- Estación `type=coincidence`: `cc` sí es selección de muones (>99% pureza) + direccionalidad.
+- La UI toma los textos exactos del reporte teórico para tooltips.
 
 ---
 
 ## 8. Migración v5 → v6
 
 1. **Export v5:** leer `/profiles`, `/users`, `/organizations` del Firebase v5 **`munra-1`**
-   (service account en `private/munra-1-firebase-adminsdk-*.json`), o de un dump exportado.
-2. **Transformar** (adaptador en `packages/data-provider` / `shared`):
-   - `profiles → detectors` (+ metadatos null), `organizations → institutions`,
-     `sharedWith → detector_shares`.
-   - Normalizar campos: `d→dt`, presión a hPa, validar con `zod` (cuarentena lo inválido).
-3. **Cargar** vía `DataProvider.importAll()` al destino (Firebase munhub-1 en Fase A).
-4. **Reporte de migración:** filas migradas, en cuarentena, detectores sin metadatos
-   (→ disparan la notificación de completar).
-5. **Idempotente y reanudable:** re-ejecutar no duplica (clave natural `(detector, ts)`).
+   (service account en `private/munra-1-firebase-adminsdk-*.json`), o de un dump.
+   ⚠️ **Confirmar primero que `munra-1` es legible** (riesgo R1 en `08-RISKS`).
+2. **Transformar** (adaptador en `data-provider`/`shared`):
+   - `profile → Estación` (+ metadatos null) **+ crear un Detector** con defaults de calibración
+     por hw_version + `device_token` generado.
+   - `organization → Institución`; `sharedWith → station_shares`.
+   - Normalizar: `d→dt`, presión a hPa; validar con `zod` (cuarentena lo inválido).
+   - Mover `sessions/minutes`, `realtime`, `latest` bajo el Detector creado.
+3. **Cargar** vía `DataProvider.importAll()` (destino: munhub-1 en Fase A).
+4. **Reporte:** filas migradas, en cuarentena, estaciones sin metadatos (→ notificación).
+5. **Idempotente y reanudable** (clave natural `(detector_id, ts)`).
 
-> Misma maquinaria sirve para **importar una DB externa desde archivo** (admin, F5): se
-> escribe un adaptador de entrada que mapea el formato externo al esquema v6.
+> La misma maquinaria **importa una DB externa desde archivo** (admin, F5) vía un adaptador de
+> entrada que mapea el formato externo al esquema v6.
 
 ---
 
@@ -207,9 +206,44 @@ Un solo SiPM NO distingue muón/electrón/gamma (todos son MIP, ~2 MeV — ver
 
 | Dato | Retención | Mecanismo |
 |------|-----------|-----------|
-| minute_records | Indefinida | hypertable + continuous aggregates (hora/día) |
-| realtime_records | 8 min | retention policy (Postgres) / tope 5000 (Firebase) |
-| external_events | Configurable (p. ej. 2 años) | job de limpieza |
-| respaldos fríos | Rotación (p. ej. 30 dailies + 12 monthlies) | job → Cloudflare R2 |
+| minute_records | Indefinida | hypertable + continuous aggregates |
+| realtime_records | 8 min | retention policy / tope 5000 (Firebase) |
+| external_events | Configurable (~2 años) | job de limpieza |
+| respaldos fríos | Rotación (30 diarios + 12 mensuales) | job → Cloudflare R2 |
 
-- Charts de rango largo: usar continuous aggregates en Fase B; LTTB (máx 500 pts) en Fase A.
+Charts de rango largo: continuous aggregates (Fase B); LTTB máx 500 pts (Fase A).
+
+---
+
+## 10. Entidades de ecosistema y campos de cuenta
+
+**Usuario (campos clave, D25):** `uid`, `email` (único), **`username` (único)**, `display_name`,
+`role`, `institution_id` (null), `country`, `language`, `email_verified` (bool),
+`ml_training_opt_out` (bool, default false), `directory_opt_in` (bool, buscable por username).
+
+**Institución:** `id`, `name`, `country`, `city`, `admin_uids`, `website`, `logo_url`,
+`default_station_visibility` (sugerida).
+
+**Redes de estaciones (D27, ver `14`):**
+- `networks(id, name, description, owner_uid, institution_id null, visibility, created_at)`
+- `network_stations(network_id, station_id)`  — N:N
+
+**Compartición (ya referida):** `station_shares(station_id, uid|institution_id, permission[viewer|editor])`.
+
+**Soporte y notificaciones (ver `12`):**
+- `support_tickets(id, user_uid, category, status, subject, context jsonb, created_at, updated_at)`
+- `ticket_messages(id, ticket_id, author_uid, body, attachments, created_at)`
+- `notifications(id, user_uid, type, payload jsonb, read_at, created_at)`
+- `notification_prefs(user_uid, type, channel, frequency)`
+
+**Administración (ver `15`):**
+- `audit_log(id, actor_uid, action, resource_type, resource_id, diff jsonb, ip, created_at)` — append-only.
+- `feature_flags(key, enabled, scope)`; `announcements(id, body, audience, starts_at, ends_at)`.
+
+**Monetización — solo ganchos, sin cobro (D26, ver `13`):**
+- `plans(id, name, limits jsonb)`; `entitlements(subject_type, subject_id, plan_id, valid_until)`
+- `usage_events(id, subject_type, subject_id, kind, amount, ts)` — metering (observación).
+
+> Todas estas entidades respetan deny-by-default, RLS/rules y el audit log. La mayoría son de
+> fases F4–F7; el esquema base (username, visibility institucional, consentimiento ML,
+> entitlements) se incluye desde F1 para no migrar después.

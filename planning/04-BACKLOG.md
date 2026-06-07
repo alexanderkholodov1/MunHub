@@ -49,12 +49,20 @@
 
 ## EPIC-3 — Auth y multi-tenant  (F1)  [dev backend + seguridad]
 - **S09 — Auth** (Firebase Auth tras `DataProvider`): registro/login, idioma preferido.
-- **S10 — Roles y tenancy híbrida**: `admin|institution_admin|user|guest`; Institución→
-  Usuarios→Detectores + independientes.
-  - CA: un usuario solo ve/edita lo permitido; institution_admin gestiona su institución.
-- **S11 — Onboarding de metadatos + notificación no intrusiva** (compat. hacia atrás).
-  - CA: alta nueva exige metadatos obligatorios (§3 data-model); detectores viejos sin
-    metadatos muestran aviso que no bloquea el flujo.
+- **S10 — Roles, tenancy y permisos** (ver `11`): roles `admin|institution_admin|user|guest`;
+  **3 visibilidades** (pública/institución/privada); **permisos por estación** owner/editor/viewer
+  (`editor` puede escribir datos); `username` único + compartición por email/username.
+  - CA: un usuario solo ve/edita lo permitido; institution_admin gestiona su institución; tests
+    negativos por combinación rol×permiso×visibilidad.
+- **S11 — Crear Estación + onboarding de metadatos + notificación no intrusiva** (compat).
+  - CA: alta nueva exige metadatos de **estación** (§3) con **visibilidad obligatoria sin
+    default** (D22); estaciones v5 sin metadatos muestran aviso no bloqueante.
+- **S50 — Gestión de Detectores (dispositivo) bajo una Estación** [dev backend + frontend]
+  - T: registrar Detector(es) con hardware/firmware/hw_version/sipm_count; **device_token**
+    autogenerado (no bloquea registro); ajustes avanzados (calibración + reset a defaults).
+  - CA: una estación puede tener ≥1 detector; **aviso de consistencia** si llega un
+    `device_token` distinto al registrado (recomendar nueva estación/detector).
+  - CA: defaults de calibración por `hw_version`; edición avanzada opcional visible en ajustes.
 
 ## EPIC-4 — Agente local Tauri  (F2)  [dev agente-local]
 - **S12 — Lectura serial multiplataforma**: portar 4 formatos (CosmicWatch/JSON/KV/CSV).
@@ -69,11 +77,16 @@
 - **S16 — (opcional) Web Serial en navegador** como camino rápido Chromium.
 
 ## EPIC-5 — Dashboards y visualización  (F2)  [dev frontend + físico]
-- **S17 — Dashboard de detector** (rediseño): grilla de charts configurable.
+- **S17 — Dashboard de estación** (rediseño): grilla de charts configurable; agrega los
+  detectores de la estación (en `single` = su único detector, transparente).
 - **S18 — Muchos más gráficos/estadísticas**: serie temporal multi-variable, **espectro de
   amplitud (energía depositada)**, histograma de tasa, tasa corregida por presión,
   variación diurna, box/stat summary, rolling stats.
   - CA: escala log y barras de error donde aplique (Plotly).
+  - **Charts primarios = relevantes para las partículas** (tasa corregida, espectro, presión).
+    El **dead time NO es chart principal** (es salud/fiabilidad del detector, no informa sobre
+    las partículas): va como métrica **secundaria/seleccionable**, no ocupando 1/4 de pantalla
+    como en v5. Mostrar salud del detector en un panel aparte/compacto.
 - **S19 — Comparación y contraste**: comparar varios detectores/sesiones/rangos; overlay y
   diferencia; correlación tasa↔presión.
   - CA: seleccionar ≥2 series y compararlas en un mismo eje temporal.
@@ -87,8 +100,11 @@
 - **S22 — i18n (es/en/pt-BR)**, tema claro/oscuro, accesibilidad.
 
 ## EPIC-6 — Landing pública  (F3)  [dev frontend + documentación]
-- **S23 — Mapa de detectores** (MapLibre): muestra ubicaciones y **cuántos activos ahora**.
-  - CA: marcador por detector público con estado activo/inactivo; popup con metadatos.
+- **S23 — Mapa de detectores** (MapLibre): **agregación por ciudad** (D20) con burbujas
+  escaladas/numeradas según cuántos detectores hay; muestra **cuántos activos ahora**.
+  Propósito demostrativo (alcance/recepción), visualmente atractivo aun con 1 detector.
+  - CA: burbuja por ciudad cuyo tamaño/número refleja el conteo; estado activo/inactivo; NO
+    expone ubicación exacta (solo ciudad).
 - **S24 — Demo en vivo** de un detector público (chart en tiempo real).
 - **S25 — Secciones educativas**: qué son rayos cósmicos/muones, cómo funciona, por qué
   Ecuador, cómo unirse; botones de info; acceso a documentación; CTA registro.
@@ -139,6 +155,51 @@
 - **S49 — `RED-CLARA-RESOURCE-TIERS.md`** (3 tiers; tras cerrar IA/arquitectura).
 
 ---
+
+## EPIC-13 — Soporte, notificaciones y email  (F5; notif. in-app desde F2)  [frontend + backend]
+- **S51 — Centro de notificaciones** (in-app): detector caído, gaps, anomalías, invitaciones,
+  recordatorio de metadatos, cambios de permiso; preferencias por tipo/canal.
+- **S52 — Email transaccional** (proveedor free billing-proof; plantillas i18n; SPF/DKIM).
+- **S53 — Sistema de tickets** (categorías, metadatos automáticos, hilo, estados) + bandeja admin.
+- **S54 — FAQ pública** + (opcional) votación de sugerencias.
+
+## EPIC-14 — Redes de estaciones  (F4/F5)  [frontend + backend + físico]
+- **S55 — CRUD de redes + vincular estaciones** (al crear/editar estación o desde panel).
+- **S56 — Vista comparativa multi-estación** (overlay, agregados, mapa de red).
+- **S57 — Detección de eventos simultáneos en la red** (Forbush en N estaciones = alta confianza;
+  criterio validado por el agente físico).
+
+## EPIC-15 — Consola de administración ampliada  (F5)  [backend + frontend + seguridad]
+- **S58 — Página admin dedicada** + gestión usuarios/roles/instituciones (crear en nombre de terceros).
+- **S59 — Gestión de estaciones/detectores + ciclo de vida de institución** (reasignar dueño,
+  permisos, mover de institución; **eliminar/transferir una institución** y reubicar sus
+  estaciones y usuarios de forma segura, con respaldo y confirmación destructiva).
+- **S60 — Confirmaciones destructivas estilo GitHub** + soft-delete + respaldo previo.
+- **S61 — Audit log** (append-only, consultable/exportable).
+- **S62 — Anuncios/broadcast + feature flags + ver-como-usuario** (registrado en audit).
+- **S63 — Onboarding wizard** (institución→estación→detector→agente; ejecutable en nombre de otro).
+
+## EPIC-16 — Cuenta y plataforma  (F1 base; resto F5+)  [backend + frontend]
+- **S64 — Ciclo de vida de cuenta**: verificación de email, reset de contraseña, **borrado de
+  cuenta/datos** (GDPR-like), inactividad. `username` único + `directory_opt_in`.
+- **S65 — Consentimiento ML** (opt-out por estación + default de usuario; mensaje honesto). Lo
+  respeta el pipeline de IA (S40).
+- **S66 — Entitlements + metering** (esquema `plans/entitlements/usage_events`; todos en "Open";
+  **sin pasarela de pago** — D26). Ver `13`.
+- **S67 — API pública de solo-lectura** (datos públicos, con cuota; base para extras futuros).
+- **S68 — Citación de datasets** (identificador estable estilo DOI) + Status page.
+- **S69 — Importar datos históricos + respaldo ZIP** (preservar de v5): subir CSV/archivo de
+  datos pasados a una estación con **deduplicación** (clave `(detector,ts)`); backup/restore ZIP
+  (portar `upload-manager.js`/`session-manager.js` de v5). Evita regresión de funcionalidad.
+- **S70 — Modo totalmente local del agente** (offline-first): ver/grabar datos localmente sin
+  nube (internet caído o sin cuenta aún); sincroniza al reconectar. Refuerza la promesa offline.
+- **S71 — Calidad de datos, robustez y concurrencia**: distinguir **gap por detector apagado**
+  vs **reporte de cero**; cotas de cordura para timestamps (marcar/rechazar duplicados o
+  futuros); **reconciliación de escritores concurrentes** (varios agentes/editores en la misma
+  estación → orden por ts, resolución de conflictos); **health score** del detector (fiabilidad).
+- **S72 — Localización y difusión**: unidades/locale por idioma (hPa/°C, separador decimal);
+  **consentimiento de Términos versionado**; **enlace/embed público** de un chart para difusión
+  (outreach). Todo i18n (es/en/pt-BR), con inglés como *source locale* (D28).
 
 ## Dependencias clave
 - EPIC-1/2/3 son prerrequisito de casi todo.

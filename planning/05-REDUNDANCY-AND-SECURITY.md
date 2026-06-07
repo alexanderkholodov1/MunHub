@@ -61,9 +61,9 @@ la primaria es la fuente de verdad compartida; la fría es el seguro.
 
 | Acción | guest | user (dueño) | institution_admin | admin |
 |--------|:----:|:----:|:----:|:----:|
-| Ver detector público | ✓ | ✓ | ✓ | ✓ |
-| Ver/editar detector propio | — | ✓ | ✓ (de su institución) | ✓ |
-| Compartir detector | — | ✓ | ✓ | ✓ |
+| Ver estación pública | ✓ | ✓ | ✓ | ✓ |
+| Ver/editar estación propia (y sus detectores) | — | ✓ | ✓ (de su institución) | ✓ |
+| Compartir estación | — | ✓ | ✓ | ✓ |
 | Gestionar usuarios de su institución | — | — | ✓ | ✓ |
 | Consola admin / migración DB | — | — | — | ✓ |
 
@@ -71,9 +71,10 @@ la primaria es la fuente de verdad compartida; la fría es el seguro.
 
 ## 5. Reglas / RLS (deny-by-default)
 
-- **Fase A (Firebase rules):** portar v5 con renombres (`profiles→detectors`,
-  `organizations→institutions`); lectura pública solo para detectores `public`/`unlisted`;
-  todo lo demás denegado salvo dueño/compartido/admin.
+- **Fase A (Firebase rules):** portar v5 con renombres (`profiles→stations`, detectores como
+  subnodo de la estación, `organizations→institutions`); lectura **pública** para estaciones
+  `public`, **institucional** para miembros de la institución dueña, y `private` solo
+  dueño/compartido/admin (D24, ver `11`). Deny-by-default en todo lo demás.
 - **Fase B (Postgres RLS):** una política por tabla y acción equivalente a las reglas. Nada
   legible/escribible sin política explícita.
 - **Tests de reglas:** suite que verifica accesos permitidos y **denegados** (casos negativos).
@@ -97,7 +98,7 @@ la primaria es la fuente de verdad compartida; la fría es el seguro.
 | Borrado/corrupción de datos | 3 capas + respaldos probados + cuarentena |
 | Acceso no autorizado | deny-by-default + roles de DB + tests negativos |
 | Fuga de secretos | secretos fuera del repo + rotación |
-| Suplantación de detector (datos falsos) | autenticación del agente; clave por detector (futuro) |
+| Suplantación de detector (datos falsos) | auth de usuario + `device_token` por detector (aviso si cambia); refuerzo RLS por dispositivo en Fase B |
 | Pérdida de proveedor (Firebase/R2) | capa agnóstica + respaldo en proveedor distinto |
 | Inyección de datos inválidos | validación `zod` + idempotencia + invariantes |
 

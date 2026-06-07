@@ -54,6 +54,18 @@ una IA propia, y construida con flujo agéntico auditable.
 | D15 | **Toolkit frontend** | Tailwind + shadcn/ui + **Plotly** + **MapLibre** | Plotly para gráficos científicos (log, error bars, export); shadcn/ui accesible; MapLibre mapas vectoriales gratis (OSM). |
 | D16 | **Almacenamiento frío (capa 3)** | Cloudflare R2 | S3-compatible, 10GB gratis, sin egreso; dumps automáticos; migrable a Red Clara. |
 | D17 | **Idiomas (i18n)** | ES + EN + PT-BR | Cubre casi toda LatAm + ciencia internacional + Brasil. |
+| D18 | **Hosting Fase A** | Firebase Hosting (Spark/gratis) + Next.js **static export** | Billing-proof (Spark bloquea, no cobra); moderno (React/Tailwind/shadcn); datos vía SDK cliente; dominio propio gratis cuando se decida. App Hosting/Blaze evitado por riesgo de cobro. Fase B: SSR completo en Red Clara. |
+| D19 | **Licencia de datos** | CC-BY 4.0 (datos públicos) | Ciencia abierta con atribución obligatoria. Distinta de MIT (código). |
+| D20 | **Mapa del landing** | Agregación por **ciudad** (burbujas escaladas/numeradas) | Propósito demostrativo (alcance/recepción), no localización precisa. Visualmente atractivo aun con pocos detectores. |
+| D21 | **Modelo de entidades** | Dos niveles: **Estación** (perfil/sitio) → **Detector(es)** (dispositivo físico) | Resuelve la colisión de nombres; los datos van por detector; soporta device token y coincidencia futura. |
+| D22 | **Visibilidad** | Elección **obligatoria** al crear estación, **sin default**; embargo opcional | El usuario decide explícitamente; se respeta cualquiera de las opciones. |
+| D23 | **Configurabilidad** | Maximizar lo informativo / configurable / ajustable | Guardar todos los metadatos posibles; ajustes avanzados disponibles sin estorbar el flujo básico. Principio rector. |
+| D24 | **Visibilidad y permisos** | 3 visibilidades (Pública/Institución/Privada) + permisos por estación (owner/editor/viewer) | `editor` puede escribir datos desde otra máquina; resuelve compartir edición. Ver `11`. |
+| D25 | **Identidad y compartición** | Cuenta con email + username únicos + nombre; compartir por email/username mostrando nombre+institución | Selección fiable y con privacidad. Ver `11`. |
+| D26 | **Monetización** | Núcleo gratis siempre; solo ganchos (entitlements+metering), **sin cobro en v6** | Misión de ciencia abierta; sostenibilidad por grants/donaciones. Ver `13`. |
+| D27 | **Redes de estaciones** | Agrupar estaciones en redes/arrays para análisis conjunto | Eventos simultáneos = alta confianza; estudios geográficos. Ver `14`. |
+| D28 | **Idioma del código** | **Inglés** en todo el código (identificadores, comentarios, commits, esquema, API, claves i18n) | Estándar internacional; el inglés es el *source locale* de la UI; es/pt-BR son traducciones. Evita traducción parchada. |
+| D29 | **Idioma de documentos** | Híbrido: **specs nuevas, reporte científico y docs de usuario/técnicas en inglés**; `planning/` interno puede quedar en español hasta abrir el repo | Internacionalización donde importa (código-facing y público), sin retraducir todo ahora. Tareas pendientes: traducir `THEORETICAL-FOUNDATION.md` y `specs/0001` a inglés. |
 
 ---
 
@@ -125,22 +137,23 @@ munhub/
 
 ## 3. Modelo de datos (lineamientos; detalle en spec dedicada)
 
-**Entidades:** `institutions`, `users`, `detectors` (perfiles), `sessions`,
-`minute_records` (series temporales), `realtime_records` (ventana corta),
-`external_events` (APIs), `ai_insights`.
+**Entidades (modelo de dos niveles, D21):** `institutions`, `users`, `stations` (perfil/sitio),
+`detectors` (dispositivo físico, bajo una estación), `sessions`, `minute_records` (serie
+temporal, **por detector**), `realtime_records`, `external_events` (APIs), `ai_insights`.
+Detalle en `02-DATA-MODEL.md`.
 
-**Metadatos OBLIGATORIOS de detector (para estadística valiosa):**
-- Ubicación: ciudad, país, **latitud, longitud, altitud (msnm)**.
-- Institución (si aplica).
-- Emplazamiento: piso, subsuelo, exterior, blindaje, orientación.
-- Hardware: modelo de detector, ¿individual o coincidencia?, # de SiPM.
+**Metadatos OBLIGATORIOS:**
+- **Estación (sitio):** nombre, **lat/lon/altitud (manual)**, ciudad, país, emplazamiento,
+  `type` (single/coincidence), timezone, **visibilidad (sin default, D22)**, institución (si aplica).
+- **Detector (aparato):** modelo, firmware, `hw_version` (define τ_DT), # SiPM, `device_token`
+  (autogenerado), `calibration` (defaults por hw + edición avanzada opcional).
 
-**Compatibilidad hacia atrás (máxima):** perfiles/usuarios v5.0 sin estos metadatos se
-importan igual; la app muestra una **notificación no intrusiva** que impulsa a completarlos
-(sin bloquear el flujo). Los campos se vuelven obligatorios solo en altas nuevas.
+**Compatibilidad hacia atrás (máxima):** estaciones/usuarios v5 sin metadatos se importan igual
+(+ se crea 1 detector con defaults); **notificación no intrusiva** para completarlos. Obligatorio
+solo en altas nuevas.
 
 **Invariante científico (heredado, NO negociable):** todos los valores por minuto son
-**promedios, nunca sumas** (`ec`, `cc`, `sm/sx/sn`, `tp`, `pr`, `d`). Sin filtrado de eventos.
+**promedios, nunca sumas** (`ec`, `cc`, `sm/sx/sn`, `tp`, `pr`, `dt`). Sin filtrado de eventos.
 
 ---
 
@@ -193,15 +206,30 @@ importan igual; la app muestra una **notificación no intrusiva** que impulsa a 
 - [x] `07-EXTERNAL-APIS.md` — contratos de NMDB/NOAA/DONKI/Dst-Kp
 - [x] `RED-CLARA-RESOURCE-TIERS.md` — 3 tiers de recursos a solicitar (tras fijar arquitectura+IA)
 - [x] `docs/research/THEORETICAL-FOUNDATION.md` — reporte teórico final (base científica oficial)
+- [x] `08-RISKS-AND-ASSUMPTIONS.md` — riesgos, supuestos, mitigaciones
+- [x] `09-DETECTOR-LIFECYCLE.md` — registro, auth, calibración por equipo, mantenimiento
+- [x] `10-OPERATIONS-AND-GOVERNANCE.md` — observabilidad/ops + gobernanza de datos
+- [x] `/AGENTS.md` (raíz) — **punto de entrada para agentes** + definición del corte vertical MVP
+- [x] `specs/0001-monorepo-scaffold/spec.md` — spec de ejemplo (patrón SDD)
+- [x] `11-PERMISSIONS-SHARING-ROLES.md` — visibilidad, roles, compartición
+- [x] `12-SUPPORT-NOTIFICATIONS-EMAIL.md` — tickets, centro de notificaciones, email
+- [x] `13-MONETIZATION-AND-ENTITLEMENTS.md` — postura + ganchos (sin cobro en v6)
+- [x] `14-STATION-NETWORKS.md` — redes de estaciones para análisis conjunto
+- [x] `15-ADMIN-CONSOLE.md` — consola admin completa (audit log, anuncios, onboarding…)
 
 ---
 
 ## 7. Decisiones aún PENDIENTES (próximas rondas con el humano)
 
-1. **Dominio y branding** definitivos (¿munhub.lab? ¿subdominio USFQ?).
-2. **Alcance del primer landing** (¿cuánta educación/documentación entra en F3?).
-3. **Detalles finos del modelo de datos** (se resuelven al redactar `02-DATA-MODEL.md`).
-4. **Recursos Red Clara** (se cuantifican en `RED-CLARA-RESOURCE-TIERS.md` tras arquitectura+IA).
+**Resueltas:** landing esencial pulido (F3); hosting Fase A (D18); licencia de datos (D19);
+mapa por ciudad (D20); modelo Estación+Detector (D21); visibilidad obligatoria (D22);
+configurabilidad (D23); auth (usuario+token, refuerzo en Fase B); calibración (defaults +
+avanzada opcional); auto-update (automático en background); embargo (opcional).
+
+**Pendiente (no bloquea):**
+1. **Dominio definitivo** (decidir con el tutor; prototipo en `munhub-lab.web.app`, dominio
+   propio conectable gratis cuando se decida).
+2. **Branding fino** (logo, paleta) — se ajusta al construir el landing (F3).
 
 ---
 

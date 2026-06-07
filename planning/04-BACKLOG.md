@@ -74,7 +74,10 @@
     `(detector, ts)`); reconciliación local↔nube.
 - **S15 — Empaquetado/instaladores** (Windows/macOS/Linux), sin scripts manuales de Python.
   - CA: instalador de 1 clic por SO; detecta puerto serial y conecta.
-- **S16 — (opcional) Web Serial en navegador** como camino rápido Chromium.
+- **S16 — Web Serial (modo DEMO opcional, secundario al Agente)**: atajo sin instalar
+  (Chromium) para pruebas rápidas, con **aviso claro** de que no guarda datos sin conexión / con
+  la pestaña cerrada; para monitoreo continuo se usa el Agente (camino estándar, EPIC-4).
+  - CA: conectar/leer en Chromium y persistir vía `DataProvider`; mostrar el aviso de limitación.
 
 ## EPIC-5 — Dashboards y visualización  (F2)  [dev frontend + físico]
 - **S17 — Dashboard de estación** (rediseño): grilla de charts configurable; agrega los
@@ -148,10 +151,17 @@
 - **S45 — Despliegue Docker en Red Clara** (`infra/`); switch del provider; migración de datos.
   - CA: la app funciona idéntica sobre Supabase; datos migrados verificados.
 
-## EPIC-12 — Documentación y paper  (continuo, foco F8)  [documentación + físico]
-- **S46 — Manual de usuario + FAQ** (universidades y público; cómo unir un detector).
-- **S47 — Documentación técnica**: arquitectura, esquema, despliegue (Firebase y Red Clara).
+## EPIC-12 — Documentación y paper  (al FINAL, tras construir v6; foco F8)  [documentación + físico]
+> **Idioma (D29):** la documentación técnica y el manual de usuario se escriben **primero en
+> inglés** y luego se **traducen** a los idiomas de la plataforma (es, pt-BR).
+> **Flujo de entrega:** se produce en **.md** → **Alexander lee y edita** → solo con su
+> **aprobación final** se exporta a **PDF** (u otro formato) para el usuario. No generar PDF antes.
+- **S46 — Manual de usuario + FAQ** (universidades y público; cómo unir un detector). EN→es/pt.
+- **S47 — Documentación técnica**: arquitectura, esquema, despliegue (Firebase y Red Clara). EN→es/pt.
 - **S48 — Base del artículo científico** (estructura + fundamento teórico; baja prioridad).
+- **S73 — Artefactos académicos/comunidad** (ver `17`): `CITATION.cff`, `AUTHORS.md`,
+  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, versionado semántico + `CHANGELOG.md`, y preparar
+  **Zenodo↔GitHub** para DOI de releases. (ORCID/IP = acciones humanas de Alexander.)
 - **S49 — `RED-CLARA-RESOURCE-TIERS.md`** (3 tiers; tras cerrar IA/arquitectura).
 
 ---

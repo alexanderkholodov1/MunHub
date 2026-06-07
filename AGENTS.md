@@ -39,7 +39,10 @@ SIEMPRE = aparato físico; nunca lo uses para el perfil.
 
 ## Guardrails (innegociables)
 
-1. **NO commitear ni pushear.** El humano (Alexander) revisa y commitea. Deja todo listo.
+1. **NO commitear + trabajar por etapas (checkpoints).** Nunca `git commit`/`git push`. Al
+   terminar un **milestone**, DETENTE, entrega un **Reporte de Etapa** (plantilla en
+   `03-AGENTS-AND-SDD §4bis`) y espera: Alexander revisa, **él commitea**, y autoriza continuar.
+   Nunca avances al siguiente milestone sin checkpoint aprobado.
 2. **No hay código sin spec.** Toda implementación referencia una spec en `/specs/NNN-*/`.
    Si no existe, primero se escribe la spec → **gate humano** → luego se construye.
 3. **Respeta D1–D17.** Si crees que una decisión debe cambiar, PROPONLO; no la cambies solo.

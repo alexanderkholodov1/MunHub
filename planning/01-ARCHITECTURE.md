@@ -119,8 +119,19 @@ serial (USB) ─▶ parser (4 formatos: CosmicWatch/JSON/KV/CSV)
 - **El parser y los formatos se portan desde `serial-reader.js` v5.0** (lógica probada con
   hardware real), reescritos en Rust/TS dentro del agente. NO reinventar la detección de
   formatos; preservar el comportamiento validado.
-- **Web Serial sigue disponible** como camino rápido en Chromium para usuarios casuales,
-  pero el agente es el camino recomendado (offline + multiplataforma + respaldo local).
+
+### INGESTA estandarizada en el Agente; la VISUALIZACIÓN siempre es web (D31)
+- **Ver/analizar:** siempre en la web (la pestaña de la Estación lee de la DB). No cambia.
+- **Camino ESTÁNDAR — Agente (app nuestra, hecha con Tauri):** instalación de un clic; corre en
+  segundo plano; **arranca al encender el PC, sobrevive reinicios**; respaldo local SQLite + sync
+  offline + multiplataforma + auto-update. Es la única forma de garantizar **no perder datos**
+  (prioridad #1) en un detector 24/7. **No requiere Python.** Login = **cuenta MunHub** (la misma
+  de la web); **no hay segunda cuenta ni servicio externo** — Tauri es solo el toolkit con que
+  compilamos nuestra app.
+- **Modo DEMO opcional — Navegador (Web Serial):** atajo sin instalar (solo Chromium) para
+  pruebas rápidas, con **aviso claro**: *"en este modo los datos solo se guardan con conexión y
+  con la pestaña abierta; para monitoreo continuo instala el Agente."* No es el camino principal.
+- Un puerto serial es **exclusivo** (un solo lector a la vez): por detector se usa un camino.
 
 ---
 

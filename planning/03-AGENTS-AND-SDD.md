@@ -9,8 +9,11 @@
 
 ## 1. Reglas de oro (válidas para TODOS los agentes)
 
-1. **No commitear.** Ningún agente hace `git commit`/`git push`. Deja los cambios listos;
-   Alexander revisa y commitea.
+1. **No commitear + trabajar por etapas (checkpoints).** Ningún agente hace `git commit`/`git
+   push`. Se trabaja por **milestones**: al terminar una etapa el agente **se detiene**, entrega
+   un **Reporte de Etapa**, y **Alexander** revisa y hace el commit. Solo entonces el agente
+   continúa al siguiente milestone. Ver §4bis. (Evita commits sin aprobación y trabajo infinito
+   sin guardar — siempre se puede volver a una etapa exitosa.)
 2. **No hay código sin spec.** Toda implementación referencia una spec de `/specs/NNN-*/`
    con criterios de aceptación. Si no existe, primero se escribe la spec.
 3. **Respetar las decisiones D1–D17** del plan maestro. Si un agente cree que una decisión
@@ -159,6 +162,45 @@ Qué NO incluye (evita scope creep).
 - **Conflictos:** si dos agentes necesitan el mismo archivo, el orquestador serializa.
 
 ---
+
+## 4bis. Protocolo de checkpoint por milestone (CRÍTICO)
+
+Para **no perder trabajo** ni commitear sin aprobación, se trabaja **por etapas** (milestone =
+grupo de specs / fin de épica o sub-épica):
+
+1. El agente completa la etapa hasta su Definición de Hecho.
+2. **SE DETIENE** en el límite del milestone (no sigue al siguiente por su cuenta).
+3. Entrega un **Reporte de Etapa** (plantilla abajo).
+4. **Alexander revisa.** Si hay correcciones, el agente las aplica (mismo milestone).
+5. Cuando Alexander aprueba, **ÉL hace el commit** (checkpoint guardado).
+6. Alexander **autoriza continuar** → el agente toma el siguiente milestone.
+
+> Regla dura: ningún agente avanza al siguiente milestone sin checkpoint aprobado, y ningún
+> agente commitea. Así siempre se puede volver a una etapa exitosa parcial.
+
+### Plantilla de Reporte de Etapa
+```
+# Reporte de Etapa — <milestone / specs>
+- Specs completadas: S..., S...
+- Resumen: qué se construyó y por qué.
+- Decisiones / desviaciones vs spec (con justificación).
+- Archivos creados/modificados (lista).
+- Cómo verificar: comandos/pasos + resultado esperado (criterios de aceptación ✓).
+- Problemas, riesgos y pendientes para el siguiente milestone.
+- Listo para tu revisión y commit.
+```
+
+### Granularidad y control de tokens
+- **Un milestone = un entregable coherente y sustancial = UN commit de Alexander.** NO un commit
+  por archivo (tedioso); NO épicas enteras gigantes (riesgo de quedarse sin quota a mitad).
+- **Dimensionar cada milestone para caber en una sesión.** Si la quota se agota a mitad, el
+  **working tree conserva los archivos** (nada se pierde); el agente deja un reporte de "hasta
+  aquí" para retomar.
+- **Issues ≠ checkpoints.** Los Issues solo rastrean tareas; el **punto guardado y el rollback
+  son los commits** de Git (volver = `git revert`/reset al commit anterior). Un Issue puede
+  mapear a un milestone, pero quien guarda/revierte es el commit.
+- Al iniciar el siguiente milestone, arrancar **fresco** desde el reporte + las specs (no
+  recargar toda la historia → menos tokens).
 
 ## 5. Cómo invocar la manada (operativo, para el próximo modelo Claude)
 

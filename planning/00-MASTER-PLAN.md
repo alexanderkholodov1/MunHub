@@ -66,6 +66,8 @@ una IA propia, y construida con flujo agéntico auditable.
 | D27 | **Redes de estaciones** | Agrupar estaciones en redes/arrays para análisis conjunto | Eventos simultáneos = alta confianza; estudios geográficos. Ver `14`. |
 | D28 | **Idioma del código** | **Inglés** en todo el código (identificadores, comentarios, commits, esquema, API, claves i18n) | Estándar internacional; el inglés es el *source locale* de la UI; es/pt-BR son traducciones. Evita traducción parchada. |
 | D29 | **Idioma de documentos** | Híbrido: **specs nuevas, reporte científico y docs de usuario/técnicas en inglés**; `planning/` interno puede quedar en español hasta abrir el repo | Internacionalización donde importa (código-facing y público), sin retraducir todo ahora. Tareas pendientes: traducir `THEORETICAL-FOUNDATION.md` y `specs/0001` a inglés. |
+| D30 | **Checkpoint por milestone** | Milestone = **entregable sustancial = 1 commit de Alexander** (no por archivo, no infinito sin guardar). Agente entrega + Reporte de Etapa y **se detiene**; Alexander revisa, commitea, autoriza seguir. Dimensionar a una sesión; working tree = red de seguridad | Control de tokens + poder volver a etapas exitosas. Issues ≠ checkpoints (eso son los commits). Ver `03 §4bis`. |
+| D31 | **Ingesta de datos** | **Agente instalable (nuestro, hecho con Tauri) = camino ESTÁNDAR único**; Web Serial solo como **demo opcional con aviso** de "no se guarda offline". Visualización siempre web. Login = cuenta MunHub (sin segunda cuenta, sin servicio externo) | Cumple prioridad #1: no perder datos en detector 24/7 (offline/reinicio). |
 
 ---
 
@@ -216,6 +218,9 @@ solo en altas nuevas.
 - [x] `13-MONETIZATION-AND-ENTITLEMENTS.md` — postura + ganchos (sin cobro en v6)
 - [x] `14-STATION-NETWORKS.md` — redes de estaciones para análisis conjunto
 - [x] `15-ADMIN-CONSOLE.md` — consola admin completa (audit log, anuncios, onboarding…)
+- [x] `16-DEPLOYMENT-AND-CUTOVER.md` — estado real de despliegue + cutover seguro (GATED)
+- [x] `17-ACADEMIC-POSITIONING-AND-GOVERNANCE.md` — ORCID, atribución, DOI, ciencia abierta, legal
+- [x] `docs/technical/SERIAL-FORMATS.md` · `docs/technical/adr/002-local-agent-framework.md`
 
 ---
 

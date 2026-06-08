@@ -9,8 +9,9 @@ _Last updated: 2026-06-07 (Phase 0 — fleet bootstrap)_
 ## Phase progress
 | Phase | Scope | Status |
 |---|---|---|
-| **F0** | Safety net: CI, branch protection, fleet infra | 🟢 ready (PR #19; pending merge + Bugbot/PAT) |
-| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 started (S01 ✅) |
+| **F0** | Safety net: CI, branch protection, fleet infra | ✅ done (PR #19 merged) |
+| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 started (S01 ✅; S03/S06 next) |
+| **Design** | Design Language "Observatory Dark" (D36) → feeds all UI specs | 🟡 PR open (this) |
 | F2 | Migration munra-1 → munhub-1 | ⏳ |
 | F3 | Public landing + live demo | ⏳ |
 | F4+ | Ecosystem, AI, networks, admin… | ⏳ |

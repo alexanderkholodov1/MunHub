@@ -4,8 +4,9 @@
 > **Propósito:** Fuente de verdad de alto nivel para la reconstrucción completa de MunHub.
 > Orientado a desarrollo agéntico (Spec-Driven Development). Los agentes leen este
 > documento + `/specs` antes de actuar y NO se desvían de lo aquí acordado.
-> **Regla de oro:** ningún agente hace `git commit` ni `git push`. El humano (Alexander)
-> revisa y commitea. Los agentes proponen, escriben archivos y dejan todo listo.
+> **Regla de oro (D32):** los agentes commitean y pushean **feature branches** y abren **PR**
+> (Conventional Commits, inglés); **CI verde obligatorio**; **solo Alexander mergea a `main`**
+> (último gate humano). Ningún agente toca `main` ni `private/`. Ver `18-AGENT-FLEET-ORCHESTRATION.md`.
 
 ---
 
@@ -72,6 +73,7 @@ una IA propia, y construida con flujo agéntico auditable.
 | D33 | **Flota multi-proveedor** | Claude Opus orquesta e integra; ruteo por matriz (Sonnet/Haiku/Gemini/Cursor/Copilot); `AGENTS.md` = brief universal con shims; spec = unidad; worktree+paquete = carril; contratos-primero; olas de carriles disjuntos | Maximizar throughput y aprovechar suscripciones (Gemini/Cursor/Copilot) ahorrando quota Claude. Ver `18 §2–§3`. |
 | D34 | **Calidad defense-in-depth** | Gates automáticos por PR (CI build/test/lint/typecheck + cobertura + gitleaks + Bugbot + Copilot review) + DoD por spec + gate de fase + auditor de completitud + E2E del MVP | Usar la flota para verificar calidad de cada paso/etapa y la completitud final. Ver `18 §6`. |
 | D35 | **Revisión cruzada** | El autor nunca es el único revisor; revisa un **proveedor distinto**; personas Claude (Físico/Seguridad/Arquitecto) en PRs relevantes | Cada modelo tiene puntos ciegos distintos; el *ensemble* atrapa más que el auto-review. Ver `18 §6 Capa B/C`. |
+| D36 | **Lenguaje de diseño** | **"Observatory Dark"**: instrumento científico (no SaaS genérico), oscuro por defecto (+ light), datos como héroe, 1 acento cian + ámbar, Geist + mono tabular, cuerpo ≥16px, grid 8-pt, **doctrina anti-cara-de-IA**. Generación con v0 (Vercel), integración Cursor, dirección de arte Claude | El diseño destacado viene de un sistema definido + gusto humano, no de "hazlo bonito". Evita los *tells* de IA (letra chica, etc.). Ver `docs/design/DESIGN-LANGUAGE.md`. |
 
 ---
 

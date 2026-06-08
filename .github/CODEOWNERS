@@ -1,0 +1,24 @@
+# MunHub Lab v6.0 — CODEOWNERS
+# Routes mandatory review. Contracts, physics, and security paths require the owner's review.
+# (Single-maintainer repo: @alexanderkholodov1 is the human gate; Claude personas review per spec.)
+
+# Default: maintainer reviews everything not matched below.
+*                           @alexanderkholodov1
+
+# Contracts (Claude-owned — never edited by leaf agents) → architect review.
+/packages/shared/           @alexanderkholodov1
+/packages/data-provider/    @alexanderkholodov1
+
+# Scientific code → physicist review (must match THEORETICAL-FOUNDATION).
+/packages/physics/          @alexanderkholodov1
+/docs/research/             @alexanderkholodov1
+
+# Security-sensitive surfaces.
+/database.rules.json        @alexanderkholodov1
+/.github/                   @alexanderkholodov1
+/infra/                     @alexanderkholodov1
+
+# Project governance / specs / planning.
+/AGENTS.md                  @alexanderkholodov1
+/specs/                     @alexanderkholodov1
+/planning/                  @alexanderkholodov1

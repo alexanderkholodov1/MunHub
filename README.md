@@ -1,306 +1,213 @@
-# MunHub 5.0 — Cosmic Ray Monitoring Platform
+# MunHub Lab
 
 <div align="center">
-  <img src="https://img.shields.io/badge/version-5.0-blue" alt="Version">
-  <img src="https://img.shields.io/badge/firebase-hosting-orange" alt="Firebase Hosting">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-  <img src="https://img.shields.io/badge/language-EN%20%7C%20ES-lightgrey" alt="Languages">
+
+**A scientific platform for cosmic-ray detector monitoring — built for a multi-university network in Latin America.**
+
+<img src="https://img.shields.io/badge/status-pre--alpha-orange" alt="Status: pre-alpha">
+<img src="https://img.shields.io/badge/version-6.0.0--alpha.1-blue" alt="Version">
+<img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT">
+<img src="https://img.shields.io/badge/data-CC--BY%204.0-green" alt="Data: CC-BY 4.0">
+<img src="https://img.shields.io/badge/i18n-EN%20%7C%20ES%20%7C%20PT--BR-lightgrey" alt="Languages">
+
 </div>
 
 ---
 
-**MunHub** is a web-based platform for monitoring cosmic ray muon detectors in real time. Researchers, universities, and enthusiasts worldwide can connect their particle detectors, collect data continuously, visualize multiple data streams, and collaborate through a shared cloud database.
-
-**Live instance:** [https://munra-1.web.app](https://munra-1.web.app)
-
----
-
-## Features
-
-- **Browser-based serial reader** — Connect to a detector via USB directly from Chrome/Edge using the Web Serial API, or from any browser through the included Python WebSocket bridge.
-- **Real-time charts** — Four configurable chart slots (Events, SiPM signal, Temperature & Pressure, Dead Time) with six chart types, Accurate/Stacked view modes, and 14 time-range presets including custom date ranges.
-- **Per-minute data aggregation** — Incoming events are averaged every minute and stored indefinitely. Real-time per-event data is optionally stored for up to 5 minutes.
-- **Multi-profile system** — Each detector is a profile. Profiles can be public or private, shared with specific users, and organized by ownership.
-- **Session management** — Start/stop recording sessions, upload raw log files, download sessions as CSV, and detect duplicate data with merge resolution.
-- **Authentication and roles** — Email/password accounts via Firebase Auth with admin, user, and guest roles. Role-based database security rules.
-- **Admin panel** — Database size monitoring, storage quota visualization, database duplication/migration, and root URL switching.
-- **Internationalization** — Full English and Spanish translations; switchable from the UI.
-- **Dark and light themes** — Toggle with persistent preference.
-- **Responsive design** — Works on desktop, tablet, and mobile screens.
-- **CI/CD** — GitHub Actions workflow deploys to Firebase Hosting on every push to main.
+> ### 🚧 Status: pre-alpha — active reconstruction (v6)
+> MunHub is being **rebuilt from the ground up** as a professional, typed, multi-package platform.
+> The previous **v5** application (vanilla JS + Firebase) still lives in [`public/`](public/) as a
+> working reference and is **not** the direction of this codebase. **v6 is not yet usable** — this
+> repository currently contains the foundations (monorepo, CI, contracts, science layer) and the
+> full design/engineering plan. Follow progress in [`docs/STATUS.md`](docs/STATUS.md).
 
 ---
 
-## Project Structure
+## What is MunHub?
+
+Small scintillation detectors (CosmicWatch-class, running MuNRa firmware) continuously count the
+charged particles that reach the ground from cosmic-ray showers. MunHub lets a university, a lab,
+or an independent researcher **connect such a detector, store its data safely, visualize it, and
+correlate it with space-weather events** — and lets many stations across Latin America form a
+**shared scientific network**.
+
+Ecuador sits under the **highest geomagnetic cutoff rigidity on the planet** (~14–17 GV), which
+makes its ground-level cosmic-ray signal unusually clean — a genuine scientific reason for this
+network to exist.
+
+### Scientific honesty (read this)
+A single-SiPM detector **cannot** cleanly separate muons from electrons or gammas (all behave as
+minimum-ionizing particles, ~2 MeV). MunHub therefore reports a **charged-particle / MIP-type
+rate** and an **amplitude (Landau) spectrum**, *not* a "muon count" — unless a coincidence
+telescope (≥2 detectors) confirms muons. All corrections (dead-time, local barometric β) are
+mandatory, not optional. See [`docs/research/THEORETICAL-FOUNDATION.md`](docs/research/THEORETICAL-FOUNDATION.md).
+
+---
+
+## Why a rebuild?
+
+The v5 app proved the concept but hit its ceiling: ~9,700 lines of untyped vanilla JS in 12 global
+modules, no tests, a saturated free-tier database, manual Python scripts for serial reading, and no
+real offline guarantee. v6 addresses all of this with a typed monorepo, a provider-agnostic data
+layer, an installable agent with local backup, a solid scientific foundation, and a design system.
+
+---
+
+## Architecture at a glance
 
 ```
-MunHub-5.0/
-├── .github/workflows/firebase-deploy.yml   # CI/CD: auto-deploy on push
-├── public/
-│   ├── index.html                # Main dashboard
-│   ├── terminal.html             # Standalone data terminal
-│   ├── favicon.svg               # Tab icon
-│   ├── css/main.css              # All styles (dark/light themes, responsive)
-│   ├── js/
-│   │   ├── config.js             # Central configuration constants
-│   │   ├── firebase-manager.js   # Firebase SDK initialization
-│   │   ├── auth.js               # Authentication, user management, i18n
-│   │   ├── data-manager.js       # Firebase data subscriptions, LTTB downsampling
-│   │   ├── chart-manager.js      # Chart.js rendering, chart types, overlays
-│   │   ├── serial-reader.js      # Web Serial API + WebSocket bridge
-│   │   ├── profile-manager.js    # Profile CRUD, sharing, visibility
-│   │   ├── session-manager.js    # Session CRUD, upload/download
-│   │   ├── upload-manager.js     # File upload/export
-│   │   ├── db-admin.js           # Admin panel (storage stats, migration)
-│   │   ├── ui-manager.js         # Theme toggle, toasts, modals
-│   │   └── app-entry.js          # Application orchestrator
-│   └── tools/serial_bridge.py    # Python WebSocket bridge for non-Chromium browsers
-├── database.rules.json           # Firebase security rules
-├── firebase.json                 # Firebase hosting configuration
-├── .firebaserc                   # Firebase project alias
-├── .gitignore                    # Excludes credentials, caches, local data
-└── README.md
+[USB detector] ──serial──▶ apps/agent (Tauri)            apps/web (Next.js)
+     USFQ                  ├ reads serial                 ├ public landing
+                           ├ SQLite local backup          ├ station dashboards
+                           └ offline sync queue ─┐        └ admin console
+                                                 │              ▲
+                                                 ▼              │
+                                    packages/data-provider ─────┘
+                              (FirebaseProvider today · SupabaseProvider later)
+                                                 ▲
+        ┌──────────── shared foundations ────────┴───────────────┐
+        packages/shared        packages/physics       packages/ui
+        (types + zod schemas)  (dead-time, β, flux,    (design system:
+         = the contracts        Landau spectrum)        Observatory Dark)
+```
+
+- **Provider-agnostic data:** the app never calls Firebase/Supabase directly — only through
+  `packages/data-provider`. Switching backends = swapping one implementation.
+- **Offline-first at the edge:** the agent persists locally before syncing; the detector never
+  loses data.
+- **Scientific integrity by contract:** invariants (averages never sums, no event filtering) are
+  validated with `zod` in `packages/shared`, not by convention.
+
+Full design: [`planning/01-ARCHITECTURE.md`](planning/01-ARCHITECTURE.md) ·
+[`docs/technical/ARCHITECTURE.md`](docs/technical/ARCHITECTURE.md).
+
+---
+
+## Repository structure
+
+```
+apps/
+  web/                 Next.js app — landing, dashboards, admin (static export, Phase A)
+  agent/               Tauri app — serial reading, SQLite backup, sync queue
+services/
+  api/                 Backend / edge functions (Phase B)
+  ai/                  ML pipeline — anomaly & Forbush detection, barometric β (Phase B)
+packages/
+  shared/              Types, zod schemas, constants, i18n keys — the contracts
+  physics/             Pure scientific calculations (no I/O, fully testable)
+  data-provider/       DataProvider interface + Firebase/Supabase implementations
+  ui/                  Design system (Tailwind + shadcn/ui + Plotly) — "Observatory Dark"
+specs/                 Spec-Driven Development: one spec per unit of work
+docs/                  Technical docs, user manual, design language, scientific foundation
+planning/              Internal master plan, architecture, data model, decisions (D1–D39)
+infra/                 CI, fleet tooling, deployment
+public/                v5 app (reference only — not the v6 direction)
 ```
 
 ---
 
-## Quick Start
+## Tech stack
 
-### 1. View Data (no installation required)
-
-Open the hosted dashboard in any modern browser:
-
-> [https://munra-1.web.app](https://munra-1.web.app)
-
-Public profiles are visible without an account. Create an account to manage your own profiles.
-
-### 2. Connect a Detector
-
-#### Option A — Web Serial API (Chrome, Edge, Opera)
-
-1. Open the dashboard and sign in.
-2. Click the serial terminal icon in the top bar.
-3. Select your profile and click **Connect**.
-4. Choose your serial port from the browser prompt.
-5. Click **Start Recording**.
-
-#### Option B — WebSocket Bridge (Firefox, Safari, any browser)
-
-1. Install the bridge dependencies:
-
-   ```bash
-   pip install pyserial websockets
-   ```
-
-2. Start the bridge:
-
-   ```bash
-   python public/tools/serial_bridge.py
-   ```
-
-   The bridge auto-detects the detector, opens the serial port at 9600 baud, and starts a WebSocket server on `ws://localhost:8765`.
-
-3. Open the dashboard in your browser. The serial reader will automatically detect and use the bridge.
-
-### 3. Deploy Your Own Instance
-
-If you want to host the dashboard under your own Firebase project:
-
-1. Create a project at [Firebase Console](https://console.firebase.google.com/).
-2. Enable **Realtime Database** and **Authentication** (Email/Password).
-3. Update the `FIREBASE_CONFIG` object in `public/js/config.js` with your project credentials.
-4. Install the Firebase CLI:
-
-   ```bash
-   npm install -g firebase-tools
-   firebase login
-   ```
-
-5. Deploy:
-
-   ```bash
-   firebase deploy
-   ```
-
-6. Set your first admin: in the Firebase Console, navigate to Realtime Database and set `/users/<your-uid>/role` to `"admin"`.
+| Layer | Choice |
+|---|---|
+| Language | TypeScript (strict) |
+| Monorepo | pnpm workspaces + Turborepo |
+| Web | Next.js (React) · Tailwind · shadcn/ui · Plotly · MapLibre |
+| Agent | Tauri (Rust shell + web UI) · SQLite |
+| Data (Phase A) | Firebase: Realtime Database, Auth, Storage, Hosting |
+| Data (Phase B) | Supabase self-hosted + TimescaleDB |
+| Cold backups | Cloudflare R2 |
+| Quality | Vitest · ESLint · Prettier · gitleaks · GitHub Actions CI |
 
 ---
 
-## Data Architecture
+## Getting started (development)
 
-### Minute Records (stored indefinitely)
-
-Every minute, incoming events are aggregated into a single record:
-
-| Field | Description | Unit |
-|-------|-------------|------|
-| `ts` | Unix timestamp | ms |
-| `dt` | ISO 8601 datetime | — |
-| `ec` | Event count | events/min |
-| `cc` | Coincidence (muon) count | muons/min |
-| `sm` | SiPM signal average | mV |
-| `sx` | SiPM signal max | mV |
-| `sn` | SiPM signal min | mV |
-| `tp` | Temperature average | C |
-| `pr` | Pressure average | Pa |
-| `d` | Dead time average | % |
-
-All values are **averages** (not sums) computed from every event received within that minute.
-
-### Real-Time Records (5-minute retention)
-
-When the user enables real-time recording, individual events are stored temporarily. Records older than 5 minutes are automatically deleted. These power the 1m and 5m chart views.
-
-### Database Path Layout
-
-```
-/users/{uid}                                        # User account and role
-/profiles/{profileId}/                              # Profile metadata
-/profiles/{profileId}/sessions/{sid}                # Session metadata
-/profiles/{profileId}/sessions/{sid}/minutes/{ts}   # Minute records
-/profiles/{profileId}/realtime/{ts}                 # Real-time event records
-/profiles/{profileId}/latest                        # Most recent data point
-/organizations/{orgId}                              # Organization metadata
-```
-
-### Security Rules
-
-The `database.rules.json` enforces:
-
-- Users can only read/write their own account data.
-- Public profiles are readable by anyone; private profiles require ownership, shared access, or admin role.
-- Write access requires ownership, shared edit permission, or admin role.
-- Admin role is set manually in the Firebase Console (never hardcoded).
-
----
-
-## Chart System
-
-### Time Ranges
-
-| Range | Data Source | Notes |
-|-------|------------|-------|
-| 1m, 5m | Real-time events | Only available when real-time data exists |
-| 15m - 30d | Minute records | Always available |
-| Custom | Minute records | Date range picker |
-
-### View Modes
-
-- **Accurate** — X-axis shows real timestamps; gaps between sessions are visible.
-- **Stacked** — Sessions are concatenated into a continuous curve; X-axis adapts to available data.
-
-### Chart Types
-
-Line + Dots, Line Only, Smooth + Dots, Smooth Curve, Bar Chart, Scatter. Each chart slot stores its type preference in localStorage.
-
-### Performance
-
-Charts are capped at 500 points using the LTTB (Largest-Triangle-Three-Buckets) downsampling algorithm to prevent browser lag with large datasets.
-
----
-
-## Serial Data Formats
-
-The serial reader supports multiple detector output formats:
-
-| Format | Example |
-|--------|---------|
-| CosmicWatch (tab-separated) | `125 1704067200 245 102 48.5 101325 24.5 0.14 0 1` |
-| JSON | `{"ev": 125, "cc": 23, "sipm_avg": 48.5, ...}` |
-| Key-Value | `TRG 1 CH 1 ADC 245 TEMP 22.5 PRES 101320` |
-| CSV | `125,1704067200,245,102,48.5,101325,24.5,0.14,0,1` |
-
----
-
-## Technology Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Frontend | Vanilla JavaScript (ES6+), HTML5, CSS3 |
-| Charts | Chart.js 4.4.1 + chartjs-adapter-date-fns 3.0.0 |
-| Backend | Firebase Realtime Database, Firebase Auth |
-| Hosting | Firebase Hosting |
-| Serial (Chromium) | Web Serial API |
-| Serial (other browsers) | Python WebSocket bridge (pyserial, websockets) |
-| CI/CD | GitHub Actions |
-
-No build tools, no bundlers, no npm dependencies for the frontend. The entire application loads from plain script tags.
-
----
-
-## Browser Compatibility
-
-| Browser | Serial Connection | Dashboard |
-|---------|------------------|-----------|
-| Chrome / Edge / Opera | Web Serial API (native) | Full support |
-| Firefox | WebSocket bridge (Python) | Full support |
-| Safari | WebSocket bridge (Python) | Full support |
-| Mobile browsers | View only | Full support |
-
----
-
-## Development
-
-### File Organization
-
-Each JavaScript module is a self-contained IIFE (Immediately Invoked Function Expression) that exposes a frozen public API. Modules communicate through the global scope with a defined load order in index.html.
-
-### Adding a Feature
-
-1. If it involves data logic, modify or extend the relevant module in `public/js/`.
-2. If it needs UI, add the HTML in `public/index.html` and styles in `public/css/main.css`.
-3. For new server-side logic, consider Firebase Cloud Functions.
-
-### Deployment
-
-Push to `main` to trigger automatic deployment via GitHub Actions. For manual deployment:
+> Requires Node ≥ 20 and pnpm ≥ 9.
 
 ```bash
-firebase deploy --only hosting
-firebase deploy --only database  # to update security rules
+pnpm install
+pnpm build        # build all packages (Turborepo)
+pnpm test         # run the test suites
+pnpm lint         # lint
+pnpm typecheck    # strict type checking
 ```
 
-### Conventions
-
-- All variables, comments, and function names in English.
-- Commit messages follow the pattern: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`.
-- No hardcoded credentials or admin UIDs in source code.
-- Data is never filtered or discarded — scientific integrity is non-negotiable.
+There is no runnable app yet — the foundations build and the quality gate is green. The first
+end-to-end vertical slice (station + detector → agent → dashboard with live corrected rate +
+spectrum) is the goal of Phase 1.
 
 ---
 
-## Version History
+## How this project is built
+
+MunHub is developed with **Spec-Driven Development** and a coordinated **multi-provider agent
+fleet** (see [`AGENTS.md`](AGENTS.md) and [`planning/18-AGENT-FLEET-ORCHESTRATION.md`](planning/18-AGENT-FLEET-ORCHESTRATION.md)):
+
+- No code without a spec in [`specs/`](specs/).
+- Every change lands via a **pull request**; CI (build · test · lint · typecheck · secret scan)
+  must be green; `main` is protected and only the maintainer merges.
+- All code is in **English**; the UI is internationalized (EN · ES · PT-BR).
+
+---
+
+## Documentation
+
+| Doc | What |
+|---|---|
+| [`docs/technical/`](docs/technical/) | Architecture, data model, serial formats (for contributors) |
+| [`docs/user-manual/`](docs/user-manual/) | Concepts and terminology for end users (preliminary) |
+| [`docs/design/DESIGN-LANGUAGE.md`](docs/design/DESIGN-LANGUAGE.md) | "Observatory Dark" visual contract |
+| [`docs/research/THEORETICAL-FOUNDATION.md`](docs/research/THEORETICAL-FOUNDATION.md) | Official scientific basis |
+| [`docs/STATUS.md`](docs/STATUS.md) | Live progress dashboard |
+| [`planning/`](planning/) | Master plan, architecture, data model, all decisions |
+
+---
+
+## Roadmap
+
+| Phase | Scope | Status |
+|---|---|---|
+| F0 | Safety net: CI, branch protection, fleet infra | ✅ done |
+| F1 | Foundations: scaffold, contracts, physics, app skeletons | 🟡 in progress |
+| F2 | Migration of the v5 historical data into v6 | ⏳ |
+| F3 | Public landing + live demo | ⏳ |
+| F4+ | Ecosystem (sharing, notifications, networks), AI, admin console | ⏳ |
+
+---
+
+## Author & acknowledgments
+
+Created and led by **Alexander Kholodov** (undergraduate researcher, USFQ), under the supervision
+of **Dennis Cazar**, in the **LEOPARD** laboratory at Universidad San Francisco de Quito, within
+the **EL-BONGO / Erasmus+ CBHE** project. Detector firmware: **MuNRa** (CosmicWatch-derived).
+
+---
+
+## License & citation
+
+- **Code:** [MIT](LICENSE).
+- **Data:** CC-BY 4.0 (open science with attribution).
+- A `CITATION.cff` and a Zenodo DOI will accompany the first tagged release.
+
+---
+
+## Version history
 
 | Version | Description |
-|---------|-------------|
-| 1.0 | Python desktop application with local SQLite database |
-| 2.0 | Migration to web platform with Firebase |
-| 3.0 - 3.2 | Role-based access, session management, admin panel |
-| 4.0 - 4.8 | Web Serial API, security hardening, modular JS architecture, i18n, LTTB downsampling, profile sharing, Accurate/Stacked modes, custom time ranges |
-| **5.0** | **Full rewrite as MunHub. Bandwidth-optimized Firebase subscriptions, WebSocket bridge for non-Chromium browsers, standalone data terminal, session upload with duplicate detection, database migration tools, organization support, six chart types with color customization** |
+|---|---|
+| 1.0 | Python desktop app with local SQLite |
+| 2.0 | Migration to a web platform with Firebase |
+| 3.0–3.2 | Role-based access, sessions, admin panel |
+| 4.0–4.8 | Web Serial API, modular JS, i18n, LTTB downsampling, sharing |
+| 5.0 | Full rewrite as MunHub (vanilla JS); bandwidth-optimized Firebase, WebSocket bridge, terminal, migration tools |
+| **6.0 (in progress)** | **Ground-up reconstruction: typed monorepo, provider-agnostic data layer, installable agent, scientific foundation, design system, agent-fleet development** |
 
 ---
 
-## Contributing
+## External resources
 
-1. Fork the repository.
-2. Create a feature branch.
-3. Make your changes.
-4. Submit a pull request.
-
-Pull requests that touch data processing must verify that aggregation uses **averages** (not sums) and that no data is silently discarded.
-
----
-
-## License
-
-MIT License. See LICENSE file for details.
-
----
-
-## External Resources
-
-- [MuNRa Detector Documentation](https://gitmilab.redclara.net/muografia/escaramujo/munra_como_usar/-/tree/main?ref_type=heads)
-- [Firebase Documentation](https://firebase.google.com/docs)
+- [MuNRa detector documentation](https://gitmilab.redclara.net/muografia/escaramujo/munra_como_usar/-/tree/main?ref_type=heads)
+- [Firebase documentation](https://firebase.google.com/docs)
 - [Web Serial API (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API)
-- [Chart.js Documentation](https://www.chartjs.org/docs/)
+- [NMDB — Neutron Monitor Database](https://www.nmdb.eu/)

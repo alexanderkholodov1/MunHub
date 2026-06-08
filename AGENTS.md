@@ -11,9 +11,11 @@
 almacenamiento, visualización y análisis de datos de detectores de rayos cósmicos
 (CosmicWatch / muones), pensada como red internacional multi-universidad en Latinoamérica.
 
-**Estado actual:** 📋 **Planificación COMPLETA. Implementación NO iniciada.** El código v5.0
-(Vanilla JS + Firebase) sigue en `public/` como referencia histórica; la v6.0 se construye
-nueva (monorepo). No edites `public/` salvo para consultar comportamiento probado.
+**Estado actual:** 🚧 **Pre-alpha — reconstrucción activa.** Planificación completa; **F0 hecha**
+(monorepo, CI, protección de `main`, infra de flota); **F1 en curso** (scaffold ✅; contratos S03
+y física S06 = siguiente). El código v5.0 (Vanilla JS + Firebase) sigue en `public/` como
+referencia histórica; la v6.0 se construye nueva (monorepo). No edites `public/` salvo para
+consultar comportamiento probado. Estado vivo: `docs/STATUS.md`.
 
 **Vocabulario clave (D21):** **Estación** = el perfil/sitio registrado (ubicación, metadatos,
 visibilidad; lo del mapa). **Detector** = el dispositivo físico CosmicWatch dentro de una

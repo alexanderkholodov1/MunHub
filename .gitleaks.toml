@@ -1,0 +1,20 @@
+# MunHub Lab v6.0 — gitleaks config (CI secret scan).
+# Extends the default ruleset; adds allowlist for paths that are gitignored or intentionally public.
+
+title = "MunHub gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Paths and values that are not secrets"
+paths = [
+  # Secrets live here and are gitignored; never committed. Excluded from scan noise.
+  '''private/.*''',
+  # Lockfiles contain integrity hashes, not secrets.
+  '''pnpm-lock\.yaml''',
+]
+regexes = [
+  # The Firebase WEB apiKey is public by design (shipped to the browser, protected by rules).
+  '''AIzaSyBCa4PGXr0MpqkibBQpg4ja_RHZtdQPXYI''',
+]

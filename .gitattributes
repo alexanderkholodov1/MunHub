@@ -1,0 +1,17 @@
+# MunHub Lab v6.0 — line-ending normalization (CI runs on Linux).
+# Default: normalize text to LF in the repo.
+* text=auto eol=lf
+
+# Shell scripts MUST be LF (CRLF breaks them on Linux).
+*.sh text eol=lf
+
+# Windows-specific scripts keep CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary / non-diffable.
+*.png binary
+*.jpg binary
+*.gz  binary
+*.ico binary

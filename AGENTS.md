@@ -39,10 +39,13 @@ SIEMPRE = aparato físico; nunca lo uses para el perfil.
 
 ## Guardrails (innegociables)
 
-1. **NO commitear + trabajar por etapas (checkpoints).** Nunca `git commit`/`git push`. Al
-   terminar un **milestone**, DETENTE, entrega un **Reporte de Etapa** (plantilla en
-   `03-AGENTS-AND-SDD §4bis`) y espera: Alexander revisa, **él commitea**, y autoriza continuar.
-   Nunca avances al siguiente milestone sin checkpoint aprobado.
+1. **Commits/push por etapas — política D32 (ver `planning/18-AGENT-FLEET-ORCHESTRATION.md`).**
+   Trabaja en una **feature branch** (`spec/NNNN-*`, `chore/*`, `feat/*`), un worktree por tarea.
+   Al cerrar un **milestone**: `commit` (Conventional Commits **en inglés**, D28, + trailer de
+   agente) + `push` de **tu rama** + abre **PR** + entrega **Reporte de Etapa** (`03 §4bis`) → DETENTE.
+   🔒 **NUNCA** `git commit`/`push` a **`main`**, **nunca** `merge` — **solo Alexander mergea**
+   (último gate humano). **Nunca** toques `private/` ni imprimas secretos. Sin **CI verde**, el PR
+   no es mergeable. No avances de milestone sin que el PR previo esté listo para revisión.
 2. **No hay código sin spec.** Toda implementación referencia una spec en `/specs/NNN-*/`.
    Si no existe, primero se escribe la spec → **gate humano** → luego se construye.
 3. **Respeta D1–D17.** Si crees que una decisión debe cambiar, PROPONLO; no la cambies solo.

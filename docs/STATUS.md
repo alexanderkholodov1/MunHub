@@ -9,7 +9,7 @@ _Last updated: 2026-06-07 (Phase 0 — fleet bootstrap)_
 ## Phase progress
 | Phase | Scope | Status |
 |---|---|---|
-| **F0** | Safety net: CI, branch protection, fleet infra | 🟡 in progress |
+| **F0** | Safety net: CI, branch protection, fleet infra | 🟢 ready (PR #19; pending merge + Bugbot/PAT) |
 | **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 started (S01 ✅) |
 | F2 | Migration munra-1 → munhub-1 | ⏳ |
 | F3 | Public landing + live demo | ⏳ |
@@ -28,13 +28,13 @@ _Last updated: 2026-06-07 (Phase 0 — fleet bootstrap)_
 ## Quality gates (defense-in-depth — planning/18 §6)
 | Gate | Mechanism | State |
 |---|---|---|
-| CI: build/test/lint/typecheck | GitHub Actions `ci.yml` | 🟡 landing in S02 PR |
-| Secret scan | gitleaks | 🟡 landing in S02 PR |
+| CI: build/test/lint/typecheck | GitHub Actions `ci.yml` | ✅ active (green on PR #19) |
+| Secret scan | gitleaks | ✅ active (green on PR #19) |
+| `main` protection | PR + both CI checks required; no force-push/delete | ✅ active |
 | Coverage hard-gate (≥80%) | vitest coverage | ⏳ activates at S06 |
 | Auto PR review #1 | Cursor Bugbot | ⏳ enable in Cursor dashboard |
 | Auto PR review #2 | Copilot review | ⏳ enable on repo |
 | Cross-provider review | author ≠ reviewer (D35) | ⏳ from F1 wave 1 |
-| `main` protection | PR required + checks + no direct push | ⏳ enable (F0) |
 
 ## MVP end-to-end checklist (AGENTS.md vertical slice)
 - [ ] Auth: user signs in

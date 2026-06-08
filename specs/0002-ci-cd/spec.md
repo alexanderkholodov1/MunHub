@@ -37,7 +37,9 @@ safe and scalable: every PR is verified before a human ever looks at it.
 - [x] CA1: `ci.yml` present; triggers on PR + push to `main`.
 - [x] CA2: blocking steps = typecheck, lint, build, test (workspace-wide).
 - [x] CA3: gitleaks job present with `.gitleaks.toml` allowlist.
-- [ ] CA4: branch protection on `main` requires these checks + PR (Alexander's console/API step).
+- [x] CA4: branch protection on `main` active — requires PR + both CI checks; force-push/deletion
+  disabled; `enforce_admins=false` so the maintainer keeps override and the non-admin fleet token
+  cannot push/merge to `main`.
 - [x] CA5: workflow uses frozen lockfile + pnpm cache + concurrency cancel.
 
 ## Out of scope
@@ -47,4 +49,4 @@ safe and scalable: every PR is verified before a human ever looks at it.
 - [x] T1: author `ci.yml` (verify + secret-scan).
 - [x] T2: author `.gitleaks.toml` allowlist.
 - [x] T3: spec + acceptance.
-- [ ] T4: enable branch protection on `main` (human/API — tracked in planning/18 §13).
+- [x] T4: branch protection on `main` enabled via `gh api` (PR + checks required, no force-push/delete).

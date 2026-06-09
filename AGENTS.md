@@ -22,11 +22,17 @@ visibilidad; lo del mapa). **Detector** = el dispositivo físico CosmicWatch den
 estación (device token, calibración, firmware). Los datos van **por detector**. "Detector"
 SIEMPRE = aparato físico; nunca lo uses para el perfil.
 
+**Estructura de mando (D46, ver `planning/20`):** **CEO** = Alexander (visión, aprueba, mergea).
+**Adjutant/Gerente** = el modelo más avanzado con el que Alexander habla directamente (orquesta la
+flota, perspectiva total, reporta y consulta). **Supervisores** por área → **Trabajadores** que
+ejecutan specs en su carril. Si eres un agente trabajador/supervisor: sigue tu tarea y el
+reglamento; las decisiones transversales y de dirección las lleva el Adjutant con Alexander.
+
 ---
 
 ## Orden de lectura obligatorio
 
-1. `planning/00-MASTER-PLAN.md` — visión, las 17 decisiones (D1–D17), fases, índice.
+1. `planning/00-MASTER-PLAN.md` — visión, las decisiones (D1–D43), fases, índice.
 2. `planning/01-ARCHITECTURE.md` — arquitectura, capa de datos agnóstica, principios.
 3. `planning/02-DATA-MODEL.md` — esquema, metadatos, migración v5→v6.
 4. `planning/03-AGENTS-AND-SDD.md` — tu rol, el ciclo Spec-Driven, plantilla de spec.
@@ -50,7 +56,7 @@ SIEMPRE = aparato físico; nunca lo uses para el perfil.
    no es mergeable. No avances de milestone sin que el PR previo esté listo para revisión.
 2. **No hay código sin spec.** Toda implementación referencia una spec en `/specs/NNN-*/`.
    Si no existe, primero se escribe la spec → **gate humano** → luego se construye.
-3. **Respeta D1–D17.** Si crees que una decisión debe cambiar, PROPONLO; no la cambies solo.
+3. **Respeta D1–D43.** Si crees que una decisión debe cambiar, PROPONLO; no la cambies solo.
 4. **Honestidad científica.** Nada que contradiga `THEORETICAL-FOUNDATION.md`. Nunca etiquetes
    eventos individuales como "muón" en detectores de 1 SiPM (usa "tasa de partículas cargadas").
 5. **Integridad de datos.** Promedios nunca sumas; sin filtrado de eventos; validar con `zod`.
@@ -65,6 +71,16 @@ SIEMPRE = aparato físico; nunca lo uses para el perfil.
    **Documentos (D29):** specs nuevas, el reporte científico y la documentación de
    usuario/técnica → **inglés**; los docs internos de `planning/` pueden quedar en español
    hasta abrir el repo al público. (Pendiente: traducir `THEORETICAL-FOUNDATION.md` y `specs/0001`.)
+10. **La documentación es parte de "done" (D42).** Todo PR que cambie comportamiento, estructura o
+    decisiones **actualiza los docs afectados** (README, roadmap, stack, `docs/technical`,
+    `docs/user-manual`, spec) **en el mismo PR**, y **añade un fragmento** a `changelog.d/`
+    (ver `changelog.d/README.md`). Un PR que toca código sin tocar docs/changelog está incompleto.
+11. **Estilo de commits y PRs (D44, ver `CONTRIBUTING.md`).** Título y descripción describen **lo
+    que el cambio APORTA**, en términos de producto/ingeniería, para un lector humano del historial.
+    **Nunca** narres el proceso, las opciones consideradas, ni enmarques el cambio como reacción a
+    una corrección ("as requested", "ahora sin X", "arreglé que estaba…"). Sin disculpas, sin
+    deliberación: el historial cuenta **qué ganó el proyecto**, no cómo se negoció. Esa discusión
+    va en el chat, no en Git. SemVer: `6.0.0` = lanzamiento de MunHub Lab 6.
 
 ---
 

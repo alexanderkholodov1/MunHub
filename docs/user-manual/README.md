@@ -1,10 +1,9 @@
-# MunHub Lab — User manual (preliminary)
+# MunHub Lab — User manual
 
-> ### 🚧 Very preliminary
-> MunHub v6 is under active reconstruction, so this manual does **not** yet describe specific
-> buttons or screens — those will change. Instead it explains the **mental model and the terms**
-> you need to understand the platform. Screen-by-screen guides come once the interface stabilizes.
-> (English is the source version; Spanish and Portuguese translations follow.)
+> **Start here to understand how MunHub thinks.** This guide explains the **mental model and the
+> terminology** behind the platform — institutions, stations, detectors, sessions, and what the
+> data actually means. Step-by-step, screen-by-screen walkthroughs are added as each part of the
+> v6 interface ships. (English is the source; Spanish and Portuguese follow.)
 
 ---
 

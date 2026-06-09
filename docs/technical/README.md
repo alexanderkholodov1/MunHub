@@ -10,9 +10,10 @@ Documentation for contributors and integrators. (End-user concepts live in
 ## Contents
 | Document | What it covers |
 |---|---|
-| [`ARCHITECTURE.md`](ARCHITECTURE.md) | System components, the provider-agnostic data layer, data flow, deployment phases, quality gates |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | System components (with a C4 diagram), the provider-agnostic data layer, data flow, deployment phases, quality gates |
 | [`DATA-MODEL.md`](DATA-MODEL.md) | Entities (institution → station → detector → session), the canonical record schema, corrections pipeline |
 | [`SERIAL-FORMATS.md`](SERIAL-FORMATS.md) | The four detector output formats the agent auto-detects, and the minute-aggregation mapping |
+| [`ENGINEERING-STANDARDS.md`](ENGINEERING-STANDARDS.md) | The practices we hold to (Clean Architecture, SOLID, pragmatic TDD, C4) and verdicts on evaluated approaches |
 | [`adr/`](adr/) | Architecture Decision Records |
 
 ## Related

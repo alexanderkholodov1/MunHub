@@ -4,6 +4,44 @@
 > and [`planning/18-AGENT-FLEET-ORCHESTRATION.md`](../../planning/18-AGENT-FLEET-ORCHESTRATION.md).
 > Status: pre-alpha — describes the target design and what already exists.
 
+## 0. C4 view (Context + Container)
+
+```mermaid
+flowchart TB
+    researcher([Researcher / student]):::person
+    detector([Cosmic-ray detector<br/>USB, MuNRa firmware]):::person
+    ext([Space-weather APIs<br/>NMDB · NOAA · NASA]):::ext
+
+    subgraph MunHub[MunHub Lab platform]
+        agent[Agent · Tauri<br/>serial read + SQLite + sync]:::box
+        web[Web · Next.js<br/>landing · dashboards · admin]:::box
+        dp[data-provider<br/>backend-agnostic interface]:::box
+        core[shared + physics<br/>contracts + pure science]:::box
+        db[(Data backend<br/>Firebase → Supabase)]:::db
+        ai[AI/ML service<br/>anomaly · Forbush · β]:::box
+    end
+
+    detector -->|serial| agent
+    agent -->|push records| dp
+    researcher -->|views| web
+    web --> dp
+    dp --> db
+    agent -. uses .-> core
+    web -. uses .-> core
+    ai --> dp
+    ext -->|correlation| ai
+
+    classDef person fill:#1A2030,stroke:#4CC9F0,color:#E6EAF2;
+    classDef ext fill:#1A2030,stroke:#F5B544,color:#E6EAF2;
+    classDef box fill:#131722,stroke:#252C3B,color:#E6EAF2;
+    classDef db fill:#131722,stroke:#5BD6A0,color:#E6EAF2;
+```
+
+- **Level 1 (Context):** researchers and detectors interact with MunHub; MunHub pulls space-weather
+  data for correlation.
+- **Level 2 (Container):** the agent, web app, data-provider, pure core, data backend, and AI
+  service. **Level 3 (Component)** is documented per package as each is built.
+
 ## 1. Principles
 
 1. **Provider-agnostic data.** The app never talks to Firebase/Supabase directly; everything goes

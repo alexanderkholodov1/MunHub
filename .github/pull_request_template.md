@@ -21,8 +21,11 @@
 - [ ] `pnpm build && pnpm test && pnpm lint && pnpm typecheck` green locally
 <!-- Paste relevant output / coverage notes. -->
 
-## Self-review checklist (D28 / D32 / guardrails)
+## Self-review checklist (D28 / D32 / D42 / D44 / guardrails)
 - [ ] All code in **English** (identifiers, comments, commits, i18n keys)
+- [ ] **Docs updated** in this PR (README/roadmap/stack, `docs/`, this spec) — D42
+- [ ] **Changelog fragment** added in `changelog.d/` — D42
+- [ ] This description states **what the change delivers** (no process narration / "as requested" / apologies) — D44
 - [ ] Stayed in lane — did **not** edit shared contracts unless this is a contracts spec
 - [ ] No direct Firebase/Supabase SDK calls outside `packages/data-provider`
 - [ ] No `private/` access, no secrets in code or logs

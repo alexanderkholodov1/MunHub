@@ -9,14 +9,13 @@
 
 ## 1. Reglas de oro (válidas para TODOS los agentes)
 
-1. **No commitear + trabajar por etapas (checkpoints).** Ningún agente hace `git commit`/`git
-   push`. Se trabaja por **milestones**: al terminar una etapa el agente **se detiene**, entrega
-   un **Reporte de Etapa**, y **Alexander** revisa y hace el commit. Solo entonces el agente
-   continúa al siguiente milestone. Ver §4bis. (Evita commits sin aprobación y trabajo infinito
-   sin guardar — siempre se puede volver a una etapa exitosa.)
+1. **Branch + PR por etapas (D32).** El agente commitea/pushea **su feature branch** y abre **PR**;
+   **solo Alexander mergea a `main`** (nunca un agente). Trabaja por **milestones** y, al cerrar uno
+   (con docs + fragmento de changelog, D42), abre el PR con su Reporte de Etapa y **continúa** con la
+   siguiente spec independiente sin esperar el merge. Ver §4bis. Nunca toca `private/`.
 2. **No hay código sin spec.** Toda implementación referencia una spec de `/specs/NNN-*/`
    con criterios de aceptación. Si no existe, primero se escribe la spec.
-3. **Respetar las decisiones D1–D17** del plan maestro. Si un agente cree que una decisión
+3. **Respetar las decisiones D1–D45** del plan maestro. Si un agente cree que una decisión
    debe cambiar, lo PROPONE al orquestador/humano; no la cambia unilateralmente.
 4. **Honestidad científica.** Nada de sobreprometer física (ver D7/D9 y el reporte teórico).
    El agente físico tiene veto sobre afirmaciones científicas.
@@ -78,7 +77,13 @@ Qué NO incluye (evita scope creep).
 
 ## Tareas
 - [ ] T1 … (agente, estimación)
+- [ ] T(n-1): actualizar la **documentación afectada** (README/roadmap/stack, `docs/technical`,
+      `docs/user-manual`, esta spec) — D42.
+- [ ] T(n): añadir **fragmento de changelog** en `changelog.d/<slug>.<category>.md` — D42.
 ```
+
+> **Obligatorio en TODA spec** (D42): las dos últimas tareas — documentación afectada + fragmento de
+> changelog — son parte de "done". Una spec sin ellas está incompleta. Commits/PRs siguen `CONTRIBUTING.md` (D44).
 
 ---
 
@@ -158,25 +163,28 @@ Qué NO incluye (evita scope creep).
 - **Una spec = un dueño.** Cambios cross-package se negocian vía orquestador.
 - **Cambios de decisión (D#):** solo el humano los aprueba; se registran como nuevo ADR.
 - **Definición de Hecho (DoD):** criterios de aceptación ✓ + tests ✓ + typecheck/lint ✓ +
-  i18n keys ✓ + sin llamadas directas al SDK + spec marcada `done` + listo para commit humano.
+  i18n keys ✓ + sin llamadas directas al SDK + **docs afectados + fragmento de changelog** (D42) +
+  spec marcada `done` + **PR abierto con CI verde** (listo para que Alexander mergee).
 - **Conflictos:** si dos agentes necesitan el mismo archivo, el orquestador serializa.
 
 ---
 
-## 4bis. Protocolo de checkpoint por milestone (CRÍTICO)
+## 4bis. Protocolo de milestone — branch + PR (D32, operación autónoma)
 
-Para **no perder trabajo** ni commitear sin aprobación, se trabaja **por etapas** (milestone =
-grupo de specs / fin de épica o sub-épica):
+Se trabaja **por etapas** (milestone = spec / grupo coherente de specs). Bajo **D32** el agente
+**no espera** a Alexander para seguir:
 
-1. El agente completa la etapa hasta su Definición de Hecho.
-2. **SE DETIENE** en el límite del milestone (no sigue al siguiente por su cuenta).
-3. Entrega un **Reporte de Etapa** (plantilla abajo).
-4. **Alexander revisa.** Si hay correcciones, el agente las aplica (mismo milestone).
-5. Cuando Alexander aprueba, **ÉL hace el commit** (checkpoint guardado).
-6. Alexander **autoriza continuar** → el agente toma el siguiente milestone.
+1. El agente completa la etapa hasta su Definición de Hecho (incluye **docs + fragmento de
+   changelog**, D42).
+2. **Commit + push de su feature branch** y **abre un PR** (estilo `CONTRIBUTING.md`/D44) con el
+   **Reporte de Etapa** en el cuerpo.
+3. **CONTINÚA con la siguiente spec independiente** (carril disjunto) sin esperar el merge. Lo
+   dependiente se **apila** sobre su rama o lo difiere el orquestador (ver `18 §8bis`).
+4. **Alexander mergea los PRs verdes de forma asíncrona**, por lotes, cuando tiene tiempo. Si pide
+   cambios, el agente actualiza su rama.
 
-> Regla dura: ningún agente avanza al siguiente milestone sin checkpoint aprobado, y ningún
-> agente commitea. Así siempre se puede volver a una etapa exitosa parcial.
+> Regla dura: ningún agente hace push/merge a `main`; **solo Alexander mergea**. El **PR + CI verde**
+> es el punto guardado; el working tree y las ramas remotas son la red de seguridad.
 
 ### Plantilla de Reporte de Etapa
 ```
@@ -191,8 +199,8 @@ grupo de specs / fin de épica o sub-épica):
 ```
 
 ### Granularidad y control de tokens
-- **Un milestone = un entregable coherente y sustancial = UN commit de Alexander.** NO un commit
-  por archivo (tedioso); NO épicas enteras gigantes (riesgo de quedarse sin quota a mitad).
+- **Un milestone = un entregable coherente y sustancial = UN PR para que Alexander mergee.** NO un
+  PR por archivo (tedioso); NO épicas enteras gigantes (riesgo de quedarse sin quota a mitad).
 - **Dimensionar cada milestone para caber en una sesión.** Si la quota se agota a mitad, el
   **working tree conserva los archivos** (nada se pierde); el agente deja un reporte de "hasta
   aquí" para retomar.

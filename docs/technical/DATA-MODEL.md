@@ -1,8 +1,9 @@
 # MunHub Lab — Data model (technical overview)
 
 > Public, English distillation of [`planning/02-DATA-MODEL.md`](../../planning/02-DATA-MODEL.md).
-> Status: pre-alpha — the canonical v6 schema. The authoritative, validated definitions live in
-> `packages/shared` (zod schemas) once implemented (spec S03).
+> The authoritative, validated definitions live in **`packages/shared`** as Zod schemas with
+> inferred TypeScript types (implemented in spec S03) — schemas are the single source of truth, so
+> runtime validation and compile-time types can never drift.
 
 ## 1. Vocabulary (the two-level model)
 

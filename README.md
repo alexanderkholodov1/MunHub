@@ -31,8 +31,7 @@ place, is genuinely valuable — and **Ecuador sits in one of the best places on
 - **The cleanest galactic signal on the planet.** Ecuador lies under the **highest geomagnetic
   cutoff rigidity in the world (~14–17 GV)**. Only the most energetic, purely *galactic* cosmic
   rays make it through the magnetic shield — the local noise that contaminates high-latitude
-  stations is filtered out by the Earth itself. That is a natural advantage no detector in Europe
-  or North America can buy.
+  stations is filtered out by the Earth itself.
 - **A continental network, not a lonely detector.** When stations from different cities and
   altitudes measure *at the same time*, a simultaneous dip becomes a confirmed scientific event —
   a **Forbush decrease**, the fingerprint of a solar storm sweeping past Earth. MunHub is built to
@@ -46,8 +45,7 @@ place, is genuinely valuable — and **Ecuador sits in one of the best places on
   a DOI per release. Science that anyone can verify, reuse, and build on.
 
 **The bottom line for a researcher:** an instrument-grade, real-time, openly shared cosmic-ray
-network — with per-station calibration and built-in space-weather correlation — available to an
-entire region for the first time. A genuine asset, not a demo.
+network — with per-station calibration and built-in space-weather correlation.
 
 ---
 
@@ -64,9 +62,6 @@ entire region for the first time. A genuine asset, not a demo.
 ---
 
 ## ⚙️ Engineering, built to a standard
-
-MunHub is being engineered to be **exemplary from the front end to the back** — the kind of codebase
-that is a pleasure to extend and a model to learn from.
 
 - **Clean, provider-agnostic architecture.** The app never talks to a database directly; it talks to
   a `DataProvider` interface. The same product runs on a **free cloud tier today** and on a
@@ -134,7 +129,7 @@ pnpm typecheck   # strict type checking
 
 ## 🗺️ Roadmap
 
-The plan is deliberately ambitious, and it is being executed phase by phase, each gated by tests
+The plan of reconstruction is being executed phase by phase, each gated by tests
 and review.
 
 | Phase | Scope | Status |

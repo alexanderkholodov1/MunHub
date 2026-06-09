@@ -22,6 +22,12 @@ visibilidad; lo del mapa). **Detector** = el dispositivo físico CosmicWatch den
 estación (device token, calibración, firmware). Los datos van **por detector**. "Detector"
 SIEMPRE = aparato físico; nunca lo uses para el perfil.
 
+**Estructura de mando (D46, ver `planning/20`):** **CEO** = Alexander (visión, aprueba, mergea).
+**Adjutant/Gerente** = el modelo más avanzado con el que Alexander habla directamente (orquesta la
+flota, perspectiva total, reporta y consulta). **Supervisores** por área → **Trabajadores** que
+ejecutan specs en su carril. Si eres un agente trabajador/supervisor: sigue tu tarea y el
+reglamento; las decisiones transversales y de dirección las lleva el Adjutant con Alexander.
+
 ---
 
 ## Orden de lectura obligatorio

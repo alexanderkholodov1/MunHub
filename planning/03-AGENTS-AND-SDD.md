@@ -78,7 +78,13 @@ Qué NO incluye (evita scope creep).
 
 ## Tareas
 - [ ] T1 … (agente, estimación)
+- [ ] T(n-1): actualizar la **documentación afectada** (README/roadmap/stack, `docs/technical`,
+      `docs/user-manual`, esta spec) — D42.
+- [ ] T(n): añadir **fragmento de changelog** en `changelog.d/<slug>.<category>.md` — D42.
 ```
+
+> **Obligatorio en TODA spec** (D42): las dos últimas tareas — documentación afectada + fragmento de
+> changelog — son parte de "done". Una spec sin ellas está incompleta. Commits/PRs siguen `CONTRIBUTING.md` (D44).
 
 ---
 

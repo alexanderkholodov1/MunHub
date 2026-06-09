@@ -9,8 +9,12 @@ behavior, structure, or documentation **must add an entry under `[Unreleased]`**
 
 ## [Unreleased]
 
+> New entries are added as fragments under [`changelog.d/`](changelog.d/) and compiled here at
+> release time. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ### Added
-- Selling, science-forward **README** for the v6 reconstruction.
+- **README** centered on the platform's scientific value proposition, for an international audience.
+- Contribution guide (`CONTRIBUTING.md`) and changelog-fragment workflow (`changelog.d/`).
 - **Technical documentation:** `docs/technical/` index, `ARCHITECTURE.md` (with a C4 system-context
   diagram), `DATA-MODEL.md`.
 - **Preliminary user manual:** `docs/user-manual/` — the institution → station → detector → session

@@ -204,6 +204,25 @@ Caduca en ~1 mes → **front-load** lo más valioso DENTRO de la ventana, luego 
   bypass de protección → la regla es **técnica**, no solo de confianza. (El token `gh` actual de
   Alexander, con `repo`+`workflow`, queda para setup/admin: workflows y protección de `main`.)
 - ✅ Commits: **Conventional Commits en inglés** (D28) + trailer que identifica al agente/proveedor.
+- ✅ Descripción de PR/commit: estilo `CONTRIBUTING.md` (D44) — qué aporta, sin narrar proceso.
+
+### 8bis. Operación autónoma (PRs en paralelo, sin esperar el merge)
+La flota trabaja **asíncrona**: un agente no espera a que Alexander mergee para seguir. Modelo:
+- **Specs independientes → en paralelo.** Cada agente toma una spec de **carril disjunto** (un
+  paquete), abre su PR, y **continúa con la siguiente spec independiente** sin bloquearse.
+- **Specs dependientes → ramas apiladas.** Si B depende de A (aún sin mergear), B se ramifica
+  **desde la rama de A** (stacked PR) o el orquestador la difiere. Los contratos (S03/S04/S05) se
+  hacen primero y, hasta que aterricen, lo dependiente se apila sobre ellos.
+- **Alexander mergea por lotes** cuando tiene tiempo, leyendo PR por PR. La cola de PRs verdes puede
+  crecer sin frenar a la flota.
+- **Evitar choques entre PRs abiertos** (clave para la autonomía):
+  - **Carriles por paquete:** dos agentes nunca editan el mismo paquete a la vez.
+  - **Archivos de alta contención** (`CHANGELOG.md`, `STATUS.md`, contratos, master-plan) **no** se
+    editan en paralelo: el changelog usa **fragmentos** (`changelog.d/`, sin colisión); `STATUS.md`
+    y contratos los toca **solo el orquestador**.
+  - El orquestador planifica la **ola** (specs de carriles disjuntos) y secuencia lo dependiente.
+- **Si un PR queda obsoleto** por un merge previo: el agente hace `rebase`/merge de `main` en su
+  rama, re-verifica CI, y sigue. Conflictos triviales (por carriles) o inexistentes (por fragmentos).
 
 ---
 

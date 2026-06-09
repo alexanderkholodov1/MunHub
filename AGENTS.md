@@ -66,9 +66,15 @@ SIEMPRE = aparato físico; nunca lo uses para el perfil.
    usuario/técnica → **inglés**; los docs internos de `planning/` pueden quedar en español
    hasta abrir el repo al público. (Pendiente: traducir `THEORETICAL-FOUNDATION.md` y `specs/0001`.)
 10. **La documentación es parte de "done" (D42).** Todo PR que cambie comportamiento, estructura o
-    decisiones **actualiza los docs afectados** (README, `docs/technical`, `docs/user-manual`, spec,
-    `STATUS.md`) **en el mismo PR**, y **añade una entrada a `CHANGELOG.md`** bajo `[Unreleased]`
-    (formato Keep a Changelog). Un PR que toca código sin tocar docs/changelog está incompleto.
+    decisiones **actualiza los docs afectados** (README, roadmap, stack, `docs/technical`,
+    `docs/user-manual`, spec) **en el mismo PR**, y **añade un fragmento** a `changelog.d/`
+    (ver `changelog.d/README.md`). Un PR que toca código sin tocar docs/changelog está incompleto.
+11. **Estilo de commits y PRs (D44, ver `CONTRIBUTING.md`).** Título y descripción describen **lo
+    que el cambio APORTA**, en términos de producto/ingeniería, para un lector humano del historial.
+    **Nunca** narres el proceso, las opciones consideradas, ni enmarques el cambio como reacción a
+    una corrección ("as requested", "ahora sin X", "arreglé que estaba…"). Sin disculpas, sin
+    deliberación: el historial cuenta **qué ganó el proyecto**, no cómo se negoció. Esa discusión
+    va en el chat, no en Git. SemVer: `6.0.0` = lanzamiento de MunHub Lab 6.
 
 ---
 

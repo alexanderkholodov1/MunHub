@@ -81,6 +81,8 @@ una IA propia, y construida con flujo agéntico auditable.
 | D41 | **TDD pragmático** | Test-first donde la corrección **es** el producto (`physics`, esquemas `shared`); test-after / E2E para UI e integración | Garantiza la ciencia sin dogma. Cobertura = gate duro desde S06. |
 | D42 | **Estándares de documentación** | **C4** (Context+Container ahora), **ADRs**, **Conventional Commits + SemVer**, **Keep a Changelog**; **la documentación es parte de "done"** (todo PR actualiza docs + `CHANGELOG`) | Memoria del proyecto + calidad de calling card; nada se construye sin dejar rastro legible. |
 | D43 | **MoE — solo el espíritu** | Mixture-of-Experts literal (DL) **no** aplica a nuestra ML clásica; su idea (rutear a expertos) ya vive en la **flota de agentes** y el **ensemble champion-challenger** de ML | Adoptar el concepto útil sin maquinaria innecesaria (sin GPU, sin necesidad). Ver `ENGINEERING-STANDARDS.md`. |
+| D44 | **Estilo de commits/PRs** | Título y descripción cuentan **lo que el cambio aporta** (producto/ingeniería), para lector humano del historial; **prohibido** narrar proceso, opciones consideradas o enmarcar como reacción a corrección ("as requested", "ahora sin X"); sin disculpas. La deliberación va en el chat, no en Git | El historial público es una carta de presentación; debe leerse profesional y atemporal, no como diálogo IA↔humano. Ver `CONTRIBUTING.md`. |
+| D45 | **Versionado** | SemVer; **`6.0.0` = lanzamiento de MunHub Lab 6**. Pre-launch `6.0.0-alpha/beta/rc.N`; post-launch `6.0.x` (fixes), `6.x.0` (features compatibles), `7.0.0` (ruptura de contratos públicos) | Estándar claro y predecible para todo el equipo/flota. Ver `CONTRIBUTING.md`. |
 
 ---
 

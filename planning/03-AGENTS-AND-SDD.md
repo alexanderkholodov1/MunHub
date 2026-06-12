@@ -1,220 +1,221 @@
-# MunHub Lab v6.0 — Agentes y Spec-Driven Development
+# MunHub Lab v6.0 — Agents and Spec-Driven Development
 
-> Depende de: [`00-MASTER-PLAN.md`](00-MASTER-PLAN.md), [`01-ARCHITECTURE.md`](01-ARCHITECTURE.md),
+> Depends on: [`00-MASTER-PLAN.md`](00-MASTER-PLAN.md), [`01-ARCHITECTURE.md`](01-ARCHITECTURE.md),
 > [`02-DATA-MODEL.md`](02-DATA-MODEL.md).
-> Define CÓMO la "manada" de agentes construye v6.0 sin desviarse. Este documento es el
-> contrato operativo de todos los agentes.
+> Defines HOW the agent fleet builds v6.0 without drifting. This document is the operating
+> contract for all agents.
 
 ---
 
-## 1. Reglas de oro (válidas para TODOS los agentes)
+## 1. Golden rules (valid for ALL agents)
 
-1. **Branch + PR por etapas (D32).** El agente commitea/pushea **su feature branch** y abre **PR**;
-   **solo Alexander mergea a `main`** (nunca un agente). Trabaja por **milestones** y, al cerrar uno
-   (con docs + fragmento de changelog, D42), abre el PR con su Reporte de Etapa y **continúa** con la
-   siguiente spec independiente sin esperar el merge. Ver §4bis. Nunca toca `private/`.
-2. **No hay código sin spec.** Toda implementación referencia una spec de `/specs/NNN-*/`
-   con criterios de aceptación. Si no existe, primero se escribe la spec.
-3. **Respetar las decisiones D1–D45** del plan maestro. Si un agente cree que una decisión
-   debe cambiar, lo PROPONE al orquestador/humano; no la cambia unilateralmente.
-4. **Honestidad científica.** Nada de sobreprometer física (ver D7/D9 y el reporte teórico).
-   El agente físico tiene veto sobre afirmaciones científicas.
-5. **Integridad de datos.** Promedios nunca sumas; sin filtrado de eventos; invariantes en
-   `packages/shared` validados con `zod`.
-6. **Capa de datos agnóstica.** Nunca llamar al SDK de Firebase/Supabase directo desde la
-   app; siempre vía `DataProvider`.
-7. **Quedarse en su carril.** Cada agente toca solo los paquetes/carpetas de su rol salvo
-   coordinación explícita.
-8. **Dejar rastro.** Cada tarea actualiza el estado en su spec y en el Issue de GitHub.
+1. **Branch + PR per stage (D32).** The agent commits/pushes **its feature branch** and opens a
+   **PR**; **only Alexander merges to `main`** (never an agent). Work proceeds by **milestones**
+   and, on closing one (with docs + changelog fragment, D42), the agent opens the PR with its
+   Stage Report and **continues** with the next independent spec without waiting for the merge.
+   See §4bis. Never touch `private/`.
+2. **No code without a spec.** Every implementation references a spec in `/specs/NNN-*/` with
+   acceptance criteria. If it does not exist, the spec is written first.
+3. **Respect decisions D1–D45** of the master plan. If an agent believes a decision should
+   change, it PROPOSES the change to the orchestrator/human; it never changes it unilaterally.
+4. **Scientific honesty.** No overpromising physics (see D7/D9 and the theoretical report).
+   The physicist agent has veto power over scientific claims.
+5. **Data integrity.** Averages never sums; no event filtering; invariants in
+   `packages/shared` validated with `zod`.
+6. **Agnostic data layer.** Never call the Firebase/Supabase SDK directly from the app;
+   always go through `DataProvider`.
+7. **Stay in your lane.** Each agent touches only the packages/folders of its role, except
+   under explicit coordination.
+8. **Leave a trace.** Every task updates the status in its spec and in the GitHub Issue.
 
 ---
 
-## 2. Ciclo Spec-Driven Development (SDD)
+## 2. Spec-Driven Development (SDD) cycle
 
 ```
-1. IDEA / necesidad (de 04-BACKLOG.md)
+1. IDEA / need (from 04-BACKLOG.md)
        ↓
-2. SPEC  → /specs/NNN-feature/spec.md   (arquitecto/físico según corresponda)
-       ↓  (revisión humana = gate)
-3. PLAN  → tareas atómicas + criterios de aceptación  (en la misma spec)
+2. SPEC  → /specs/NNN-feature/spec.md   (architect/physicist as appropriate)
+       ↓  (human review = gate)
+3. PLAN  → atomic tasks + acceptance criteria  (in the same spec)
        ↓
-4. BUILD → implementación por el agente dev correspondiente
+4. BUILD → implementation by the corresponding dev agent
        ↓
-5. VERIFY→ pruebas contra criterios de aceptación (+ tests automatizados)
+5. VERIFY→ checks against acceptance criteria (+ automated tests)
        ↓
-6. REVIEW→ humano revisa y commitea
+6. REVIEW→ human reviews and commits
 ```
 
-**Gates humanos:** después de la SPEC (paso 2) y antes del COMMIT (paso 6).
+**Human gates:** after the SPEC (step 2) and before the COMMIT (step 6).
 
-### Plantilla de spec (`/specs/NNN-feature/spec.md`)
+### Spec template (`/specs/NNN-feature/spec.md`)
 
 ```markdown
-# NNN — <Título>
-- **Estado:** draft | approved | in-progress | done
-- **Agente responsable:** <rol>
-- **Depende de:** <specs/decisiones>
-- **Fase:** F1..F8
+# NNN — <Title>
+- **Status:** draft | approved | in-progress | done
+- **Responsible agent:** <role>
+- **Depends on:** <specs/decisions>
+- **Phase:** F1..F8
 
-## Contexto
-Por qué existe esta feature; enlace a decisiones (D#) y docs.
+## Context
+Why this feature exists; links to decisions (D#) and docs.
 
-## Requisitos funcionales
-- RF1 …
+## Functional requirements
+- FR1 …
 
-## Requisitos no funcionales
-- Rendimiento, seguridad, i18n, accesibilidad…
+## Non-functional requirements
+- Performance, security, i18n, accessibility…
 
-## Diseño / enfoque
-Cómo se implementa; archivos/paquetes afectados; contratos.
+## Design / approach
+How it is implemented; affected files/packages; contracts.
 
-## Criterios de aceptación (verificables)
-- [ ] CA1 …
-- [ ] CA2 …
+## Acceptance criteria (verifiable)
+- [ ] AC1 …
+- [ ] AC2 …
 
-## Fuera de alcance
-Qué NO incluye (evita scope creep).
+## Out of scope
+What it does NOT include (prevents scope creep).
 
-## Tareas
-- [ ] T1 … (agente, estimación)
-- [ ] T(n-1): actualizar la **documentación afectada** (README/roadmap/stack, `docs/technical`,
-      `docs/user-manual`, esta spec) — D42.
-- [ ] T(n): añadir **fragmento de changelog** en `changelog.d/<slug>.<category>.md` — D42.
+## Tasks
+- [ ] T1 … (agent, estimate)
+- [ ] T(n-1): update the **affected documentation** (README/roadmap/stack, `docs/technical`,
+      `docs/user-manual`, this spec) — D42.
+- [ ] T(n): add a **changelog fragment** at `changelog.d/<slug>.<category>.md` — D42.
 ```
 
-> **Obligatorio en TODA spec** (D42): las dos últimas tareas — documentación afectada + fragmento de
-> changelog — son parte de "done". Una spec sin ellas está incompleta. Commits/PRs siguen `CONTRIBUTING.md` (D44).
+> **Mandatory in EVERY spec** (D42): the last two tasks — affected documentation + changelog
+> fragment — are part of "done". A spec without them is incomplete. Commits/PRs follow
+> `CONTRIBUTING.md` (D44).
 
 ---
 
-## 3. Roster de agentes (charters)
+## 3. Agent roster (charters)
 
-> Cada charter es el "system prompt" base para invocar a ese agente. El orquestador los
-> instancia con la spec concreta como tarea.
+> Each charter is the base "system prompt" used to invoke that agent. The orchestrator
+> instantiates them with the concrete spec as the task.
 
-### 🧭 Orquestador
-- **Misión:** descomponer el backlog en specs/tareas, asignar al agente correcto, vigilar
-  dependencias y coherencia con D1–D17, evitar deriva, consolidar el estado.
-- **Hace:** crea/actualiza specs e Issues, secuencia el trabajo, detecta conflictos entre
-  agentes, escala dudas al humano.
-- **No hace:** implementar features, decidir ciencia, commitear.
-- **Entradas:** `00`–`07` docs + estado de Issues. **Salidas:** plan de sprint, asignaciones.
+### 🧭 Orchestrator
+- **Mission:** decompose the backlog into specs/tasks, assign to the right agent, watch
+  dependencies and coherence with D1–D17, prevent drift, consolidate state.
+- **Does:** creates/updates specs and Issues, sequences work, detects conflicts between
+  agents, escalates questions to the human.
+- **Does not:** implement features, decide science, commit.
+- **Inputs:** docs `00`–`07` + Issue state. **Outputs:** sprint plan, assignments.
 
-### 🔬 Físico investigador
-- **Misión:** garantizar fundamento y honestidad científica.
-- **Hace:** redacta/actualiza `docs/research/THEORETICAL-FOUNDATION.md`; define fórmulas
-  (corrección barométrica, flujo), rangos "normales", lenguaje correcto para UI/landing;
-  revisa specs con contenido científico; especifica `packages/physics`.
-- **No hace:** código de UI/infra; decisiones de stack.
-- **Veto:** afirmaciones científicas incorrectas. **Entradas:** deep research results,
-  papers. **Salidas:** reporte teórico, specs de física, textos educativos.
+### 🔬 Research physicist
+- **Mission:** guarantee scientific grounding and honesty.
+- **Does:** writes/updates `docs/research/THEORETICAL-FOUNDATION.md`; defines formulas
+  (barometric correction, flux), "normal" ranges, correct language for UI/landing;
+  reviews specs with scientific content; specifies `packages/physics`.
+- **Does not:** UI/infra code; stack decisions.
+- **Veto:** incorrect scientific claims. **Inputs:** deep research results,
+  papers. **Outputs:** theoretical report, physics specs, educational texts.
 
-### 🏗️ Arquitecto de software
-- **Misión:** integridad arquitectónica y ADRs.
-- **Hace:** specs de arquitectura, define contratos (`DataProvider`, `shared`), revisa PRs
-  por acoplamiento/capas, escribe ADRs en `docs/technical/adr/`.
-- **No hace:** ciencia; features de producto sin spec.
+### 🏗️ Software architect
+- **Mission:** architectural integrity and ADRs.
+- **Does:** architecture specs, defines contracts (`DataProvider`, `shared`), reviews PRs
+  for coupling/layering, writes ADRs in `docs/technical/adr/`.
+- **Does not:** science; product features without a spec.
 
-### 💻 Dev Frontend (web)
-- **Misión:** `apps/web` + `packages/ui`.
-- **Hace:** landing, dashboards, charts (Plotly), mapa (MapLibre), i18n (es/en/pt-BR),
-  accesibilidad, consumo de `DataProvider`.
-- **No hace:** lógica de backend/serial; tocar `data-provider` internals.
+### 💻 Frontend dev (web)
+- **Mission:** `apps/web` + `packages/ui`.
+- **Does:** landing, dashboards, charts (Plotly), map (MapLibre), i18n (es/en/pt-BR),
+  accessibility, `DataProvider` consumption.
+- **Does not:** backend/serial logic; touch `data-provider` internals.
 
-### 💻 Dev Backend/Datos
-- **Misión:** `packages/data-provider`, `services/api`, esquema y migración.
-- **Hace:** `FirebaseProvider`/`SupabaseProvider`, reglas/RLS, migración v5→v6, jobs.
-- **No hace:** UI; ciencia.
+### 💻 Backend/Data dev
+- **Mission:** `packages/data-provider`, `services/api`, schema and migration.
+- **Does:** `FirebaseProvider`/`SupabaseProvider`, rules/RLS, v5→v6 migration, jobs.
+- **Does not:** UI; science.
 
-### 💻 Dev Agente-local
-- **Misión:** `apps/agent` (Tauri).
-- **Hace:** lectura serial multiplataforma (porta los 4 formatos v5), SQLite local, cola de
-  sync offline, idempotencia, empaquetado/instaladores por SO.
-- **No hace:** UI web; backend de nube (solo lo consume vía `DataProvider`).
+### 💻 Local-agent dev
+- **Mission:** `apps/agent` (Tauri).
+- **Does:** cross-platform serial reading (ports the 4 v5 formats), local SQLite, offline
+  sync queue, idempotency, packaging/installers per OS.
+- **Does not:** web UI; cloud backend (only consumes it via `DataProvider`).
 
-### 🗄️ Ingeniero de DB/Redundancia
-- **Misión:** robustez y redundancia de datos (prioridad #1).
-- **Hace:** TimescaleDB (hypertables, continuous aggregates, retención), respaldos fríos a
-  R2, restauración, verificación de integridad/checksums.
-- **No hace:** UI; ciencia.
+### 🗄️ DB/Redundancy engineer
+- **Mission:** data robustness and redundancy (priority #1).
+- **Does:** TimescaleDB (hypertables, continuous aggregates, retention), cold backups to
+  R2, restoration, integrity/checksum verification.
+- **Does not:** UI; science.
 
-### 🤖 Ingeniero ML
-- **Misión:** diseñar (ahora) e implementar (Fase 7) `services/ai`.
-- **Hace:** `06-AI-DESIGN.md`, pipeline de anomalías/forecasting/Forbush, contrato de
-  `ai_insights`, plan de recursos (insumo de tiers Red Clara), self-heal/retraining.
-- **No hace:** desplegar IA antes de tener servidor; sobreprometer (coordina con físico).
+### 🤖 ML engineer
+- **Mission:** design (now) and implement (Phase 7) `services/ai`.
+- **Does:** `06-AI-DESIGN.md`, anomaly/forecasting/Forbush pipeline, the `ai_insights`
+  contract, resource plan (input for Red Clara tiers), self-heal/retraining.
+- **Does not:** deploy AI before a server exists; overpromise (coordinates with the physicist).
 
-### 🔐 Seguridad
-- **Misión:** auth, RLS/rules deny-by-default, manejo de secretos, integridad.
-- **Hace:** revisa reglas, `.env`/secretos fuera del repo, modelo de roles, auditoría.
-- **No hace:** features de producto.
+### 🔐 Security
+- **Mission:** auth, deny-by-default RLS/rules, secret handling, integrity.
+- **Does:** reviews rules, keeps `.env`/secrets out of the repo, role model, auditing.
+- **Does not:** product features.
 
-### 📖 Documentación
-- **Misión:** `docs/user` (manual + FAQ), `docs/technical` (arquitectura, despliegue),
-  base del `docs/paper`.
-- **Hace:** guías comprensibles para universidades y público; instrucciones de despliegue.
-- **No hace:** decidir arquitectura/ciencia (las documenta tras aprobación).
-
----
-
-## 4. Coordinación y anti-deriva
-
-- **Fuente de verdad:** `/planning` (decisiones/plan) + `/specs` (contratos) + `/docs`.
-- **Una spec = un dueño.** Cambios cross-package se negocian vía orquestador.
-- **Cambios de decisión (D#):** solo el humano los aprueba; se registran como nuevo ADR.
-- **Definición de Hecho (DoD):** criterios de aceptación ✓ + tests ✓ + typecheck/lint ✓ +
-  i18n keys ✓ + sin llamadas directas al SDK + **docs afectados + fragmento de changelog** (D42) +
-  spec marcada `done` + **PR abierto con CI verde** (listo para que Alexander mergee).
-- **Conflictos:** si dos agentes necesitan el mismo archivo, el orquestador serializa.
+### 📖 Documentation
+- **Mission:** `docs/user` (manual + FAQ), `docs/technical` (architecture, deployment),
+  groundwork for `docs/paper`.
+- **Does:** guides understandable by universities and the public; deployment instructions.
+- **Does not:** decide architecture/science (documents them after approval).
 
 ---
 
-## 4bis. Protocolo de milestone — branch + PR (D32, operación autónoma)
+## 4. Coordination and anti-drift
 
-Se trabaja **por etapas** (milestone = spec / grupo coherente de specs). Bajo **D32** el agente
-**no espera** a Alexander para seguir:
+- **Source of truth:** `/planning` (decisions/plan) + `/specs` (contracts) + `/docs`.
+- **One spec = one owner.** Cross-package changes are negotiated via the orchestrator.
+- **Decision changes (D#):** only the human approves them; recorded as a new ADR.
+- **Definition of Done (DoD):** acceptance criteria ✓ + tests ✓ + typecheck/lint ✓ +
+  i18n keys ✓ + no direct SDK calls + **affected docs + changelog fragment** (D42) +
+  spec marked `done` + **open PR with green CI** (ready for Alexander to merge).
+- **Conflicts:** if two agents need the same file, the orchestrator serializes.
 
-1. El agente completa la etapa hasta su Definición de Hecho (incluye **docs + fragmento de
-   changelog**, D42).
-2. **Commit + push de su feature branch** y **abre un PR** (estilo `CONTRIBUTING.md`/D44) con el
-   **Reporte de Etapa** en el cuerpo.
-3. **CONTINÚA con la siguiente spec independiente** (carril disjunto) sin esperar el merge. Lo
-   dependiente se **apila** sobre su rama o lo difiere el orquestador (ver `18 §8bis`).
-4. **Alexander mergea los PRs verdes de forma asíncrona**, por lotes, cuando tiene tiempo. Si pide
-   cambios, el agente actualiza su rama.
+---
 
-> Regla dura: ningún agente hace push/merge a `main`; **solo Alexander mergea**. El **PR + CI verde**
-> es el punto guardado; el working tree y las ramas remotas son la red de seguridad.
+## 4bis. Milestone protocol — branch + PR (D32, autonomous operation)
 
-### Plantilla de Reporte de Etapa
+Work proceeds **by stages** (milestone = spec / coherent group of specs). Under **D32** the
+agent **does not wait** for Alexander to continue:
+
+1. The agent completes the stage to its Definition of Done (including **docs + changelog
+   fragment**, D42).
+2. **Commits + pushes its feature branch** and **opens a PR** (style per `CONTRIBUTING.md`/D44)
+   with the **Stage Report** in the body.
+3. **CONTINUES with the next independent spec** (disjoint lane) without waiting for the merge.
+   Dependent work is **stacked** on its branch or deferred by the orchestrator (see `18 §8bis`).
+4. **Alexander merges green PRs asynchronously**, in batches, when time allows. If changes are
+   requested, the agent updates its branch.
+
+> Hard rule: no agent pushes/merges to `main`; **only Alexander merges**. The **PR + green CI**
+> is the save point; the working tree and remote branches are the safety net.
+
+### Stage Report template
 ```
-# Reporte de Etapa — <milestone / specs>
-- Specs completadas: S..., S...
-- Resumen: qué se construyó y por qué.
-- Decisiones / desviaciones vs spec (con justificación).
-- Archivos creados/modificados (lista).
-- Cómo verificar: comandos/pasos + resultado esperado (criterios de aceptación ✓).
-- Problemas, riesgos y pendientes para el siguiente milestone.
-- Listo para tu revisión y commit.
+# Stage Report — <milestone / specs>
+- Specs completed: S..., S...
+- Summary: what was built and why.
+- Decisions / deviations vs spec (with justification).
+- Files created/modified (list).
+- How to verify: commands/steps + expected result (acceptance criteria ✓).
+- Problems, risks, and pending items for the next milestone.
+- Ready for review and commit.
 ```
 
-### Granularidad y control de tokens
-- **Un milestone = un entregable coherente y sustancial = UN PR para que Alexander mergee.** NO un
-  PR por archivo (tedioso); NO épicas enteras gigantes (riesgo de quedarse sin quota a mitad).
-- **Dimensionar cada milestone para caber en una sesión.** Si la quota se agota a mitad, el
-  **working tree conserva los archivos** (nada se pierde); el agente deja un reporte de "hasta
-  aquí" para retomar.
-- **Issues ≠ checkpoints.** Los Issues solo rastrean tareas; el **punto guardado y el rollback
-  son los commits** de Git (volver = `git revert`/reset al commit anterior). Un Issue puede
-  mapear a un milestone, pero quien guarda/revierte es el commit.
-- Al iniciar el siguiente milestone, arrancar **fresco** desde el reporte + las specs (no
-  recargar toda la historia → menos tokens).
+### Granularity and token control
+- **One milestone = one coherent, substantial deliverable = ONE PR for Alexander to merge.**
+  NOT one PR per file (tedious); NOT entire giant epics (risk of running out of quota midway).
+- **Size each milestone to fit in one session.** If quota runs out midway, the **working tree
+  keeps the files** (nothing is lost); the agent leaves a "progress so far" report to resume.
+- **Issues ≠ checkpoints.** Issues only track tasks; the **save point and rollback are Git
+  commits** (rolling back = `git revert`/reset to the previous commit). An Issue may map to a
+  milestone, but it is the commit that saves/reverts.
+- When starting the next milestone, start **fresh** from the report + the specs (do not reload
+  the whole history → fewer tokens).
 
-## 5. Cómo invocar la manada (operativo, para el próximo modelo Claude)
+## 5. How to invoke the fleet (operational)
 
-1. Leer `00`–`03` (+ `04-BACKLOG.md`).
-2. Tomar la épica/spec de mayor prioridad lista (sin dependencias abiertas).
-3. Si falta la spec → invocar arquitecto/físico para redactarla → **gate humano**.
-4. Con spec aprobada → invocar el dev del rol → implementar contra criterios.
-5. Verificar (tests + criterios) → marcar spec → **dejar listo para que el humano commitee**.
-6. Repetir. El orquestador mantiene el tablero (Issues) y evita solapamientos.
+1. Read `00`–`03` (+ `04-BACKLOG.md`).
+2. Take the highest-priority epic/spec that is ready (no open dependencies).
+3. If the spec is missing → invoke the architect/physicist to write it → **human gate**.
+4. With the spec approved → invoke the dev of the matching role → implement against the criteria.
+5. Verify (tests + criteria) → mark the spec → **leave it ready for the human to commit**.
+6. Repeat. The orchestrator maintains the board (Issues) and prevents overlaps.

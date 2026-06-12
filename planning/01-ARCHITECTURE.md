@@ -1,229 +1,229 @@
-# MunHub Lab v6.0 — Arquitectura detallada
+# MunHub Lab v6.0 — Detailed architecture
 
-> Depende de: [`00-MASTER-PLAN.md`](00-MASTER-PLAN.md) (decisiones D1–D17).
-> Lectura obligatoria para todo agente de implementación.
-
----
-
-## 1. Principios de arquitectura
-
-1. **Provider-agnostic data:** la app nunca habla directo con Firebase/Supabase. Todo pasa
-   por `packages/data-provider`. Cambiar de backend = cambiar una implementación, no la app.
-2. **Offline-first en el borde:** el detector nunca pierde datos. El agente local persiste
-   antes de sincronizar.
-3. **Integridad científica por contrato:** los invariantes (promedios nunca sumas, sin
-   filtrado de eventos) se validan con esquemas (`zod`) en `packages/shared`, no por
-   convención.
-4. **Tipos compartidos, una fuente de verdad:** modelos, esquema y constantes viven en
-   `packages/shared` y los consumen web, agente, api y ai.
-5. **Seguridad por defecto:** RLS/rules denegar-por-defecto; secretos fuera del repo;
-   redundancia de datos como requisito, no opción.
-6. **Spec-Driven:** ningún código sin una spec en `/specs` con criterios de aceptación.
-7. **Procesamiento en el borde:** maximizar transformación/agregación/pre-cálculo en el PC
-   del detector (agente Tauri) — promedios por minuto, features, validación — para **aliviar
-   al servidor**. La nube/servidor se reserva para ML y procesos globales (correlación
-   multi-detector, agregados de red). Esto reduce la carga de servidor y el ancho de banda.
-8. **Máxima configurabilidad (D23):** preferir lo informativo, configurable y ajustable.
-   Guardar **todos los metadatos posibles**; exponer ajustes avanzados (calibración, umbrales,
-   device token, etc.) **sin estorbar el flujo básico** — patrón: defaults sensatos + override
-   opcional + botón "volver a defaults".
+> Depends on: [`00-MASTER-PLAN.md`](00-MASTER-PLAN.md) (decisions D1–D17).
+> Mandatory reading for every implementation agent.
 
 ---
 
-## 2. Vista de componentes
+## 1. Architecture principles
+
+1. **Provider-agnostic data:** the app never talks directly to Firebase/Supabase. Everything
+   goes through `packages/data-provider`. Switching backends = swapping an implementation,
+   not the app.
+2. **Offline-first at the edge:** the detector never loses data. The local agent persists
+   before synchronizing.
+3. **Scientific integrity by contract:** the invariants (averages never sums, no event
+   filtering) are validated with schemas (`zod`) in `packages/shared`, not by convention.
+4. **Shared types, one source of truth:** models, schema, and constants live in
+   `packages/shared` and are consumed by web, agent, api, and ai.
+5. **Secure by default:** deny-by-default RLS/rules; secrets outside the repo; data
+   redundancy as a requirement, not an option.
+6. **Spec-Driven:** no code without a spec in `/specs` with acceptance criteria.
+7. **Processing at the edge:** maximize transformation/aggregation/pre-computation on the
+   detector PC (Tauri agent) — per-minute averages, features, validation — to **offload the
+   server**. The cloud/server is reserved for ML and global processes (multi-detector
+   correlation, network aggregates). This reduces server load and bandwidth.
+8. **Maximum configurability (D23):** prefer the informative, configurable, and adjustable.
+   Store **every metadata field possible**; expose advanced settings (calibration, thresholds,
+   device token, etc.) **without obstructing the basic flow** — pattern: sensible defaults +
+   optional override + "reset to defaults" button.
+
+---
+
+## 2. Component view
 
 ```
-packages/shared          → tipos TS, esquemas zod, constantes, i18n keys, utilidades puras
-packages/physics         → cálculos científicos puros (corrección barométrica, flujo,
-                           espectros, rangos normales). Sin dependencias de IO. Testeable.
-packages/data-provider   → interfaz DataProvider + FirebaseProvider + SupabaseProvider
-packages/ui              → design system (Tailwind + shadcn/ui) + componentes de charts (Plotly)
+packages/shared          → TS types, zod schemas, constants, i18n keys, pure utilities
+packages/physics         → pure scientific computations (barometric correction, flux,
+                           spectra, normal ranges). No I/O dependencies. Testable.
+packages/data-provider   → DataProvider interface + FirebaseProvider + SupabaseProvider
+packages/ui              → design system (Tailwind + shadcn/ui) + chart components (Plotly)
 
-apps/web (Next.js)       → landing pública, dashboards (detector/cuenta/institución/admin),
-                           páginas de correlación externa. SSR para landing/SEO.
-apps/agent (Tauri)       → lectura serial multiplataforma + SQLite local + cola de sync
+apps/web (Next.js)       → public landing, dashboards (detector/account/institution/admin),
+                           external-correlation pages. SSR for landing/SEO.
+apps/agent (Tauri)       → cross-platform serial reading + local SQLite + sync queue
 
-services/api             → (Fase B) backend/edge functions: ingest, agregaciones, jobs
-services/ai              → (diseño ahora) pipeline ML en Python (anomalías, forecasting…)
+services/api             → (Phase B) backend/edge functions: ingest, aggregations, jobs
+services/ai              → (design now) ML pipeline in Python (anomalies, forecasting…)
 
-infra/                   → docker-compose (Supabase+TimescaleDB), IaC, scripts de despliegue
+infra/                   → docker-compose (Supabase+TimescaleDB), IaC, deployment scripts
 ```
 
-### Dependencias permitidas
-- `web`, `agent`, `api`, `ai` → pueden depender de `shared`, `data-provider`, `physics`.
-- `web` → además `ui`.
-- `physics` y `shared` → **no** dependen de nada con IO (puros, testeables aislados).
-- `data-provider` → depende solo de `shared`.
+### Allowed dependencies
+- `web`, `agent`, `api`, `ai` → may depend on `shared`, `data-provider`, `physics`.
+- `web` → additionally `ui`.
+- `physics` and `shared` → depend on **nothing** with I/O (pure, testable in isolation).
+- `data-provider` → depends only on `shared`.
 
 ---
 
-## 3. La capa de datos agnóstica (keystone)
+## 3. The agnostic data layer (keystone)
 
-`packages/data-provider` expone una interfaz única. La app la consume sin saber el backend.
-**Esta interfaz es también la base de la herramienta de migración de admin** (export desde un
-provider → import a otro).
+`packages/data-provider` exposes a single interface. The app consumes it without knowing the
+backend. **This interface is also the foundation of the admin migration tool** (export from one
+provider → import into another).
 
 ```ts
-// packages/data-provider/src/types.ts  (boceto, no final)
+// packages/data-provider/src/types.ts  (sketch, not final)
 export interface DataProvider {
   // --- Auth & tenancy ---
   getCurrentUser(): Promise<User | null>;
-  // --- Estaciones (perfil/sitio) ---
+  // --- Stations (profile/site) ---
   listStations(filter?: StationFilter): Promise<Station[]>;
   getStation(id: string): Promise<Station>;
   upsertStation(s: Station): Promise<void>;
-  // --- Detectores (dispositivo físico, bajo una estación) ---
+  // --- Detectors (physical device, under a station) ---
   listDetectors(stationId: string): Promise<Detector[]>;
   upsertDetector(d: Detector): Promise<void>;
-  // --- Datos (por detector) ---
+  // --- Data (per detector) ---
   getMinuteRecords(detectorId: string, range: TimeRange): Promise<MinuteRecord[]>;
   subscribeRealtime(detectorId: string, cb: (r: RealtimeRecord) => void): Unsubscribe;
   getLatest(detectorId: string): Promise<MinuteRecord | null>;
-  pushMinuteRecord(detectorId: string, rec: MinuteRecord): Promise<void>;   // agente/ingest
+  pushMinuteRecord(detectorId: string, rec: MinuteRecord): Promise<void>;   // agent/ingest
   pushRealtimeRecord(detectorId: string, rec: RealtimeRecord): Promise<void>;
-  // --- Instituciones / admin ---
+  // --- Institutions / admin ---
   upsertInstitution(i: Institution): Promise<void>;
-  exportAll(opts: ExportOptions): AsyncIterable<DataChunk>;   // migración (streaming)
+  exportAll(opts: ExportOptions): AsyncIterable<DataChunk>;   // migration (streaming)
   importAll(chunks: AsyncIterable<DataChunk>): Promise<ImportReport>;
 }
 
-export class FirebaseProvider implements DataProvider { /* Fase A */ }
-export class SupabaseProvider implements DataProvider { /* Fase B */ }
+export class FirebaseProvider implements DataProvider { /* Phase A */ }
+export class SupabaseProvider implements DataProvider { /* Phase B */ }
 ```
 
-> **Regla v5.0 heredada (NO romper):** usar listeners incrementales
-> (`child_added/changed/removed`), nunca `once('value')` sobre sesiones completas — causa
-> regresión de ancho de banda. El `FirebaseProvider` debe respetarlo.
+> **Inherited v5.0 rule (do NOT break):** use incremental listeners
+> (`child_added/changed/removed`), never `once('value')` over whole sessions — it causes a
+> bandwidth regression. The `FirebaseProvider` must respect this.
 
-### Migración entre proveedores (admin, F5)
-`exportAll()` (streaming, paginado) del provider origen → `importAll()` del destino, con
-**adaptador de esquema** y reporte de validación (`zod`). Soporta también **importar una DB
-externa desde archivo** (se mapea al esquema v6 vía adaptadores en `packages/shared`).
+### Migration between providers (admin, F5)
+`exportAll()` (streaming, paginated) from the source provider → `importAll()` into the target,
+with a **schema adapter** and a validation report (`zod`). Also supports **importing an external
+DB from file** (mapped to the v6 schema via adapters in `packages/shared`).
 
 ---
 
-## 4. Arquitectura de adquisición offline-first (agente Tauri)
+## 4. Offline-first acquisition architecture (Tauri agent)
 
 ```
-serial (USB) ─▶ parser (4 formatos: CosmicWatch/JSON/KV/CSV)
-            ─▶ escritura inmediata en SQLite local (capa 1, fuente de verdad del borde)
-            ─▶ cola de sync: marca registros no confirmados
-            ─▶ uploader: DataProvider.pushMinuteRecord/​pushRealtime con reintentos
-                          • backoff exponencial si no hay red
-                          • idempotencia por (detectorId, ts) → evita duplicados
-                          • al reconectar, sube lo adelantado vs la nube y reconcilia
+serial (USB) ─▶ parser (4 formats: CosmicWatch/JSON/KV/CSV)
+            ─▶ immediate write to local SQLite (layer 1, edge source of truth)
+            ─▶ sync queue: marks unconfirmed records
+            ─▶ uploader: DataProvider.pushMinuteRecord/​pushRealtime with retries
+                          • exponential backoff when there is no network
+                          • idempotency by (detectorId, ts) → prevents duplicates
+                          • on reconnect, uploads what is ahead of the cloud and reconciles
 ```
 
-- **Idempotencia:** clave natural `(detectorId, ts_minuto)`. Reenviar el mismo minuto no
-  duplica. La reconciliación compara timestamps locales vs nube y sube solo lo faltante.
-- **El parser y los formatos se portan desde `serial-reader.js` v5.0** (lógica probada con
-  hardware real), reescritos en Rust/TS dentro del agente. NO reinventar la detección de
-  formatos; preservar el comportamiento validado.
+- **Idempotency:** natural key `(detectorId, ts_minute)`. Resending the same minute does not
+  duplicate. Reconciliation compares local vs cloud timestamps and uploads only what is missing.
+- **The parser and formats are ported from v5.0 `serial-reader.js`** (logic proven with real
+  hardware), rewritten in Rust/TS inside the agent. Do NOT reinvent format detection; preserve
+  the validated behavior.
 
-### INGESTA estandarizada en el Agente; la VISUALIZACIÓN siempre es web (D31)
-- **Ver/analizar:** siempre en la web (la pestaña de la Estación lee de la DB). No cambia.
-- **Camino ESTÁNDAR — Agente (app nuestra, hecha con Tauri):** instalación de un clic; corre en
-  segundo plano; **arranca al encender el PC, sobrevive reinicios**; respaldo local SQLite + sync
-  offline + multiplataforma + auto-update. Es la única forma de garantizar **no perder datos**
-  (prioridad #1) en un detector 24/7. **No requiere Python.** Login = **cuenta MunHub** (la misma
-  de la web); **no hay segunda cuenta ni servicio externo** — Tauri es solo el toolkit con que
-  compilamos nuestra app.
-- **Modo DEMO opcional — Navegador (Web Serial):** atajo sin instalar (solo Chromium) para
-  pruebas rápidas, con **aviso claro**: *"en este modo los datos solo se guardan con conexión y
-  con la pestaña abierta; para monitoreo continuo instala el Agente."* No es el camino principal.
-- Un puerto serial es **exclusivo** (un solo lector a la vez): por detector se usa un camino.
+### Standardized INGEST in the Agent; VISUALIZATION is always web (D31)
+- **View/analyze:** always on the web (the Station tab reads from the DB). This does not change.
+- **STANDARD path — Agent (our own app, built with Tauri):** one-click installation; runs in
+  the background; **starts on PC boot, survives restarts**; local SQLite backup + offline sync +
+  cross-platform + auto-update. It is the only way to guarantee **no data loss** (priority #1)
+  on a 24/7 detector. **Requires no Python.** Login = **MunHub account** (the same one used on
+  the web); **no second account or external service** — Tauri is only the toolkit our app is
+  compiled with.
+- **Optional DEMO mode — Browser (Web Serial):** an install-free shortcut (Chromium only) for
+  quick tests, with a **clear notice**: *"in this mode data is saved only while connected and
+  with the tab open; for continuous monitoring install the Agent."* It is not the main path.
+- A serial port is **exclusive** (a single reader at a time): one path per detector.
 
 ---
 
-## 5. Redundancia de datos — 3 capas (prioridad #1)
+## 5. Data redundancy — 3 layers (priority #1)
 
-| Capa | Qué | Dónde | Frecuencia |
+| Layer | What | Where | Frequency |
 |------|-----|-------|-----------|
-| 1 | Respaldo local | SQLite en cada PC de detector (agente) | Tiempo real |
-| 2 | DB primaria | Firebase munhub-1 (Fase A) → Supabase/Postgres (Fase B) | Tiempo real |
-| 3 | Respaldo frío | Cloudflare R2 (dumps comprimidos) | Job programado (diario/semanal) |
+| 1 | Local backup | SQLite on each detector PC (agent) | Real time |
+| 2 | Primary DB | Firebase munhub-1 (Phase A) → Supabase/Postgres (Phase B) | Real time |
+| 3 | Cold backup | Cloudflare R2 (compressed dumps) | Scheduled job (daily/weekly) |
 
-- El job de respaldo frío (F5) usa `DataProvider.exportAll()` → archivo comprimido + checksum
-  → sube a R2 con retención rotativa. Restaurable vía `importAll()`.
-- **Evolución futura:** réplica activa Postgres (primario+réplica) cuando haya servidores
-  Red Clara (no en F1–F5).
-
----
-
-## 6. Seguridad y multi-tenant
-
-- **Auth:** Firebase Auth (Fase A) → Supabase Auth (Fase B), ambos detrás del `DataProvider`.
-- **Roles:** leídos de DB (`users/{uid}.role`: `admin | institution_admin | user | guest`),
-  nunca hardcodeados. Primer admin se configura manual.
-- **Tenancy híbrida:** `institution → users → detectors` + usuarios independientes
-  (institution_id nullable). Ver `02-DATA-MODEL.md`.
-- **Reglas (deny-by-default):**
-  - Detector público → lectura para cualquiera.
-  - Detector privado → dueño, usuarios compartidos, admin de su institución, admin global.
-  - Usuario solo lee/escribe su propia cuenta.
-  - En Fase B esto se traduce a **RLS de Postgres** (políticas por fila).
-- **Secretos:** `private/` y `.env` fuera del repo (`.gitignore`); `.env.example` documenta
-  variables sin valores. Service accounts inyectados por entorno en producción.
+- The cold-backup job (F5) uses `DataProvider.exportAll()` → compressed file + checksum
+  → uploads to R2 with rotating retention. Restorable via `importAll()`.
+- **Future evolution:** active Postgres replica (primary+replica) once Red Clara servers are
+  available (not in F1–F5).
 
 ---
 
-## 7. Fase A (Firebase) vs Fase B (Supabase) — qué cambia
+## 6. Security and multi-tenancy
 
-| Aspecto | Fase A (puente) | Fase B (servidor propio) |
+- **Auth:** Firebase Auth (Phase A) → Supabase Auth (Phase B), both behind the `DataProvider`.
+- **Roles:** read from DB (`users/{uid}.role`: `admin | institution_admin | user | guest`),
+  never hardcoded. The first admin is configured manually.
+- **Hybrid tenancy:** `institution → users → detectors` + independent users
+  (nullable institution_id). See `02-DATA-MODEL.md`.
+- **Rules (deny-by-default):**
+  - Public detector → readable by anyone.
+  - Private detector → owner, shared users, its institution's admin, global admin.
+  - A user reads/writes only their own account.
+  - In Phase B this translates to **Postgres RLS** (row-level policies).
+- **Secrets:** `private/` and `.env` outside the repo (`.gitignore`); `.env.example` documents
+  variables without values. Service accounts injected via environment in production.
+
+---
+
+## 7. Phase A (Firebase) vs Phase B (Supabase) — what changes
+
+| Aspect | Phase A (bridge) | Phase B (own server) |
 |---------|-----------------|--------------------------|
 | DB | Firebase Realtime DB (munhub-1) | Postgres + TimescaleDB |
 | Auth | Firebase Auth | Supabase Auth |
-| Realtime | listeners Firebase | Supabase Realtime / WS |
+| Realtime | Firebase listeners | Supabase Realtime / WS |
 | Storage | Firebase Storage | Supabase Storage |
-| Reglas | `database.rules.json` | RLS Postgres |
-| Hosting | **Firebase Hosting (Spark, gratis) + Next.js static export** | Servidor Red Clara (Docker, SSR completo) |
-| Lo que NO cambia | **toda la app**: vive sobre `DataProvider`. Solo se cambia la implementación + esquema adaptado. |
+| Rules | `database.rules.json` | Postgres RLS |
+| Hosting | **Firebase Hosting (Spark, free) + Next.js static export** | Red Clara server (Docker, full SSR) |
+| What does NOT change | **the whole app**: it lives on top of `DataProvider`. Only the implementation + adapted schema change. |
 
-> **Hosting Fase A (D18) — billing-proof.** Next.js con `output: 'export'` (SSG en build →
-> SEO del landing; datos dinámicos vía SDK cliente de Firebase). Se sirve en Firebase Hosting
-> plan **Spark (gratis)**, que **bloquea al exceder cuota, no cobra**. **Evitar App
-> Hosting/Blaze** salvo necesidad real; si se activa Blaze, configurar **budget alerts +
-> cuotas**. Dominio propio se conecta gratis a Firebase Hosting cuando se decida. La Fase B
-> (Red Clara) habilita SSR en tiempo de request; la app no cambia (vive sobre el router de Next).
-
----
-
-## 8. CI/CD y calidad
-
-- **Monorepo:** pnpm workspaces + Turborepo (build/test/lint cacheados por paquete).
-- **GitHub Actions:** lint + typecheck + tests en cada PR; deploy en merge a `main`.
-- **Calidad:** TypeScript estricto, ESLint + Prettier, tests (Vitest) — al menos en
-  `packages/physics` (cálculos científicos) y `packages/data-provider` (contratos).
-- **Idioma del código = inglés (D28):** identificadores, comentarios, commits, esquema de DB,
-  nombres de API y claves i18n en inglés (source locale). Considerar una regla de lint/CI que
-  marque texto no-inglés en código. es/pt-BR son solo traducciones de la UI.
-- **Tests científicos:** `packages/physics` con casos de referencia verificables (p. ej.
-  corrección barométrica contra valores conocidos del reporte teórico).
+> **Phase A hosting (D18) — billing-proof.** Next.js with `output: 'export'` (SSG at build →
+> landing SEO; dynamic data via the Firebase client SDK). Served on Firebase Hosting
+> **Spark plan (free)**, which **blocks on quota overrun, never bills**. **Avoid App
+> Hosting/Blaze** unless genuinely needed; if Blaze is enabled, configure **budget alerts +
+> quotas**. A custom domain connects to Firebase Hosting for free whenever decided. Phase B
+> (Red Clara) enables request-time SSR; the app does not change (it lives on the Next router).
 
 ---
 
-## 9. ADRs clave (registro corto)
+## 8. CI/CD and quality
 
-> Formato: contexto → decisión → consecuencia. Las grandes ya están en la tabla D1–D17 del
-> plan maestro; aquí se anotan las que necesitan más matiz. Cada ADR nuevo va como archivo en
-> `docs/technical/adr/NNN-titulo.md` cuando se implemente.
-
-- **ADR-001 Capa de datos agnóstica** → permite Firebase↔Supabase y ES la herramienta de
-  migración. Consecuencia: toda feature debe escribirse contra la interfaz, nunca contra el SDK.
-- **ADR-002 Agente Tauri como borde de confianza** → resuelve serial multiplataforma +
-  offline + respaldo local. Consecuencia: el parser serial es lógica compartida y crítica;
-  se porta, no se reescribe a ciegas.
-- **ADR-003 Plotly para charts científicos** → escala log, error bars, export. Consecuencia:
-  componentes envueltos en `packages/ui` para estilo y i18n consistentes.
-- **ADR-004 Metadatos obligatorios con compatibilidad hacia atrás** → datos viejos se
-  importan sin metadatos y se solicita completarlos sin bloquear. Ver `02-DATA-MODEL.md`.
+- **Monorepo:** pnpm workspaces + Turborepo (build/test/lint cached per package).
+- **GitHub Actions:** lint + typecheck + tests on every PR; deploy on merge to `main`.
+- **Quality:** strict TypeScript, ESLint + Prettier, tests (Vitest) — at minimum in
+  `packages/physics` (scientific computations) and `packages/data-provider` (contracts).
+- **Code language = English (D28):** identifiers, comments, commits, DB schema, API names,
+  and i18n keys in English (source locale). Consider a lint/CI rule that flags non-English
+  text in code. es/pt-BR are UI translations only.
+- **Scientific tests:** `packages/physics` with verifiable reference cases (e.g. barometric
+  correction against known values from the theoretical report).
 
 ---
 
-## 10. Lo que se PRESERVA de la v5.0 (no reinventar)
+## 9. Key ADRs (short register)
 
-- Detección de los 4 formatos serial (CosmicWatch/JSON/KV/CSV) — probada con hardware real.
-- Invariante "promedios nunca sumas" + sin filtrado de eventos.
-- Listeners incrementales (no `once('value')`).
-- Detección de gaps (≥2 min rompe la línea) y auto-expiry de realtime (>8 min).
-- Esquema de campos por minuto: `ec, cc, sm, sx, sn, tp, pr, d`.
+> Format: context → decision → consequence. The major ones are already in the D1–D17 table of
+> the master plan; recorded here are the ones that need more nuance. Each new ADR goes into a
+> file at `docs/technical/adr/NNN-title.md` when implemented.
+
+- **ADR-001 Agnostic data layer** → enables Firebase↔Supabase and IS the migration tool.
+  Consequence: every feature must be written against the interface, never against the SDK.
+- **ADR-002 Tauri agent as the trusted edge** → solves cross-platform serial + offline +
+  local backup. Consequence: the serial parser is shared, critical logic; it is ported, not
+  blindly rewritten.
+- **ADR-003 Plotly for scientific charts** → log scale, error bars, export. Consequence:
+  components wrapped in `packages/ui` for consistent styling and i18n.
+- **ADR-004 Mandatory metadata with backward compatibility** → old data is imported without
+  metadata and completion is requested without blocking. See `02-DATA-MODEL.md`.
+
+---
+
+## 10. What is PRESERVED from v5.0 (do not reinvent)
+
+- Detection of the 4 serial formats (CosmicWatch/JSON/KV/CSV) — proven with real hardware.
+- The "averages never sums" invariant + no event filtering.
+- Incremental listeners (not `once('value')`).
+- Gap detection (≥2 min breaks the line) and realtime auto-expiry (>8 min).
+- Per-minute field schema: `ec, cc, sm, sx, sn, tp, pr, d`.

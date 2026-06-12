@@ -1,7 +1,7 @@
 # MunHub Lab — Architecture (technical overview)
 
 > Public, English distillation of [`planning/01-ARCHITECTURE.md`](../../planning/01-ARCHITECTURE.md)
-> and [`planning/18-AGENT-FLEET-ORCHESTRATION.md`](../../planning/18-AGENT-FLEET-ORCHESTRATION.md).
+> and the AFLEK kit (<https://github.com/alexanderkholodov1/AFLEK>, pinned in `FLEET-VERSION`).
 > Status: pre-alpha — describes the target design and what already exists.
 
 ## 0. C4 view (Context + Container)
@@ -117,4 +117,4 @@ See [`DATA-MODEL.md`](DATA-MODEL.md) and the scientific foundation.
 Every pull request runs CI (build · test · lint · typecheck) plus a secret scan; `main` is
 protected and only the maintainer merges. Physics/contracts/security changes get specialized
 review. Coverage becomes a hard gate once production code lands. See
-[`planning/18-AGENT-FLEET-ORCHESTRATION.md`](../../planning/18-AGENT-FLEET-ORCHESTRATION.md) §6.
+the AFLEK kit (doctrine rule 7).

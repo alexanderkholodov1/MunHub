@@ -1,8 +1,8 @@
 # MunHub Lab v6.0 — Status dashboard
 
 > Living quality/progress board, updated by the orchestrator at the close of each wave.
-> Source of truth for "where are we" across the agent fleet. See
-> `planning/18-AGENT-FLEET-ORCHESTRATION.md` for the system that produces these numbers.
+> Source of truth for "where are we" across the agent fleet. The system that produces these
+> numbers is the AFLEK kit (pinned in `FLEET-VERSION`).
 
 _Last updated: 2026-06-13 (audit merged #26; **fleet kit v0.1 adopted** — `FLEET-VERSION` 0.1.0,
 incubation folder removed; kit lives at `alexanderkholodov1/fleet`)_
@@ -34,7 +34,7 @@ incubation folder removed; kit lives at `alexanderkholodov1/fleet`)_
 > `specs/0004-data-provider-interface`). The `specs/NNNN-*` folders are canonical; renumbering
 > the backlog and issues is queued as WP-03 in the audit report.
 
-## Quality gates (defense-in-depth — planning/18 §6)
+## Quality gates (defense-in-depth — AFLEK doctrine 7)
 | Gate | Mechanism | State |
 |---|---|---|
 | CI: build/test/lint/typecheck | GitHub Actions `ci.yml` | ✅ active |
@@ -42,7 +42,7 @@ incubation folder removed; kit lives at `alexanderkholodov1/fleet`)_
 | `main` protection | PR + both CI checks required; no force-push/delete | ✅ active |
 | Coverage hard-gate (≥80%) | vitest coverage | ⏳ activates with the physics spec |
 | Auto PR review #1 | Copilot review | ⏳ enable on repo (free on Education plan) |
-| Auto PR review #2 | Claude reviewer personas (WP-08) | ⏳ replaces Cursor Bugbot — deferred over usage-billing risk |
+| Auto PR review #2 | Claude reviewer personas (`.claude/agents/`) | ✅ installed (WP-08) — replaces Cursor Bugbot |
 | Cross-provider review | author ≠ reviewer (D35) | ⏳ from F1 wave 2 |
 
 ## MVP end-to-end checklist (AGENTS.md vertical slice)

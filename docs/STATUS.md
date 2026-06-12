@@ -4,13 +4,13 @@
 > Source of truth for "where are we" across the agent fleet. See
 > `planning/18-AGENT-FLEET-ORCHESTRATION.md` for the system that produces these numbers.
 
-_Last updated: 2026-06-12 (project audit & documentation reset)_
+_Last updated: 2026-06-12 (foundation contracts merged; audit branch in review)_
 
 ## Phase progress
 | Phase | Scope | Status |
 |---|---|---|
 | **F0** | Safety net: CI, branch protection, fleet infra | ✅ done (PR #19 merged) |
-| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (S01 ✅; contracts + DataProvider interface in open PRs #24/#25) |
+| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (S01 ✅; contracts ✅ #24; DataProvider interface ✅ #25; **physics spec next**) |
 | **Design** | Design Language "Observatory Dark" (D36) → feeds all UI specs | ✅ merged (PR #20); landing design session pending |
 | **Docs** | README v6, technical docs, standards, fleet charter | ✅ merged (PRs #21–#23) |
 | **Audit** | Project audit + English agent entry points + reconstruction work packages | 🟡 this branch (see `docs/audit/2026-06-12-STATE-OF-PROJECT.md`) |
@@ -23,9 +23,9 @@ _Last updated: 2026-06-12 (project audit & documentation reset)_
 |---|---|---|---|---|
 | `specs/0001-monorepo-scaffold` | Monorepo scaffold | Claude | ✅ merged | on `main` |
 | `specs/0002-ci-cd` | CI quality gate | Claude | ✅ merged | PR #19 |
-| `specs/0003-shared-contracts` | Shared types + zod contracts | Claude | 🟠 **awaiting maintainer review/merge** | **PR #24** |
-| `specs/0004-data-provider-interface` | DataProvider interface | Claude | 🟠 **awaiting review (stacked on #24)** | **PR #25** |
-| physics corrections | dead-time, β regression, spectrum | unassigned | ⏳ next after #24 merges | — |
+| `specs/0003-shared-contracts` | Shared types + zod contracts | Claude | ✅ merged | PR #24 |
+| `specs/0004-data-provider-interface` | DataProvider interface | Claude | ✅ merged | PR #25 |
+| `specs/0005-physics` (to write) | dead-time, β regression, spectrum | Adjutant writes spec → implementer | ⏳ **next on the critical path** | — |
 
 > ⚠️ **Numbering note:** the S-numbers in `planning/04-BACKLOG.md` and GitHub issues #3–#18 have
 > diverged from the canonical `specs/NNNN-*` folders (e.g. backlog "S04 physics" vs folder
@@ -39,8 +39,8 @@ _Last updated: 2026-06-12 (project audit & documentation reset)_
 | Secret scan | gitleaks | ✅ active |
 | `main` protection | PR + both CI checks required; no force-push/delete | ✅ active |
 | Coverage hard-gate (≥80%) | vitest coverage | ⏳ activates with the physics spec |
-| Auto PR review #1 | Cursor Bugbot | ⏳ enable in Cursor dashboard (window closes ~early July) |
-| Auto PR review #2 | Copilot review | ⏳ enable on repo |
+| Auto PR review #1 | Copilot review | ⏳ enable on repo (free on Education plan) |
+| Auto PR review #2 | Claude reviewer personas (WP-08) | ⏳ replaces Cursor Bugbot — deferred over usage-billing risk |
 | Cross-provider review | author ≠ reviewer (D35) | ⏳ from F1 wave 2 |
 
 ## MVP end-to-end checklist (AGENTS.md vertical slice)
@@ -61,8 +61,10 @@ _Last updated: 2026-06-12 (project audit & documentation reset)_
 | Copilot (Education) | Issue → PR agent + second auto-review | |
 
 ## Maintainer action queue
-1. **Review & merge PR #24** (shared contracts) — unblocks everything downstream.
-2. **Review & merge PR #25** (DataProvider interface) — auto-retargets to `main` after #24.
-3. Decide ADR-002 (Tauri vs Go for the local agent) — recommendation: Tauri.
-4. Enable Cursor Bugbot + Copilot review on the repo (one-time toggles).
+1. Merge the audit/documentation-reset branch (`claude/focused-bell-n2sh0m`).
+2. Decide ADR-002 (Tauri vs Go for the local agent) — recommendation: Tauri.
+3. Enable **Copilot code review** on the repo (free on Education). Cursor **Bugbot stays off**
+   (usage-billed); Claude reviewer personas (WP-08) take its slot in the review ensemble.
+4. Grant the agent environment write access to `alexanderkholodov1/fleet` so WP-10 (fleet
+   extraction) can run; until then the kit incubates in `fleet/`.
 5. See `docs/audit/2026-06-12-STATE-OF-PROJECT.md` §Decisions for the full decision queue.

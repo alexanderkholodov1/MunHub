@@ -14,9 +14,10 @@ visualizing, and analyzing data from cosmic-ray detectors (CosmicWatch-class / m
 built to become a multi-university research network across Latin America.
 
 **Current state:** 🚧 **Pre-alpha — active reconstruction.** Planning is complete; **F0 done**
-(monorepo, CI, protected `main`, fleet infrastructure); **F1 in progress** (scaffold merged;
-shared contracts and the `DataProvider` interface are in open PRs). The v5.0 code (vanilla JS +
-Firebase) remains in `public/` as a historical reference; v6.0 is built fresh in the monorepo.
+(monorepo, CI, protected `main`, fleet infrastructure); **F1 in progress** (scaffold, shared
+contracts, and the `DataProvider` interface are merged; the physics package is next). The v5.0
+code (vanilla JS + Firebase) remains in `public/` as a historical reference; v6.0 is built fresh
+in the monorepo.
 Do not edit `public/` except to consult proven behavior
 (`docs/technical/V5-LEGACY-REFERENCE.md`). Live state: `docs/STATUS.md`.
 

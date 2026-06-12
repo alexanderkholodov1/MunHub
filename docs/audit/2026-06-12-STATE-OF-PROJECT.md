@@ -92,7 +92,7 @@ install wholesale.** Worth adopting:
   `agents/security-reviewer.md` + `rules/common/security.md` (database rules, role gating),
   `agents/code-reviewer.md`, `skills/verification-loop/SKILL.md` — these become the L3 reviewer
   personas of `planning/18 §6 Layer C`.
-- **For The Fleet (see `fleet-seed/`):** its **adapter architecture** — canonical `.agents/` dir
+- **For The Fleet (see `fleet/`):** its **adapter architecture** — canonical `.agents/` dir
   + per-harness adapters (`.claude/`, `.cursor/`, `.codex/`, `.gemini/`, `.opencode/`) with
   `docs/SESSION-ADAPTER-CONTRACT.md` — plus skills-as-portable-unit, the `orch-*`/GAN
   planner-generator-evaluator orchestration patterns, and `rules/common/*` base rulesets.
@@ -113,7 +113,7 @@ install wholesale.** Worth adopting:
   on the web + Routines, Cursor Cloud Agents (the maintainer already pays for these), Codex
   Cloud, `anthropics/claude-code-action` on GitHub Actions — all emitting **PRs into one repo
   with CI as referee**. No gateway product needed; MCP is the shared tool layer, not the
-  orchestrator. This is the basis of WP-07 and of `fleet-seed/`.
+  orchestrator. This is the basis of WP-07 and of `fleet/`.
 
 ### 3.3 Git workflow norms
 "AI never commits" is **not** current practice and discards the audit trail. The mainstream
@@ -136,12 +136,12 @@ it.** (Refs: Addy Osmani's 2026 AI coding workflow; GitHub community guidance.)
 
 | # | Decision | Recommendation |
 |---|---|---|
-| Q1 | Merge PR #24 (shared contracts), then PR #25 (DataProvider interface) | **Yes, in that order.** Everything in F1 stacks on them. |
-| Q2 | Create a separate repository for **The Fleet** (provider-agnostic agent kit) | **Yes.** It must outlive MunHub and serve any project. Seed and extraction plan: `fleet-seed/README.md`. Suggested name: `fleet`. |
+| Q1 | Merge PR #24 (shared contracts), then PR #25 (DataProvider interface) | ✅ **Done 2026-06-12** — both merged. |
+| Q2 | Create a separate repository for **The Fleet** (provider-agnostic agent kit) | ✅ **Done 2026-06-12** — `alexanderkholodov1/fleet` created. Kit incubates in `fleet/` until the agent environment gets write access to it (then WP-10 extracts). |
 | Q3 | ADR-002: local detector agent toolkit | **Tauri** (signed auto-updater, shared React UI, small footprint); Go documented as fallback. Convert ADR-002 to "accepted" (WP-06). |
 | Q4 | ML layer public name & placement (proposal in §6) | Approve "**Insights**" (per-station tab) + "**Events**" (network feed); optional public brand **ANDES** for the pipeline. |
 | Q5 | Canonical product name | "**MunHub Lab**" for the platform, "MunHub" acceptable as short form; never mix within one document. |
-| Q6 | One-click chores: update GitHub repo description (e.g. "Open cosmic-ray observatory platform for Latin America — live detector network, research-grade corrections, open data"); enable Cursor Bugbot + Copilot review | Do when merging this PR. |
+| Q6 | One-click chores: update GitHub repo description (e.g. "Open cosmic-ray observatory platform for Latin America — live detector network, research-grade corrections, open data"); enable Copilot review | Do when merging this PR. **Cursor Bugbot stays off** (usage-billed; maintainer decision 2026-06-12) — Claude reviewer personas (WP-08) + Copilot keep the two-reviewer ensemble (D35). |
 | Q7 | Repo visibility while WP-01 (translation) lands | Optional: keep public — entry points are now clean; planning translation is cosmetic. |
 
 ---
@@ -254,8 +254,8 @@ review flow (`planning/18 §6 Layer C`). Router: Sonnet.
 baseline + corrected rate + error bands, computed client-side from `packages/physics`; no
 backend. Router: Opus/Adjutant writes spec → Sonnet implements after S03/S04/physics merge.
 
-**WP-10 — Extract The Fleet.** After Q2: create the `fleet` repo from `fleet-seed/README.md`,
-port the generalizable assets listed there, then delete `fleet-seed/` from MunHub and have
+**WP-10 — Extract The Fleet.** After Q2: create the `fleet` repo from `fleet/README.md`,
+port the generalizable assets listed there, then delete `fleet/` from MunHub and have
 MunHub *consume* the fleet kit as its first customer. Router: Adjutant session in the new repo.
 
 **Sequencing:** Q1 (merge #24/#25) → WP-03 → WP-02 → WP-01 (waves) ∥ WP-04 → WP-05/WP-06 ∥

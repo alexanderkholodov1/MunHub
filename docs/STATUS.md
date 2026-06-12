@@ -4,7 +4,8 @@
 > Source of truth for "where are we" across the agent fleet. See
 > `planning/18-AGENT-FLEET-ORCHESTRATION.md` for the system that produces these numbers.
 
-_Last updated: 2026-06-12 (foundation contracts merged; audit branch in review)_
+_Last updated: 2026-06-13 (audit merged #26; **fleet kit v0.1 adopted** — `FLEET-VERSION` 0.1.0,
+incubation folder removed; kit lives at `alexanderkholodov1/fleet`)_
 
 ## Phase progress
 | Phase | Scope | Status |
@@ -13,7 +14,8 @@ _Last updated: 2026-06-12 (foundation contracts merged; audit branch in review)_
 | **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (S01 ✅; contracts ✅ #24; DataProvider interface ✅ #25; **physics spec next**) |
 | **Design** | Design Language "Observatory Dark" (D36) → feeds all UI specs | ✅ merged (PR #20); landing design session pending |
 | **Docs** | README v6, technical docs, standards, fleet charter | ✅ merged (PRs #21–#23) |
-| **Audit** | Project audit + English agent entry points + reconstruction work packages | 🟡 this branch (see `docs/audit/2026-06-12-STATE-OF-PROJECT.md`) |
+| **Audit** | Project audit + English agent entry points + reconstruction work packages | ✅ merged (PR #26; see `docs/audit/2026-06-12-STATE-OF-PROJECT.md`) |
+| **Fleet** | Fleet kit extraction (WP-10/FWP-01…09) + MunHub adoption (FWP-08) | ✅ kit v0.1 built at `alexanderkholodov1/fleet`; adoption = this PR |
 | F2 | Migration munra-1 → munhub-1 | ⏳ |
 | F3 | Public landing + live demo | ⏳ |
 | F4+ | Ecosystem, AI, networks, admin… | ⏳ |
@@ -61,10 +63,9 @@ _Last updated: 2026-06-12 (foundation contracts merged; audit branch in review)_
 | Copilot (Education) | Issue → PR agent + second auto-review | |
 
 ## Maintainer action queue
-1. Merge the audit/documentation-reset branch (`claude/focused-bell-n2sh0m`).
-2. Decide ADR-002 (Tauri vs Go for the local agent) — recommendation: Tauri.
-3. Enable **Copilot code review** on the repo (free on Education). Cursor **Bugbot stays off**
+1. In the fleet repo: merge PRs #5 → #6 → #7, then the orchestrator tags `v0.1.0` (FWP-09).
+2. Merge this adoption PR (FWP-08).
+3. Decide ADR-002 (Tauri vs Go for the local agent) — recommendation: Tauri.
+4. Enable **Copilot code review** on the repo (free on Education). Cursor **Bugbot stays off**
    (usage-billed); Claude reviewer personas (WP-08) take its slot in the review ensemble.
-4. Grant the agent environment write access to `alexanderkholodov1/fleet` so WP-10 (fleet
-   extraction) can run; until then the kit incubates in `fleet/`.
 5. See `docs/audit/2026-06-12-STATE-OF-PROJECT.md` §Decisions for the full decision queue.

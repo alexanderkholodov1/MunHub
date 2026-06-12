@@ -1,9 +1,10 @@
-# The Fleet — seed charter
+# The Fleet — charter
 
-> **Status: incubating.** This folder is the seed of a **separate repository** (working name:
-> `fleet`). It lives in MunHub temporarily so the plan survives outside any chat; extraction is
-> WP-10 in `docs/audit/2026-06-12-STATE-OF-PROJECT.md`. Nothing in MunHub may depend on this
-> folder.
+> **Status: incubating.** The target repository **`alexanderkholodov1/fleet` exists** (created
+> 2026-06-12); this folder incubates the kit until the agent environment has write access to it,
+> then WP-10 (`docs/audit/2026-06-12-STATE-OF-PROJECT.md`) extracts it verbatim and deletes this
+> folder. Nothing in MunHub may depend on this folder. Build plan:
+> [`IMPLEMENTATION-PLAN.md`](IMPLEMENTATION-PLAN.md).
 
 ## Mission
 

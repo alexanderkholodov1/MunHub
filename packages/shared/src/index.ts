@@ -1,14 +1,13 @@
 /**
  * @munhub/shared
  *
- * Shared TypeScript types, Zod validation schemas, constants, i18n keys,
- * and pure utility functions consumed by all MunHub packages.
+ * Single source of truth for the MunHub domain: Zod schemas (authored once) with TypeScript types
+ * inferred from them, plus shared constants. No I/O — pure and independently testable.
  *
- * This package has NO I/O dependencies — it is purely computational
- * and must remain independently testable.
- *
- * Real implementations land in subsequent specs (S03 and onward).
+ * Consumers import schemas to validate and types to annotate; the two can never drift because the
+ * type is `z.infer` of the schema.
  */
+export const MUNHUB_VERSION = "6.0.0-alpha.1" as const;
 
-// Stub export — will be replaced by S03 (types), S05 (schemas), etc.
-export const MUNHUB_VERSION = "6.0.0" as const;
+export * from "./schemas/index.js";
+export * from "./constants.js";

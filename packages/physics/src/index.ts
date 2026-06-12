@@ -1,15 +1,40 @@
 /**
  * @munhub/physics
  *
- * Pure scientific calculations for cosmic ray / MIP-type particle data.
+ * Pure scientific calculations for cosmic-ray / MIP-type particle data.
  * NO I/O dependencies — every function is a pure transformation testable in isolation.
+ * Scientific basis: docs/research/THEORETICAL-FOUNDATION.md (binding). Spec: specs/0005-physics.
  *
- * Implementations land in S06 (dead-time correction, barometric correction, flux,
- * Landau spectrum). This stub validates the build pipeline only.
- *
- * Key formulas (see docs/research/THEORETICAL-FOUNDATION.md):
- *   Dead-time correction : R_real = R_measured / (1 - R_measured × τ_DT)
- *   Barometric correction: I(P) = I₀ · e^(β · (P − P₀))  [β = local, by regression]
+ *   Dead-time correction : R_real = R_measured / (1 − R_measured × τ_DT)        (§4)
+ *   Barometric correction: I(P) = I₀ · e^(β · (P − P₀)), β fitted per station   (§8A)
+ *   Counting statistics  : σ = √N on raw counts; empirical robust baselines     (§10)
+ *   Amplitude spectrum   : histogram + Landau MPV (~2 MeV MIP deposit)          (§6)
  */
 
-export const PHYSICS_STUB = "physics-package-stub-v6" as const;
+export {
+  correctDeadTime,
+  correctDeadTimeForHardware,
+  correctDeadTimeFromPercent,
+  deadTimeLossFraction,
+} from "./deadTime.js";
+
+export {
+  fitBarometricBeta,
+  applyBarometricCorrection,
+  betaToPercentPerHpa,
+} from "./barometric.js";
+export type { BarometricFit, RatePressurePoint } from "./barometric.js";
+
+export {
+  poissonSigma,
+  poissonRelativeError,
+  sigmaBand,
+  countsZScore,
+  robustBaseline,
+} from "./statistics.js";
+export type { RobustBaseline } from "./statistics.js";
+
+export { buildAmplitudeHistogram, estimateMpv } from "./spectrum.js";
+export type { AmplitudeHistogram, HistogramOptions } from "./spectrum.js";
+
+export { rateToFlux } from "./flux.js";

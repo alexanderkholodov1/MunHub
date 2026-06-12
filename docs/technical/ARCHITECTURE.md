@@ -116,5 +116,5 @@ See [`DATA-MODEL.md`](DATA-MODEL.md) and the scientific foundation.
 
 Every pull request runs CI (build · test · lint · typecheck) plus a secret scan; `main` is
 protected and only the maintainer merges. Physics/contracts/security changes get specialized
-review. Coverage becomes a hard gate once production code lands. See
+review. Coverage is a hard gate (≥80%) on `packages/physics` since spec 0005. See
 the AFLEK kit (doctrine rule 7).

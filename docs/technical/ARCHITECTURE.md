@@ -79,10 +79,11 @@ independently testable). `data-provider` depends only on `shared`.
 
 ## 3. The data-provider layer (keystone)
 
-A single `DataProvider` interface exposes auth, stations, detectors, time-series reads/writes, and
-realtime subscriptions. The app consumes it without knowing the backend. **This same interface is
-the engine of the admin migration tool** (export from one provider → import into another), which is
-how the v5 → v6 and Phase A → Phase B migrations work.
+A single `DataProvider` interface (defined in `packages/data-provider`, spec S04) exposes auth,
+institutions, stations, detectors, sessions, time-series reads/writes, and realtime subscriptions.
+The app consumes it without knowing the backend. **This same interface is the engine of the admin
+migration tool** — `exportAll` streams `DataChunk`s out of one provider and `importAll` ingests them
+into another — which is how the v5 → v6 and Phase A → Phase B migrations work.
 
 ## 4. Data flow
 

@@ -28,10 +28,10 @@ and open, are an observatory that **has never existed in this region before.**
 Cosmic rays are messengers from the galaxy and from solar storms. Measuring them well, in the right
 place, is genuinely valuable — and **Ecuador sits in one of the best places on Earth to do it.**
 
-- **The cleanest galactic signal on the planet.** Ecuador lies under the **highest geomagnetic
-  cutoff rigidity in the world (~14–17 GV)**. Only the most energetic, purely *galactic* cosmic
-  rays make it through the magnetic shield — the local noise that contaminates high-latitude
-  stations is filtered out by the Earth itself.
+- **One of the cleanest galactic signals on Earth.** Ecuador lies under **some of the highest
+  geomagnetic cutoff rigidities on the planet**. Only the most energetic, purely *galactic*
+  cosmic rays make it through the magnetic shield — the local noise that contaminates
+  high-latitude stations is filtered out by the Earth itself.
 - **A continental network, not a lonely detector.** When stations from different cities and
   altitudes measure *at the same time*, a simultaneous dip becomes a confirmed scientific event —
   a **Forbush decrease**, the fingerprint of a solar storm sweeping past Earth. MunHub is built to
@@ -171,5 +171,5 @@ accompany tagged releases.
 ---
 
 <div align="center">
-<sub>Built in the Andes, under the cleanest cosmic-ray sky on Earth. 🏔️</sub>
+<sub>Built in the Andes, under one of the cleanest cosmic-ray skies on Earth. 🏔️</sub>
 </div>

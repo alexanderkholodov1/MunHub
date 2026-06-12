@@ -1,127 +1,150 @@
-# AGENTS.md — Punto de entrada para agentes (START HERE)
+# AGENTS.md — Agent entry point (START HERE)
 
-> Si eres un agente (o un modelo Claude) retomando el trabajo de MunHub v6.0: **lee este
-> archivo primero, completo, antes de tocar nada.** Es el contrato de arranque.
-
----
-
-## Qué es esto
-
-**MunHub Lab v6.0** = reconstrucción completa de una plataforma web para adquisición,
-almacenamiento, visualización y análisis de datos de detectores de rayos cósmicos
-(CosmicWatch / muones), pensada como red internacional multi-universidad en Latinoamérica.
-
-**Estado actual:** 🚧 **Pre-alpha — reconstrucción activa.** Planificación completa; **F0 hecha**
-(monorepo, CI, protección de `main`, infra de flota); **F1 en curso** (scaffold ✅; contratos S03
-y física S06 = siguiente). El código v5.0 (Vanilla JS + Firebase) sigue en `public/` como
-referencia histórica; la v6.0 se construye nueva (monorepo). No edites `public/` salvo para
-consultar comportamiento probado. Estado vivo: `docs/STATUS.md`.
-
-**Vocabulario clave (D21):** **Estación** = el perfil/sitio registrado (ubicación, metadatos,
-visibilidad; lo del mapa). **Detector** = el dispositivo físico CosmicWatch dentro de una
-estación (device token, calibración, firmware). Los datos van **por detector**. "Detector"
-SIEMPRE = aparato físico; nunca lo uses para el perfil.
-
-**Estructura de mando (D46, ver `planning/20`):** **CEO** = Alexander (visión, aprueba, mergea).
-**Adjutant/Gerente** = el modelo más avanzado con el que Alexander habla directamente (orquesta la
-flota, perspectiva total, reporta y consulta). **Supervisores** por área → **Trabajadores** que
-ejecutan specs en su carril. Si eres un agente trabajador/supervisor: sigue tu tarea y el
-reglamento; las decisiones transversales y de dirección las lleva el Adjutant con Alexander.
+> If you are an agent (any provider, any model) picking up work on MunHub v6.0: **read this file
+> first, in full, before touching anything.** It is the binding entry contract. Provider shims
+> (`GEMINI.md`, `.cursor/rules/00-agents.mdc`, `.github/copilot-instructions.md`, `CLAUDE.md`)
+> are pointers to this document.
 
 ---
 
-## Orden de lectura obligatorio
+## What this is
 
-1. `planning/00-MASTER-PLAN.md` — visión, las decisiones (D1–D43), fases, índice.
-2. `planning/01-ARCHITECTURE.md` — arquitectura, capa de datos agnóstica, principios.
-3. `planning/02-DATA-MODEL.md` — esquema, metadatos, migración v5→v6.
-4. `planning/03-AGENTS-AND-SDD.md` — tu rol, el ciclo Spec-Driven, plantilla de spec.
-5. `planning/04-BACKLOG.md` — épicas → 49 specs (S01–S49) con criterios de aceptación.
-6. `docs/research/THEORETICAL-FOUNDATION.md` — **base científica oficial** (no la contradigas).
-7. Según tu tarea: `05` (seguridad), `06` (IA), `07` (APIs externas), `08` (riesgos),
-   `09` (ciclo de vida del detector), `10` (operación/gobernanza), `11` (permisos/roles),
-   `12` (soporte/notificaciones), `13` (monetización/entitlements), `14` (redes de estaciones),
-   `15` (consola admin), `RED-CLARA-RESOURCE-TIERS.md`.
+**MunHub Lab v6.0** is the complete reconstruction of a web platform for acquiring, storing,
+visualizing, and analyzing data from cosmic-ray detectors (CosmicWatch-class / muon detectors),
+built to become a multi-university research network across Latin America.
 
----
+**Current state:** 🚧 **Pre-alpha — active reconstruction.** Planning is complete; **F0 done**
+(monorepo, CI, protected `main`, fleet infrastructure); **F1 in progress** (scaffold, shared
+contracts, and the `DataProvider` interface are merged; the physics package is next). The v5.0
+code (vanilla JS + Firebase) remains in `public/` as a historical reference; v6.0 is built fresh
+in the monorepo.
+Do not edit `public/` except to consult proven behavior
+(`docs/technical/V5-LEGACY-REFERENCE.md`). Live state: `docs/STATUS.md`.
 
-## Guardrails (innegociables)
+**Key vocabulary (D21):** a **Station** is the registered profile/site (location, metadata,
+visibility — what appears on the map). A **Detector** is the physical CosmicWatch device inside a
+station (device token, calibration, firmware). Data belongs **to a detector**. "Detector" ALWAYS
+means the physical device; never use it for the profile.
 
-1. **Commits/push por etapas — política D32 (ver `planning/18-AGENT-FLEET-ORCHESTRATION.md`).**
-   Trabaja en una **feature branch** (`spec/NNNN-*`, `chore/*`, `feat/*`), un worktree por tarea.
-   Al cerrar un **milestone**: `commit` (Conventional Commits **en inglés**, D28, + trailer de
-   agente) + `push` de **tu rama** + abre **PR** + entrega **Reporte de Etapa** (`03 §4bis`) → DETENTE.
-   🔒 **NUNCA** `git commit`/`push` a **`main`**, **nunca** `merge` — **solo Alexander mergea**
-   (último gate humano). **Nunca** toques `private/` ni imprimas secretos. Sin **CI verde**, el PR
-   no es mergeable. No avances de milestone sin que el PR previo esté listo para revisión.
-2. **No hay código sin spec.** Toda implementación referencia una spec en `/specs/NNN-*/`.
-   Si no existe, primero se escribe la spec → **gate humano** → luego se construye.
-3. **Respeta D1–D43.** Si crees que una decisión debe cambiar, PROPONLO; no la cambies solo.
-4. **Honestidad científica.** Nada que contradiga `THEORETICAL-FOUNDATION.md`. Nunca etiquetes
-   eventos individuales como "muón" en detectores de 1 SiPM (usa "tasa de partículas cargadas").
-5. **Integridad de datos.** Promedios nunca sumas; sin filtrado de eventos; validar con `zod`.
-6. **Capa de datos agnóstica.** Nunca llames al SDK de Firebase/Supabase directo desde la app;
-   siempre vía `DataProvider`.
-7. **Quédate en tu carril** (los paquetes de tu rol). Cambios cross-package → vía orquestador.
-8. **Deja rastro:** actualiza el estado en tu spec y en el Issue de GitHub.
-9. **TODO el código en inglés (D28).** Identificadores, variables, funciones, nombres de
-   archivo, **comentarios**, mensajes de commit, claves de i18n, esquema de DB y nombres de
-   API → **inglés**, desde el inicio. El inglés es el *source locale* de la UI; es/pt-BR son
-   traducciones. Nada de espanglish ni traducción parchada en el código.
-   **Documentos (D29):** specs nuevas, el reporte científico y la documentación de
-   usuario/técnica → **inglés**; los docs internos de `planning/` pueden quedar en español
-   hasta abrir el repo al público. (Pendiente: traducir `THEORETICAL-FOUNDATION.md` y `specs/0001`.)
-10. **La documentación es parte de "done" (D42).** Todo PR que cambie comportamiento, estructura o
-    decisiones **actualiza los docs afectados** (README, roadmap, stack, `docs/technical`,
-    `docs/user-manual`, spec) **en el mismo PR**, y **añade un fragmento** a `changelog.d/`
-    (ver `changelog.d/README.md`). Un PR que toca código sin tocar docs/changelog está incompleto.
-11. **Estilo de commits y PRs (D44, ver `CONTRIBUTING.md`).** Título y descripción describen **lo
-    que el cambio APORTA**, en términos de producto/ingeniería, para un lector humano del historial.
-    **Nunca** narres el proceso, las opciones consideradas, ni enmarques el cambio como reacción a
-    una corrección ("as requested", "ahora sin X", "arreglé que estaba…"). Sin disculpas, sin
-    deliberación: el historial cuenta **qué ganó el proyecto**, no cómo se negoció. Esa discusión
-    va en el chat, no en Git. SemVer: `6.0.0` = lanzamiento de MunHub Lab 6.
+**Command structure (D46, see `planning/20`):** the **maintainer** (Alexander Kholodov) sets the
+vision, approves decisions, and is the only one who merges. The **Adjutant** (the orchestrator
+session the maintainer talks to directly) plans waves, routes work, reviews, integrates, and
+reports. **Supervisor agents** own an area; **worker agents** execute specs in their lane. If you
+are a worker or supervisor: follow your spec and these rules; cross-cutting or directional
+decisions go through the Adjutant and the maintainer.
 
 ---
 
-## El primer corte vertical (MVP end-to-end) — meta de la Fase 1
+## Required reading order
 
-Antes de construir features en ancho, lograr **una rebanada vertical funcionando de punta a
-punta** con el stack nuevo, con el detector real de la USFQ:
+1. `planning/00-MASTER-PLAN.md` — vision, the decision log (D1–D46), phases, index.
+2. `planning/01-ARCHITECTURE.md` — architecture, agnostic data layer, principles.
+3. `planning/02-DATA-MODEL.md` — schema, metadata, v5→v6 migration.
+4. `planning/03-AGENTS-AND-SDD.md` — your role, the Spec-Driven cycle, the spec template.
+5. `planning/04-BACKLOG.md` — epics → specs with acceptance criteria.
+6. `docs/research/THEORETICAL-FOUNDATION.md` — **the official scientific basis** (never
+   contradict it).
+7. As your task requires: `05` (security), `06` (AI/ML), `07` (external APIs), `08` (risks),
+   `09` (detector lifecycle), `10` (operations/governance), `11` (permissions/roles),
+   `12` (support/notifications), `13` (monetization/entitlements), `14` (station networks),
+   `15` (admin console), `18`/`20` (fleet operation), `RED-CLARA-RESOURCE-TIERS.md`.
+
+> Some `planning/` documents are still being translated to English (tracked in
+> `docs/audit/2026-06-12-STATE-OF-PROJECT.md`). Their content remains authoritative while the
+> translation lands; all **new** repo content must be in English.
+
+---
+
+## Guardrails (non-negotiable)
+
+1. **Git policy — D32.** Work on a **feature branch** (`spec/NNNN-*`, `feat/*`, `fix/*`,
+   `docs/*`, `chore/*`), one worktree per task. At each milestone: commit (Conventional Commits,
+   **English**, with an agent trailer), push **your branch**, open or update the **PR** with a
+   Stage Report (`planning/03 §4bis`) → then STOP for review. 🔒 **NEVER** commit or push to
+   **`main`**, never merge — **only the maintainer merges** (final human gate). Without green CI
+   a PR is not mergeable. Do not start the next milestone while the previous PR isn't ready for
+   review.
+2. **No code without a spec.** Every implementation references a spec in `specs/NNNN-*/`. If it
+   doesn't exist, write the spec first (template in `planning/03`) → human gate → then build.
+3. **Respect decisions D1–D46.** If you believe a decision should change, PROPOSE it (PR
+   comment, issue, or Stage Report); never change it unilaterally.
+4. **Scientific honesty.** Nothing may contradict `THEORETICAL-FOUNDATION.md`. Never label
+   individual events as "muons" on single-SiPM detectors — use "charged-particle / MIP-type
+   rate". Muon language is valid only for aggregate inference or coincidence-mode hardware.
+5. **Data integrity.** Per-minute values are **time-averages, never sums**: averaging preserves
+   rate semantics, so records of different completeness stay comparable across detectors and
+   sessions; statistical uncertainties are then derived from raw counts (√N, foundation §10).
+   No event filtering. Validate all boundary data with `zod`.
+6. **Provider-agnostic data layer.** Never call the Firebase/Supabase SDK directly from apps or
+   services; everything goes through `DataProvider` (`packages/data-provider`).
+7. **Stay in your lane.** Edit only the package(s) of your assignment. The shared contracts
+   (`packages/shared`, `packages/data-provider` interface) are orchestrator-owned; cross-package
+   changes route through the Adjutant.
+8. **Leave a trace.** Update your spec's status and the related GitHub issue; add a
+   `changelog.d/` fragment; never leave project state only in a chat.
+9. **English everywhere (D28/D29).** Identifiers, comments, commit messages, i18n keys, DB
+   schema, API names, documentation — all in English. English is the UI source locale; es/pt-BR
+   are translations. The repository is public: no Spanish (or any other language) in any new
+   content.
+10. **Documentation is part of "done" (D42).** A PR that changes behavior, structure, or policy
+    without updating its documentation is incomplete. Use this matrix:
+
+    | If your change touches… | Update in the SAME PR |
+    |---|---|
+    | User-visible behavior / a feature | relevant `docs/technical/` page · `docs/user-manual/` · spec status · `changelog.d/` fragment |
+    | Architecture, packages, stack | `docs/technical/ARCHITECTURE.md` · README structure/stack blocks · `CLAUDE.md` commands if they changed |
+    | Schema or shared contracts | `docs/technical/DATA-MODEL.md` · migration notes (`planning/16`) |
+    | Physics, corrections, scientific wording | `docs/research/THEORETICAL-FOUNDATION.md` (requires physicist-persona review) |
+    | UI / design | conformance with `docs/design/DESIGN-LANGUAGE.md` §0 checklist · screenshots in the PR |
+    | Process or agent policy | `AGENTS.md` **and** all provider shims (`GEMINI.md`, `.cursor/rules/00-agents.mdc`, `.github/copilot-instructions.md`, `CLAUDE.md`) — they must never drift |
+    | Spec/phase state | `docs/STATUS.md` (orchestrator-owned — coordinate, don't edit in parallel) |
+    | Anything | a `changelog.d/<slug>.<category>.md` fragment (`changelog.d/README.md`) |
+
+11. **Commit and PR style (D44, see `CONTRIBUTING.md`).** Titles and descriptions state **what
+    the change delivers**, in product/engineering terms, for a human reading the history. Never
+    narrate the process, the options considered, or frame a change as a reaction to a correction
+    ("as requested", "now without X", "fixed the issue where…"). No apologies, no deliberation:
+    the history records what the project gained; the negotiation stays in the chat. SemVer:
+    `6.0.0` = the MunHub Lab 6 launch (D45).
+
+---
+
+## The first vertical slice (MVP) — Phase 1 goal
+
+Before building features in breadth, achieve **one end-to-end vertical slice** on the new stack
+with the real USFQ detector:
 
 ```
-Estación USFQ (1 Detector físico) → agente (lee serial + SQLite local)
-   → DataProvider(Firebase munhub-1) → dashboard de estación muestra, EN VIVO:
-     tasa de partículas cargadas + presión, con corrección de tiempo muerto y barométrica
-     (β local), y el espectro de amplitud.
+USFQ Station (1 physical Detector) → agent (reads serial + local SQLite)
+   → DataProvider(Firebase munhub-1) → station dashboard shows, LIVE:
+     charged-particle rate + pressure, dead-time and barometric corrected (local β),
+     and the amplitude spectrum.
 ```
 
-**Criterio de "MVP logrado":** un usuario autenticado crea su estación + detector, conecta el
-detector por el agente, y ve su tasa corregida y su espectro actualizándose, con los datos
-persistidos en munhub-1 y respaldados localmente. Valida toda la cadena (D1–D23) antes de escalar.
-
-Specs que componen el MVP: **S01, S03, S04, S05, S06, S09, S11, S50, S12, S13, S14, S17, S18(parcial)**.
-
----
-
-## Cómo elegir tu primera tarea
-
-1. Abre `planning/04-BACKLOG.md` y mira la **ruta crítica** (EPIC-0 → 1 → 2 → 3 → …).
-2. Toma la spec de mayor prioridad **sin dependencias abiertas**.
-3. ¿No existe la spec en `/specs`? Escríbela con la plantilla de `03-AGENTS-AND-SDD.md` →
-   pídela aprobar al humano → impleméntala. Ejemplo ya escrito: `specs/0001-monorepo-scaffold/`.
-4. Verifica contra los criterios de aceptación + tests. Marca la spec. **Deja listo para que
-   el humano commitee.**
+**"MVP achieved" means:** an authenticated user creates a station + detector, connects the
+detector through the agent, and watches the corrected rate and spectrum update live, with data
+persisted in `munhub-1` and backed up locally. This validates the whole chain (D1–D23) before
+scaling.
 
 ---
 
-## Mapa de carpetas (cuando exista el monorepo)
+## How to pick your first task
 
-Ver `planning/01-ARCHITECTURE.md §2`. Resumen: `apps/web`, `apps/agent`, `services/api`,
-`services/ai`, `packages/{shared,data-provider,ui,physics}`, `specs/`, `docs/`, `infra/`.
+1. Open `planning/04-BACKLOG.md` and follow the **critical path** (EPIC-0 → 1 → 2 → 3 → …).
+2. Take the highest-priority spec **with no open dependencies**.
+3. No spec in `specs/` yet? Write it using the `planning/03` template → request human approval →
+   implement. Worked examples: `specs/0001-monorepo-scaffold/`, `specs/0003-shared-contracts/`.
+4. Verify against the acceptance criteria and tests, update the spec status, then follow
+   guardrail 1: branch → commit → push → PR with Stage Report → stop.
+
+> Note: GitHub issues #3–#18 predate the D32 policy and still say "no auto-commits — stop for
+> the maintainer to commit". **D32 supersedes that text**: you commit and push your branch and
+> open a PR; only merging is reserved for the maintainer.
 
 ---
 
-## Llaves y secretos
-`private/` (service accounts de `munra-1` viejo y `munhub-1` nuevo) está en `.gitignore`.
-**Nunca** las commitees ni las imprimas. En producción van por variables de entorno.
+## Keys and secrets
+
+`private/` (service accounts for the old `munra-1` and new `munhub-1` projects, fleet API keys)
+is gitignored. **Never** commit, read aloud, or print its contents. Production configuration
+travels via environment variables (`.env.example` documents the shape; never real values).

@@ -26,7 +26,7 @@ visibility — what appears on the map). A **Detector** is the physical CosmicWa
 station (device token, calibration, firmware). Data belongs **to a detector**. "Detector" ALWAYS
 means the physical device; never use it for the profile.
 
-**Command structure (D46, see `planning/20`):** the **maintainer** (Alexander Kholodov) sets the
+**Command structure (D46; generalized into the AFLEK kit):** the **maintainer** (Alexander Kholodov) sets the
 vision, approves decisions, and is the only one who merges. The **Adjutant** (the orchestrator
 session the maintainer talks to directly) plans waves, routes work, reviews, integrates, and
 reports. **Supervisor agents** own an area; **worker agents** execute specs in their lane. If you
@@ -47,7 +47,8 @@ decisions go through the Adjutant and the maintainer.
 7. As your task requires: `05` (security), `06` (AI/ML), `07` (external APIs), `08` (risks),
    `09` (detector lifecycle), `10` (operations/governance), `11` (permissions/roles),
    `12` (support/notifications), `13` (monetization/entitlements), `14` (station networks),
-   `15` (admin console), `18`/`20` (fleet operation), `RED-CLARA-RESOURCE-TIERS.md`.
+   `15` (admin console), `RED-CLARA-RESOURCE-TIERS.md`. Fleet operation: the AFLEK kit
+   (pinned in `FLEET-VERSION`); `planning/18`/`20` are superseded tombstones.
 
 > Some `planning/` documents are still being translated to English (tracked in
 > `docs/audit/2026-06-12-STATE-OF-PROJECT.md`). Their content remains authoritative while the

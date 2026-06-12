@@ -1,7 +1,7 @@
 name: CI
 
 # Quality gate for every PR (and pushes to main). Must be green before a PR is mergeable.
-# See planning/18-AGENT-FLEET-ORCHESTRATION.md §6 (defense-in-depth) and specs/0002-ci-cd.
+# Defense-in-depth per the AFLEK kit (doctrine rule 7) and specs/0002-ci-cd.
 
 on:
   pull_request:

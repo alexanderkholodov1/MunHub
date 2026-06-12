@@ -15,7 +15,7 @@
 | **TDD — Test-Driven Development** | ✅ **Pragmatic** | **Test-first where correctness is the product**: `packages/physics` (write the numeric test from the scientific foundation, then implement) and `packages/shared` schemas. **Test-after / E2E** for UI and integration. Dogma is not the goal; trustworthy science is. |
 | **Design patterns** | ✅ **Judiciously** | As vocabulary, not trophies. Already present: **Repository/Facade** (`data-provider`), **Adapter** (provider + serial-format + migration adapters), **Strategy** (correction steps, chart types), **Observer** (realtime subscriptions), **Factory** (provider creation). |
 | **C4 documentation** | ✅ **Adopt** | Architecture documented as C4 levels: **Context** and **Container** now (Mermaid, renders on GitHub), **Component** as packages grow. See `ARCHITECTURE.md`. |
-| **MoE — Mixture of Experts** | ⚠️ **Not literally** | As a deep-learning architecture it is overkill for our classical ML (no need, no GPU). But its *spirit* — route work to specialized experts — already lives in two places: the **multi-provider agent fleet** (`planning/18`) and the **champion–challenger ensemble** planned for the ML layer (`planning/06`). We adopt the idea, not the neural-net machinery. |
+| **MoE — Mixture of Experts** | ⚠️ **Not literally** | As a deep-learning architecture it is overkill for our classical ML (no need, no GPU). But its *spirit* — route work to specialized experts — already lives in two places: the **multi-provider agent fleet** (the AFLEK kit) and the **champion–challenger ensemble** planned for the ML layer (`planning/06`). We adopt the idea, not the neural-net machinery. |
 
 ## Standards we also commit to (maestro's additions)
 
@@ -28,7 +28,7 @@
 - **Keep a Changelog.** Every notable change is logged in `CHANGELOG.md` (enforced by guardrail).
 - **12-Factor principles** for services: config via environment, stateless processes, logs as
   streams — so Phase B deploys cleanly to any server.
-- **Defense-in-depth quality** (`planning/18` §6): CI + secret scan + coverage (hard gate from S06)
+- **Defense-in-depth quality** (AFLEK doctrine 7): CI + secret scan + coverage (hard gate from S06)
   + cross-provider review + protected `main`.
 - **Accessibility (WCAG AA)** and the **anti-"AI-look" doctrine** baked into the design system.
 - **Observability** (structured logs, metrics, health) designed into services from the start.

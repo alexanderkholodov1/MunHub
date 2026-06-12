@@ -70,4 +70,4 @@ editing `CHANGELOG.md` directly. Fragments are compiled into `CHANGELOG.md` at r
 
 ## Quality gates
 Every PR runs CI (build · test · lint · typecheck) and a secret scan, and is reviewed before the
-maintainer merges. See [`planning/18-AGENT-FLEET-ORCHESTRATION.md`](planning/18-AGENT-FLEET-ORCHESTRATION.md) §6.
+maintainer merges. Gate design: the AFLEK kit (doctrine rule 7); live state: [`docs/STATUS.md`](docs/STATUS.md).

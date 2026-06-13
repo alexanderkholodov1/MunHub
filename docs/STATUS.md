@@ -4,9 +4,9 @@
 > Source of truth for "where are we" across the agent fleet. The system that produces these
 > numbers is the AFLEK kit (pinned in `FLEET-VERSION`).
 
-_Last updated: 2026-06-12 (wave F1-W4: physics ✅ in PR #31; WP-01 olas 1–4 in PRs #30,33,35,37;
-WP-03 in PR #29; WP-04 science correction in PR #36; WP-06 ADR-002 in PR #32; spec Insights v0
-in PR #34)_
+_Last updated: 2026-06-12 (wave F1-W4: physics ✅ in PR #31; WP-01 olas 1–5 in PRs
+#30,33,35,37,39; WP-03 in PR #29; WP-04 science correction folded into PR #39 (#36 closed);
+WP-06 ADR-002 in PR #32; spec Insights v0 in PR #34)_
 
 ## Phase progress
 
@@ -18,7 +18,7 @@ in PR #34)_
 | **Docs** | README v6, technical docs, standards, fleet charter | ✅ merged (PRs #21–#23) |
 | **Audit** | Project audit + English agent entry points + reconstruction work packages | ✅ merged (PR #26; see `docs/audit/2026-06-12-STATE-OF-PROJECT.md`) |
 | **Fleet** | Fleet kit v0.1 adoption (FWP-08) | ✅ merged (PR #28); kit at `alexanderkholodov1/AFLEK` |
-| **Translation** | WP-01: planning/ + THEORETICAL-FOUNDATION → English | 🟡 olas 1–4 in PRs #30,33,35,37; **ola 5** (planning/00 + foundation) in progress |
+| **Translation** | WP-01: planning/ + THEORETICAL-FOUNDATION → English | ✅ olas 1–5 in PRs #30,33,35,37,39 (full `planning/` tree + foundation translated) |
 | F2 | Migration munra-1 → munhub-1 | ⏳ |
 | F3 | Public landing + live demo | ⏳ |
 | F4+ | Ecosystem, AI, networks, admin… | ⏳ |
@@ -48,10 +48,12 @@ in PR #34)_
 | [#33](https://github.com/alexanderkholodov1/MunHub/pull/33) | `docs/wp01-translation-wave2` | WP-01 ola 2: planning/07–10, RED-CLARA | ✅ |
 | [#34](https://github.com/alexanderkholodov1/MunHub/pull/34) | `spec/insights-v0-wp09` | WP-09: spec Insights v0 (F3) | ✅ |
 | [#35](https://github.com/alexanderkholodov1/MunHub/pull/35) | `docs/wp01-translation-wave3` | WP-01 ola 3: planning/11–15 | ✅ |
-| [#36](https://github.com/alexanderkholodov1/MunHub/pull/36) | `docs/wp04-pin-science-numbers` | WP-04: cutoff rigidity ≈12–13 GV corrected; β + dead-time confirmed | ✅ |
 | [#37](https://github.com/alexanderkholodov1/MunHub/pull/37) | `docs/wp01-translation-wave4` | WP-01 ola 4: planning/16–17,19 | ✅ |
+| [#39](https://github.com/alexanderkholodov1/MunHub/pull/39) | `docs/wp01-translation-wave5` | WP-01 ola 5: planning/00 + foundation → English **+ WP-04 cutoff-rigidity correction folded in** | 🔄 |
 
-> WP-01 ola 5 (planning/00 + THEORETICAL-FOUNDATION.md) in progress — PR pending.
+> **PR #36 (WP-04) closed** — its science correction (cutoff rigidity ≈12–13 GV + §13 citations)
+> was folded into #39 in English to avoid a same-file collision on `THEORETICAL-FOUNDATION.md`
+> that risked reverting the fix. #39 is the single source of truth for that file.
 
 ## Quality gates (defense-in-depth — AFLEK doctrine 7)
 
@@ -91,16 +93,16 @@ in PR #34)_
 2. **Merge [#29](https://github.com/alexanderkholodov1/MunHub/pull/29)** — backlog renumbering (independent).
 3. **Merge [#30](https://github.com/alexanderkholodov1/MunHub/pull/30), [#33](https://github.com/alexanderkholodov1/MunHub/pull/33), [#35](https://github.com/alexanderkholodov1/MunHub/pull/35), [#37](https://github.com/alexanderkholodov1/MunHub/pull/37)** — translation olas 1–4 (any order, independent).
 4. **Merge [#32](https://github.com/alexanderkholodov1/MunHub/pull/32)** — ADR-002 accepted (Tauri confirmed).
-5. **Merge [#36](https://github.com/alexanderkholodov1/MunHub/pull/36)** — science number correction (⚠️ see note below).
+5. **Merge [#39](https://github.com/alexanderkholodov1/MunHub/pull/39)** — translation ola 5 + science correction (⚠️ see note below). Merge **after** olas 1–4 to keep the `planning/` history clean.
 6. **Merge [#34](https://github.com/alexanderkholodov1/MunHub/pull/34)** — spec Insights v0 (spec-only, safe anytime).
 7. **Enable Copilot code review** on the repo settings (free on Education plan) — 1-click chore.
 8. **Confirm Q4:** approve "Insights" + "Events" as the ML surface names so Insights v0 implementation can proceed.
 
-> ⚠️ **PR #36 note — science correction:** the Quito/Ecuador geomagnetic cutoff rigidity has
+> ⚠️ **PR #39 note — science correction:** the Quito/Ecuador geomagnetic cutoff rigidity has
 > been corrected from "14–16.8 GV (highest on the planet)" to **≈12–13 GV (among the highest
 > on Earth)**. Research finding: the ~14–17 GV range appears in some older sources but IGRF-based
 > trajectory calculations place Quito at ≈12–13 GV (geomagnetic latitude ~10–15°; the South
 > Atlantic Anomaly weakens the local field). The global maximum ≈17 GV is at Doi Inthanon,
 > Thailand. The scientific argument for Ecuador remains fully valid — ≈12–13 GV is still
-> exceptionally high. Please review this PR before merging; if you have a primary source that
+> exceptionally high. Please review the change before merging; if you have a primary source that
 > supports the higher value, flag it and we will reconcile.

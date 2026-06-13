@@ -1,84 +1,84 @@
-# MunHub Lab v6.0 — Tiers de recursos a solicitar a Red Clara
+# MunHub Lab v6.0 — Resource Tiers to Request from Red Clara
 
-> Depende de: `00`–`07`. Insumo para la **solicitud de infraestructura** a Red Clara.
-> Alcance: el servidor aloja **web + DB + IA + respaldos** (decisión del humano).
-> Filosofía de dimensionamiento: **procesamiento en el borde** (los PCs de los detectores
-> hacen agregación/transformación) ⇒ el servidor carga menos de lo habitual. Margen
-> **generoso** para experimentación científica adicional ("lo suficiente + un poco más").
-
----
-
-## 1. Supuestos de carga
-
-- **Hoy:** 1 detector (USFQ). **Interés:** ~8 universidades (sin confirmar). Diseñamos para
-  escalar a **decenas** de detectores con estabilidad.
-- **Volumen de datos (núcleo):** 1 registro/minuto por detector = 1.440/día.
-  - 50 detectores ≈ 26 M filas/año; 200 detectores ≈ 105 M filas/año.
-  - Con TimescaleDB (hypertables + compresión ~10×): **~1–8 GB/año** de serie temporal. Es
-    pequeño. El almacenamiento lo dominan **respaldos, modelos de IA y datasets de
-    experimentación**, no la serie en sí.
-- **Carga de cómputo:** la web (Next.js SSR) y Postgres son modestos; el pico real son los
-  **jobs de ML por lotes**. La ingesta pesada se hace en el borde (agente), no en el servidor.
+> Depends on: `00`–`07`. Input for the **infrastructure request** to Red Clara.
+> Scope: the server hosts **web + DB + AI + backups** (maintainer decision).
+> Sizing philosophy: **edge processing** (detector PCs perform aggregation/transformation)
+> ⇒ the server carries less load than typical. **Generous margin** for additional scientific
+> experimentation ("enough + a little more").
 
 ---
 
-## 2. Comparativa de tiers
+## 1. Load assumptions
 
-| Recurso | 🟢 Conservador | 🔵 Recomendado | 🟣 Ambicioso |
+- **Today:** 1 detector (USFQ). **Interest:** ~8 universities (unconfirmed). Designed to
+  scale to **dozens** of detectors stably.
+- **Data volume (core):** 1 record/minute per detector = 1,440/day.
+  - 50 detectors ≈ 26 M rows/year; 200 detectors ≈ 105 M rows/year.
+  - With TimescaleDB (hypertables + ~10× compression): **~1–8 GB/year** of time series.
+    This is small. Storage is dominated by **backups, AI models, and experimental datasets**,
+    not the series itself.
+- **Compute load:** the web (Next.js SSR) and Postgres are modest; the real peak is
+  **batch ML jobs**. Heavy ingestion is done at the edge (agent), not on the server.
+
+---
+
+## 2. Tier comparison
+
+| Resource | 🟢 Conservative | 🔵 Recommended | 🟣 Ambitious |
 |---|---|---|---|
-| **Escenario** | MVP / pocas universidades | Red regional + margen | Red amplia + experimentación DL |
+| **Scenario** | MVP / few universities | Regional network + margin | Broad network + DL experimentation |
 | **vCPU** | 4 | 8 | 16 |
 | **RAM** | 8 GB | 32 GB | 64 GB |
-| **Disco (NVMe/SSD)** | 100 GB | 500 GB | 1 TB |
-| **GPU** | — | — | 1× GPU (p. ej. NVIDIA T4/A10/RTX, ≥16 GB VRAM) |
-| **Detectores cómodos** | ~10–15 | ~50–80 (+margen) | 150+ |
-| **Base de datos** | Postgres+TimescaleDB | + continuous aggregates | + **réplica** (alta disponibilidad) |
-| **Respaldos fríos** | a Cloudflare R2 (externo) | R2 + snapshots del disco | R2 + snapshots + réplica |
-| **IA** | ML clásico (CPU) | ML clásico holgado | ML clásico + **deep learning** (GPU) |
-| **Red** | IP pública, ~50 Mbps | IP pública, ~100 Mbps | IP pública, ~200+ Mbps |
-| **Uptime objetivo** | best-effort | alta | alta + redundancia |
+| **Disk (NVMe/SSD)** | 100 GB | 500 GB | 1 TB |
+| **GPU** | — | — | 1× GPU (e.g. NVIDIA T4/A10/RTX, ≥16 GB VRAM) |
+| **Comfortable detectors** | ~10–15 | ~50–80 (+margin) | 150+ |
+| **Database** | Postgres+TimescaleDB | + continuous aggregates | + **replica** (high availability) |
+| **Cold backups** | to Cloudflare R2 (external) | R2 + disk snapshots | R2 + snapshots + replica |
+| **AI** | Classical ML (CPU) | Classical ML with headroom | Classical ML + **deep learning** (GPU) |
+| **Network** | Public IP, ~50 Mbps | Public IP, ~100 Mbps | Public IP, ~200+ Mbps |
+| **Uptime target** | best-effort | high | high + redundancy |
 
-> Todas las cifras de serie temporal caben de sobra incluso en el tier conservador; el salto
-> entre tiers responde sobre todo a **margen de cómputo/IA, disponibilidad y experimentación**,
-> no a falta de espacio para los datos de los detectores.
-
----
-
-## 3. Qué habilita cada tier
-
-- **🟢 Conservador** — Operar v6.0 con la red actual y unas pocas universidades. ML clásico
-  básico (líneas base, corrección barométrica, anomalías). Respaldos a R2. Sin redundancia
-  de DB. Suficiente para **arrancar y demostrar**.
-- **🔵 Recomendado** *(elección base sugerida)* — Red regional (decenas de detectores) con
-  holgura. ML clásico completo (forecasting, Forbush, correlaciones) corriendo cómodo.
-  Continuous aggregates para charts rápidos de rangos largos. Margen para datasets y pruebas.
-  **Equilibrio costo/capacidad para un despliegue serio.**
-- **🟣 Ambicioso** — Red amplia + **experimentación científica adicional**: deep learning con
-  GPU, réplica de DB para alta disponibilidad, más espacio para datasets/experimentos
-  paralelos. Pedir este tier si Red Clara puede proveerlo, porque **da el "un poco más" para
-  investigar sin pedir ampliaciones**.
+> All time-series figures fit comfortably even in the conservative tier; the jump between
+> tiers is mainly about **compute/AI margin, availability, and experimentation**, not
+> lack of space for detector data.
 
 ---
 
-## 4. Software / plataforma (igual en todos los tiers)
+## 3. What each tier enables
 
-- SO: Linux LTS (Ubuntu Server LTS o equivalente).
-- Contenedores: Docker + Docker Compose (todo en `infra/`).
-- DB: PostgreSQL (16+) + extensión **TimescaleDB**.
-- App: Node.js (Next.js) + servicios; Python para `services/ai`.
-- Almacenamiento de objetos para respaldos: Cloudflare R2 (externo) o bucket S3-compatible.
-- Acceso: IP pública + dominio + TLS (Let's Encrypt); puertos 80/443 (+ 22 SSH restringido).
-- Snapshots del disco/VM si la plataforma los ofrece (refuerzo de la capa de respaldo).
+- **🟢 Conservative** — Operate v6.0 with the current network and a few universities. Basic
+  classical ML (baselines, barometric correction, anomalies). Backups to R2. No DB redundancy.
+  Sufficient to **launch and demonstrate**.
+- **🔵 Recommended** *(suggested baseline choice)* — Regional network (dozens of detectors)
+  with headroom. Full classical ML (forecasting, Forbush, correlations) running comfortably.
+  Continuous aggregates for fast charts over long ranges. Margin for datasets and tests.
+  **Cost/capacity balance for a serious deployment.**
+- **🟣 Ambitious** — Broad network + **additional scientific experimentation**: deep learning
+  with GPU, DB replica for high availability, more space for datasets/parallel experiments.
+  Request this tier if Red Clara can provide it, because it **gives the "a little more" for
+  research without requiring subsequent expansion requests**.
 
 ---
 
-## 5. Recomendación para la solicitud
+## 4. Software / platform (identical across all tiers)
 
-Pedir el **🔵 Recomendado como línea base** y, si Red Clara tiene disponibilidad, **solicitar
-el 🟣 Ambicioso** argumentando el valor científico del nodo ecuatorial (rigidez de corte
-única, datos escasos en el hemisferio sur) y la necesidad de margen para **experimentos de
-IA/DL** y crecimiento de la red multi-universidad. El 🟢 Conservador queda como mínimo
-aceptable para no bloquear el arranque.
+- OS: Linux LTS (Ubuntu Server LTS or equivalent).
+- Containers: Docker + Docker Compose (all configuration in `infra/`).
+- DB: PostgreSQL (16+) + **TimescaleDB** extension.
+- App: Node.js (Next.js) + services; Python for `services/ai`.
+- Object storage for backups: Cloudflare R2 (external) or S3-compatible bucket.
+- Access: public IP + domain + TLS (Let's Encrypt); ports 80/443 (+ 22 SSH restricted).
+- Disk/VM snapshots if the platform provides them (reinforces the backup layer).
 
-> **Acción pendiente del ing. ML:** afinar las cifras de cómputo/almacenamiento de IA cuando
-> se concrete el volumen real de detectores y el alcance de los experimentos de DL.
+---
+
+## 5. Recommendation for the request
+
+Request the **🔵 Recommended as the baseline** and, if Red Clara has availability, **also
+request the 🟣 Ambitious** by arguing the scientific value of the equatorial node (unique
+cutoff rigidity, scarce data in the Southern Hemisphere) and the need for margin for
+**AI/DL experiments** and multi-university network growth. The 🟢 Conservative is the
+acceptable minimum to avoid blocking the launch.
+
+> **Pending action for ML engineer:** refine AI compute/storage figures once the actual
+> detector volume and DL experiment scope are confirmed.

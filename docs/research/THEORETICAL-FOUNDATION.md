@@ -20,9 +20,9 @@
    barométrica (coeficiente **local**, no universal) + térmica.
 4. **El minuto es demasiado ruidoso** (Poisson: error ~1.6% por minuto). Las anomalías
    requieren integración de **muchas horas** (N≥100k) y umbrales **≥3σ persistentes**.
-5. **Ventaja única de Ecuador:** rigidez de corte geomagnético **14–16.8 GV** (la mayor del
-   planeta) → filtra ruido solar de baja energía; los datos andinos son señal galáctica pura
-   y escasa globalmente.
+5. **Ventaja única de Ecuador:** rigidez de corte geomagnético **≈12–13 GV** (entre las más
+   altas de la Tierra; el máximo global ≈17 GV está sobre el Sudeste Asiático) → filtra ruido
+   solar de baja energía; los datos andinos son señal galáctica pura y escasa globalmente.
 
 ---
 
@@ -177,8 +177,10 @@ histórico de cada nodo; nunca asumir un β fijo. (Refuerza S04 y la capacidad C
 
 ### (E) Rigidez de corte geomagnético — el contexto de Ecuador
 - `R = pc/(ze)` [GV]. Solo partículas con `R > R_c` (rigidez de corte local) penetran.
-- Polos: R_c ~1 GV (entran partículas débiles). **Andes ecuatoriales: R_c ≈ 14.0–16.8 GV**
-  (la mayor del planeta) → filtro natural que purga el ruido solar de baja energía.
+- Polos: R_c ~1 GV (entran partículas débiles). **Andes ecuatoriales: R_c ≈ 12–13 GV**
+  (entre las más altas de la Tierra; el máximo global ≈17 GV corresponde a Doi Inthanon,
+  Tailandia — Gerontidou et al. 2021; PSNM) → filtro natural que purga el ruido solar de
+  baja energía.
 
 → **Implicación MunHub:** principal argumento científico (y para la solicitud a Red Clara):
 los datos ecuatoriales son señal galáctica dura, prístina y escasa en redes del hemisferio norte.
@@ -192,7 +194,7 @@ los datos ecuatoriales son señal galáctica dura, prístina y escasa en redes d
   Certificar cruzando con **NMDB** (neutrones), **NOAA SWPC** (B, Bz, viento solar) y
   **NASA DONKI** (catálogo CME/flares).
 - **GLE (Ground Level Enhancements):** protones solares directos. **Prácticamente nulos en
-  Ecuador** por la rigidez ~16 GV (honestidad: no prometer detección de GLE en Andes).
+  Ecuador** por la alta rigidez de corte (~12–13 GV; honestidad: no prometer detección de GLE en Andes).
 - **Tormentas geomagnéticas:** índices **Kp** (3-horario, 0–9) y **Dst** (horario, nT) →
   features para la IA; pueden bajar transitoriamente R_c.
 - **Ciclo solar 11 años:** anticorrelación de largo plazo.
@@ -251,6 +253,13 @@ de documentación las adapta a es/en/pt-BR para los textos educativos.
 - De Mendonça et al. (2016) — Global Muon Detector Network.
 - Maghrabi et al. (KAAU) — estación ecuatorial; Wang & Lee (1967) — Hong Kong.
 - IGRF (International Geomagnetic Reference Field) — rigidez de corte.
+- Gerontidou et al. (2021), "World grid of cosmic ray vertical cut-off rigidity for the last
+  decade," *Adv. Space Res.* 67, 2231–2240. https://doi.org/10.1016/j.asr.2021.01.011
+- Banglieng et al. / PSNM Collaboration — Princess Sirindhorn Neutron Monitor at Doi Inthanon,
+  Thailand (R_c ≈ 17 GV, highest known station); arXiv:2605.15696 and refs therein.
+- Maghrabi et al. (2023), "The Role of Atmospheric Pressure, Temperature, and Humidity on
+  Cosmic Ray Muons at a Low Latitude Station (KAAU, Jeddah; β ≈ −0.24 ± 0.18 %/hPa),"
+  *Int. J. Astron. Astrophys.* 13, 236–258. https://doi.org/10.4236/ijaa.2023.133013
 - NMDB (Neutron Monitor Database); NOAA SWPC; NASA DONKI.
 
 > Verificar y completar citas (DOI/enlaces) al preparar el artículo científico (EPIC-12 S48).

@@ -35,6 +35,7 @@ else
   _load_secret GEMINI_API_KEY "${_priv}/Gemini API Key.txt"
   _load_secret CURSOR_API_KEY "${_priv}/Cursor API Key.txt"
   _load_secret GITHUB_PAT     "${_priv}/GitHub PAT.txt"
+  _load_secret VERCEL_API_KEY "${_priv}/Vercel API Key.txt"
 fi
 
 unset -f _load_secret

@@ -19,9 +19,9 @@
    barometric (**local** coefficient, not universal) + thermal.
 4. **One minute is too noisy** (Poisson: error ~1.6% per minute). Anomalies
    require integration over **many hours** (N≥100k) and **≥3σ persistent** thresholds.
-5. **Ecuador's unique advantage:** geomagnetic cutoff rigidity **14–16.8 GV** (the highest on
-   Earth) → filters low-energy solar noise; Andean data is pure galactic signal,
-   scarce globally.
+5. **Ecuador's unique advantage:** geomagnetic cutoff rigidity **≈12–13 GV** (among the highest
+   on Earth; the global maximum ≈17 GV lies over Southeast Asia) → filters low-energy solar
+   noise; Andean data is pure galactic signal, scarce globally.
 
 ---
 
@@ -176,8 +176,9 @@ historical data of each node; never assume a fixed β. (Reinforces S04 and AI ca
 
 ### (E) Geomagnetic cutoff rigidity — Ecuador's context
 - `R = pc/(ze)` [GV]. Only particles with `R > R_c` (local cutoff rigidity) penetrate.
-- Poles: R_c ~1 GV (weak particles enter). **Ecuadorian Andes: R_c ≈ 14.0–16.8 GV**
-  (the highest on Earth) → natural filter that purges low-energy solar noise.
+- Poles: R_c ~1 GV (weak particles enter). **Ecuadorian Andes: R_c ≈ 12–13 GV**
+  (among the highest on Earth; the global maximum ≈17 GV corresponds to Doi Inthanon,
+  Thailand — Gerontidou et al. 2021; PSNM) → natural filter that purges low-energy solar noise.
 
 → **MunHub implication:** main scientific argument (and for the Red Clara application):
 Ecuadorian data is hard, pristine galactic signal, scarce in Northern Hemisphere networks.
@@ -191,7 +192,8 @@ Ecuadorian data is hard, pristine galactic signal, scarce in Northern Hemisphere
   Certify by crossing with **NMDB** (neutrons), **NOAA SWPC** (B, Bz, solar wind) and
   **NASA DONKI** (CME/flare catalog).
 - **GLE (Ground Level Enhancements):** direct solar protons. **Practically null in
-  Ecuador** due to rigidity ~16 GV (honesty: do not promise GLE detection in the Andes).
+  Ecuador** due to the high cutoff rigidity (~12–13 GV; honesty: do not promise GLE detection
+  in the Andes).
 - **Geomagnetic storms:** indices **Kp** (3-hourly, 0–9) and **Dst** (hourly, nT) →
   features for AI; can transiently lower R_c.
 - **11-year solar cycle:** long-term anticorrelation.
@@ -250,6 +252,13 @@ agent adapts them to es/en/pt-BR for the educational texts.
 - De Mendonça et al. (2016) — Global Muon Detector Network.
 - Maghrabi et al. (KAAU) — equatorial station; Wang & Lee (1967) — Hong Kong.
 - IGRF (International Geomagnetic Reference Field) — cutoff rigidity.
+- Gerontidou et al. (2021), "World grid of cosmic ray vertical cut-off rigidity for the last
+  decade," *Adv. Space Res.* 67, 2231–2240. https://doi.org/10.1016/j.asr.2021.01.011
+- Banglieng et al. / PSNM Collaboration — Princess Sirindhorn Neutron Monitor at Doi Inthanon,
+  Thailand (R_c ≈ 17 GV, highest known station); arXiv:2605.15696 and refs therein.
+- Maghrabi et al. (2023), "The Role of Atmospheric Pressure, Temperature, and Humidity on
+  Cosmic Ray Muons at a Low Latitude Station (KAAU, Jeddah; β ≈ −0.24 ± 0.18 %/hPa),"
+  *Int. J. Astron. Astrophys.* 13, 236–258. https://doi.org/10.4236/ijaa.2023.133013
 - NMDB (Neutron Monitor Database); NOAA SWPC; NASA DONKI.
 
 > Verify and complete citations (DOI/links) when preparing the scientific article (EPIC-12 S48).

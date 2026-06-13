@@ -4,14 +4,14 @@
 > Source of truth for "where are we" across the agent fleet. The system that produces these
 > numbers is the AFLEK kit (pinned in `FLEET-VERSION`).
 
-_Last updated: 2026-06-13 (audit merged #26; **fleet kit v0.1 adopted** — `FLEET-VERSION` 0.1.0,
-incubation folder removed; kit lives at `alexanderkholodov1/fleet`)_
+_Last updated: 2026-06-12 (wave F1-W3: **physics package in PR #31** — critical path; WP-03
+spec renumbering in PR #29; WP-01 translation wave 1 in PR #30)_
 
 ## Phase progress
 | Phase | Scope | Status |
 |---|---|---|
 | **F0** | Safety net: CI, branch protection, fleet infra | ✅ done (PR #19 merged) |
-| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (S01 ✅; contracts ✅ #24; DataProvider interface ✅ #25; **physics spec next**) |
+| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (scaffold ✅; contracts ✅ #24; DataProvider interface ✅ #25; **physics in PR #31**; web/agent skeleton next) |
 | **Design** | Design Language "Observatory Dark" (D36) → feeds all UI specs | ✅ merged (PR #20); landing design session pending |
 | **Docs** | README v6, technical docs, standards, fleet charter | ✅ merged (PRs #21–#23) |
 | **Audit** | Project audit + English agent entry points + reconstruction work packages | ✅ merged (PR #26; see `docs/audit/2026-06-12-STATE-OF-PROJECT.md`) |
@@ -27,12 +27,12 @@ incubation folder removed; kit lives at `alexanderkholodov1/fleet`)_
 | `specs/0002-ci-cd` | CI quality gate | Claude | ✅ merged | PR #19 |
 | `specs/0003-shared-contracts` | Shared types + zod contracts | Claude | ✅ merged | PR #24 |
 | `specs/0004-data-provider-interface` | DataProvider interface | Claude | ✅ merged | PR #25 |
-| `specs/0005-physics` (to write) | dead-time, β regression, spectrum | Adjutant writes spec → implementer | ⏳ **next on the critical path** | — |
+| `specs/0005-physics` | dead-time, β regression, spectrum, Poisson stats | Adjutant (spec + implementation) | 🔍 in review | PR #31 |
 
-> ⚠️ **Numbering note:** the S-numbers in `planning/04-BACKLOG.md` and GitHub issues #3–#18 have
-> diverged from the canonical `specs/NNNN-*` folders (e.g. backlog "S04 physics" vs folder
-> `specs/0004-data-provider-interface`). The `specs/NNNN-*` folders are canonical; renumbering
-> the backlog and issues is queued as WP-03 in the audit report.
+> ⚠️ **Numbering note:** the `specs/NNNN-*` folders are canonical. The backlog renumbering
+> (WP-03) is in PR #29 (old S-number → NNNN mapping table at the bottom of
+> `planning/04-BACKLOG.md`); GitHub issues #3–#18 still carry old numbers until WP-02 re-issues
+> them.
 
 ## Quality gates (defense-in-depth — AFLEK doctrine 7)
 | Gate | Mechanism | State |
@@ -40,7 +40,7 @@ incubation folder removed; kit lives at `alexanderkholodov1/fleet`)_
 | CI: build/test/lint/typecheck | GitHub Actions `ci.yml` | ✅ active |
 | Secret scan | gitleaks | ✅ active |
 | `main` protection | PR + both CI checks required; no force-push/delete | ✅ active |
-| Coverage hard-gate (≥80%) | vitest coverage | ⏳ activates with the physics spec |
+| Coverage hard-gate (≥80%) | vitest coverage (`@munhub/physics`) | 🔍 active in PR #31 |
 | Auto PR review #1 | Copilot review | ⏳ enable on repo (free on Education plan) |
 | Auto PR review #2 | Claude reviewer personas (`.claude/agents/`) | ✅ installed (WP-08) — replaces Cursor Bugbot |
 | Cross-provider review | author ≠ reviewer (D35) | ⏳ from F1 wave 2 |
@@ -63,9 +63,9 @@ incubation folder removed; kit lives at `alexanderkholodov1/fleet`)_
 | Copilot (Education) | Issue → PR agent + second auto-review | |
 
 ## Maintainer action queue
-1. In the fleet repo: merge PRs #5 → #6 → #7, then the orchestrator tags `v0.1.0` (FWP-09).
-2. Merge this adoption PR (FWP-08).
-3. Decide ADR-002 (Tauri vs Go for the local agent) — recommendation: Tauri.
+1. Review/merge the F1-W3 wave: PR #31 (physics — critical path), PR #29 (spec renumbering),
+   PR #30 (planning translation wave 1). #30 is independent; #29 and #31 touch disjoint files.
+2. Decide ADR-002 (Tauri vs Go for the local agent) — recommendation: Tauri.
 4. Enable **Copilot code review** on the repo (free on Education). Cursor **Bugbot stays off**
    (usage-billed); Claude reviewer personas (WP-08) take its slot in the review ensemble.
 5. See `docs/audit/2026-06-12-STATE-OF-PROJECT.md` §Decisions for the full decision queue.

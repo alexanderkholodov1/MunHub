@@ -1,52 +1,56 @@
-# ADR-002 — Framework del agente local (lectura serial + offline)
+# ADR-002 — Local agent framework (serial reading + offline)
 
-- **Estado:** propuesto (confirma el humano). Refina D5.
-- **Contexto:** el "agente" es **software propio** que corre en el PC del detector y hace:
-  leer serial (Win/Mac/Linux), parsear (ver `SERIAL-FORMATS.md`), **respaldo local (SQLite)**,
-  cola de sync offline idempotente, **auto-actualización**, e instalación fácil para usuarios
-  no técnicos. El framework es solo la herramienta para construirlo; **la lógica es nuestra**.
+- **Status:** accepted (D5, D31). Decision: **Tauri** as primary; Go as documented fallback.
+- **Context:** the "agent" is our own software running on the detector's PC. It handles serial
+  reading (Windows/macOS/Linux), parsing (see `SERIAL-FORMATS.md`), **local SQLite backup**,
+  an idempotent offline sync queue, **signed auto-update**, and one-click installation for
+  non-technical university users. The framework is only the packaging and hardware-access
+  tooling; all logic (parser, buffer, sync) is ours in `apps/agent`.
 
-## Aclaración
+## Clarification
 
-"¿Podemos hacer un agente propio?" — **Sí, y lo hacemos.** Tauri/Go/Electron/etc. son solo el
-*toolkit* de empaquetado y acceso a hardware; toda la lógica (parser, buffer, sync) la
-escribimos nosotros en `apps/agent`. La decisión es **qué toolkit** minimiza fricción y riesgo.
+"Can we build our own agent?" — **Yes, and we do.** Tauri/Go/Electron are packaging toolkits
+for hardware access; all logic (parser, buffer, sync) is written by us in `apps/agent`. The
+decision is **which toolkit** minimises friction and risk.
 
-## Opciones evaluadas
+## Options evaluated
 
-| Opción | Footprint | Serial | UI | Auto-update | Veredicto |
-|--------|-----------|--------|----|-------------|-----------|
-| **Tauri** (Rust + web UI) | ~3–10 MB, RAM baja | crate `serialport` (sólido) | reusa React (consistente con la web) | **updater integrado firmado** | ✅ **Primario** |
-| **Go** (binario estático) | ~5–15 MB, RAM muy baja | `go.bug.st/serial` (excelente) | tray + página local, o headless | vía librería/propio | 🟢 **Alternativa fuerte** (el más simple como *daemon* headless) |
-| Electron (Node+Chromium) | 100+ MB, RAM alta | `serialport` npm (maduro) | React | `electron-updater` | 🟠 Demasiado pesado para un logger de fondo |
-| Node empaquetado (pkg/nexe) | medio | `serialport` (módulos nativos, frágil de empaquetar) | web local/tray | propio | 🟠 Empaquetado nativo problemático |
-| Python (PyInstaller) | grande | `pyserial` (referencia) | — | difícil | 🔴 No por el lenguaje, sino por la **fricción de distribución** (ver nota) |
+| Option | Footprint | Serial | UI | Auto-update | Verdict |
+|--------|-----------|--------|----|-------------|---------|
+| **Tauri** (Rust + web UI) | ~3–10 MB, low RAM | `serialport` crate (mature) | reuses React (consistent with web app) | **signed updater built-in** | ✅ **Primary** |
+| **Go** (static binary) | ~5–15 MB, very low RAM | `go.bug.st/serial` (excellent) | system tray + local page, or headless | via library or custom | 🟢 **Strong alternative** (simplest as a headless daemon) |
+| Electron (Node + Chromium) | 100+ MB, high RAM | `serialport` npm (mature) | React | `electron-updater` | 🟠 Too heavy for a background logger |
+| Packaged Node (pkg/nexe) | medium | `serialport` (native modules, fragile to package) | local web/tray | custom | 🟠 Fragile native packaging |
+| Python (PyInstaller) | large | `pyserial` (reference) | — | difficult | 🔴 Not rejected for the language — rejected for **distribution friction** |
 
-> **Aclaración (no es rechazo a Python):** el objetivo es **instalación intuitiva, tipo
-> "un clic"** — el usuario NO debe descargar código, instalar Python, tener un IDE, ni ejecutar
-> scripts a mano (eso falla y frustra). Python es excelente para prototipos/servidor; solo se
-> evita como **agente de usuario final** porque empaquetarlo en un instalador limpio y sin
-> dependencias es frágil. Cualquier opción elegida DEBE entregarse como instalador de un clic.
-| PWA + Web Serial | nulo (sin instalar) | Web Serial (solo Chromium) | la web | auto (es web) | 🟡 **Complemento** zero-install, no reemplaza (sin background ni Firefox/Safari) |
+> **Note on Python:** the goal is **one-click installation** — the user must not download
+> source code, install a Python runtime, or run scripts manually (that fails in the field).
+> Python is excellent for prototypes and server-side; it is only avoided as a **end-user
+> agent** because packaging it into a clean, dependency-free installer is fragile. Any chosen
+> option must ship as a one-click installer.
 
-## Decisión propuesta
+| PWA + Web Serial | zero (no install) | Web Serial (Chromium only) | the web app | automatic (it is a web page) | 🟡 **Complement** — zero-install path for demos, does not replace the agent (no background operation, no Firefox/Safari) |
 
-- **Primario: Tauri.** Footprint mínimo, updater firmado integrado, **UI consistente** con la
-  app web (mismo React/Tailwind), seguridad. Encaja con el equipo web/TS y con el principio de
-  buena UX (D23).
-- **Alternativa documentada: Go**, si el acceso serial en Rust o el empaquetado dieran
-  problemas, o si se prefiere un **daemon headless** ultraligero para PCs de laboratorio
-  modestos/servidores de toma de datos. Misma arquitectura (parser/buffer/sync portados).
-- **Complemento: PWA + Web Serial** como camino **zero-install** para usuarios casuales en
-  Chromium (sin offline robusto). No sustituye al agente.
+## Decision
 
-## Consecuencias
+**Primary: Tauri.** Minimal footprint, built-in signed auto-updater, **UI consistent** with the
+web app (same React/Tailwind), strong security model. Aligns with the web/TS team and with the
+good-UX principle (D23). Chosen for the `apps/agent` implementation.
 
-- El **parser y la lógica de sync se diseñan agnósticos del framework** (módulos claros) para
-  poder mover de Tauri a Go sin reescribir la lógica, solo el "cascarón".
-- El agente habla con la nube **solo vía la misma API/`DataProvider`** (no SDK directo).
-- Riesgo R-serial (Rust): mitigado porque `serialport` (Rust) es maduro; si falla, plan B = Go.
+**Documented fallback: Go.** If Rust serial access or Tauri packaging prove problematic, or if
+a headless daemon is preferred for lab PCs and data-acquisition servers, Go provides the same
+architecture (parser/buffer/sync logic ported, not rewritten) with even lower overhead.
 
-## Pendiente para el humano
-¿Mantener **Tauri** como primario (recomendado), o prefieres que el primario sea **Go**
-(daemon headless ultraligero) con una UI web mínima?
+**Complement: PWA + Web Serial** for zero-install demos in Chromium. Not a replacement for the
+agent (no offline robustness, browser-only).
+
+## Consequences
+
+- The **serial parser and sync logic are designed framework-agnostic** (clean modules) so that
+  switching from Tauri to Go requires only replacing the shell, not rewriting the logic.
+- The agent communicates with the cloud **only through the same `DataProvider` API** — never
+  directly against a backend SDK.
+- Risk R-serial (Rust): mitigated because the `serialport` Rust crate is mature and actively
+  maintained; the Go fallback remains documented if this changes.
+- The `apps/agent` spec references this ADR; scope and acceptance criteria there depend on
+  the Tauri tech stack confirmed here.

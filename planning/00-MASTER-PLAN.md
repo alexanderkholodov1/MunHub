@@ -1,264 +1,264 @@
-# MunHub Lab v6.0 — Plan Maestro de Reconstrucción
+# MunHub Lab v6.0 — Reconstruction Master Plan
 
-> **Estado:** Capa 1 (decisiones fundacionales) CERRADA. Documento vivo.
-> **Propósito:** Fuente de verdad de alto nivel para la reconstrucción completa de MunHub.
-> Orientado a desarrollo agéntico (Spec-Driven Development). Los agentes leen este
-> documento + `/specs` antes de actuar y NO se desvían de lo aquí acordado.
-> **Regla de oro (D32):** los agentes commitean y pushean **feature branches** y abren **PR**
-> (Conventional Commits, inglés); **CI verde obligatorio**; **solo Alexander mergea a `main`**
-> (último gate humano). Ningún agente toca `main` ni `private/`. Ver `18-AGENT-FLEET-ORCHESTRATION.md`.
+> **Status:** Layer 1 (foundational decisions) CLOSED. Living document.
+> **Purpose:** High-level source of truth for the full reconstruction of MunHub.
+> Oriented toward agentic development (Spec-Driven Development). Agents read this
+> document + `/specs` before acting and do NOT deviate from what is agreed here.
+> **Golden rule (D32):** agents commit and push **feature branches** and open **PRs**
+> (Conventional Commits, English); **green CI mandatory**; **only Alexander merges to `main`**
+> (final human gate). No agent touches `main` or `private/`. See `18-AGENT-FLEET-ORCHESTRATION.md`.
 
 ---
 
-## 0. Contexto y motivación
+## 0. Context and motivation
 
-MunHub Lab es una plataforma web para adquisición, almacenamiento, visualización y
-análisis en tiempo real de datos de detectores de rayos cósmicos (CosmicWatch / muones).
-Nace como aporte de Alexander Kholodov a la investigación de Dennis Cazar en el laboratorio
-LEOPARD (USFQ), dentro del proyecto EL-BONGO / Erasmus+ CBHE. Apunta a ser una **red
-internacional multi-universidad en Latinoamérica**.
+MunHub Lab is a web platform for acquisition, storage, visualization, and
+real-time analysis of data from cosmic-ray detectors (CosmicWatch / muon detectors).
+Born as Alexander Kholodov's contribution to Dennis Cazar's research at the
+LEOPARD laboratory (USFQ), within the EL-BONGO / Erasmus+ CBHE project. Aimed at becoming
+an **international multi-university network in Latin America**.
 
-**Problemas de la v5.0 que motivan la reconstrucción:**
-- Arquitectura no profesional: ~9.700 líneas de Vanilla JS en 12 IIFEs, sin build, sin
-  tipos, sin tests, sin separación de capas. Lógica monolítica (serial 1641 líneas,
+**v5.0 problems motivating the reconstruction:**
+- Non-professional architecture: ~9,700 lines of Vanilla JS in 12 IIFEs, no build, no
+  types, no tests, no layer separation. Monolithic logic (serial 1641 lines,
   auth 1563, charts 1098).
-- Firebase Realtime DB **saturada y bloqueada** (límite 1 GB del plan gratuito).
-- Sin landing pública, sin base científica explícita, visualización pobre, sin comparación
-  con eventos externos, sin offline real, metadatos insuficientes para estadística valiosa.
-- Lectura serial dependiente de scripts manuales de Python en Firefox/Safari.
+- Firebase Realtime DB **saturated and blocked** (1 GB limit on the free plan).
+- No public landing, no explicit scientific basis, poor visualization, no comparison
+  with external events, no real offline mode, insufficient metadata for meaningful statistics.
+- Serial reading dependent on manual Python scripts in Firefox/Safari.
 
-**Visión v6.0:** plataforma profesional, modular, escalable a varios países, con fundamento
-científico sólido, redundancia de datos como prioridad #1, desplegable tanto en nube
-(Firebase puente) como en servidor propio (Red Clara, Supabase self-hosted), preparada para
-una IA propia, y construida con flujo agéntico auditable.
-
----
-
-## 1. Decisiones fundacionales (CERRADAS)
-
-| # | Decisión | Elección | Fundamento |
-|---|----------|----------|------------|
-| D1 | **Frontend** | React + Next.js + TypeScript | SSR para landing/SEO + mapa, mayor ecosistema de charts/librerías científicas, mayor base de talento para colaboración multi-universidad. |
-| D2 | **Backend/DB destino** | Supabase self-hosted + TimescaleDB | Postgres auto-hospedable en Red Clara, con auth/RLS, realtime y storage. Sin lock-in. TimescaleDB para series temporales científicas. |
-| D3 | **Backend/DB puente** | Firebase `munhub-1` (proyecto fresco) | Red Clara aún no provisiona recursos. Se despliega YA en Firebase nuevo y se migra después. Service account en `private/` (NUNCA commitear). |
-| D4 | **Capa de datos** | `DataProvider` agnóstico (FirebaseProvider \| SupabaseProvider) | Permite Fase A (Firebase) → Fase B (Supabase) sin reescribir la app. **Esta capa ES la herramienta de migración/importación de admin.** |
-| D5 | **Lectura detector + offline** | Agente local instalable (Tauri) | Lee serial en cualquier SO sin Python manual + respaldo local SQLite + cola de sincronización offline. Resuelve serial + redundancia + offline. |
-| D6 | **Estructura de código** | Monorepo (pnpm + Turborepo) | Tipos/esquema compartidos, una sola fuente de verdad, ideal para coordinación agéntica. |
-| D7 | **Hardware objetivo** | Mayormente 1 SiPM (individual) | Restricción física: no se separa limpiamente muón vs electrón con un centellador delgado. La ciencia se basa en tasa, espectro de amplitud y coincidencia cuando exista. |
-| D8 | **Multi-tenant** | Híbrido: Institución → Usuarios → Detectores, + usuarios independientes | Flexibilidad para universidades y para investigadores/estudiantes sueltos. |
-| D9 | **Clasificación de partículas** | Por fases: honesta (física) → ML | Fase 1 rigurosa (amplitud + coincidencia + incertidumbre declarada). Fase 2 ML cuando haya datos. No sobreprometer. |
-| D10 | **Redundancia de datos (prioridad #1)** | 3 capas: SQLite local + DB nube primaria + respaldos fríos automáticos | Local en cada PC del detector + nube primaria + dumps periódicos a almacenamiento frío barato. |
-| D11 | **APIs externas** | NMDB + NOAA SWPC + NASA DONKI + Dst/Kp | Correlación científica con clima espacial. NMDB es lo más comparable (monitores de neutrones ↔ muones, decrecimientos Forbush). |
-| D12 | **IA** | ML clásico primero, diseñado para escalar a DL | Anomalías, corrección barométrica, forecasting, Forbush, insights, "valores normales", self-heal/retraining. DL si luego hay GPU. Solo diseño ahora. |
-| D13 | **Backlog/specs** | Specs en `/specs` (Markdown, SDD) + GitHub Issues/Projects | Specs versionadas junto al código (los agentes las leen); Issues para seguimiento/asignación. |
-| D14 | **Licencia** | MIT | Permisiva y simple; máxima adopción por universidades/entusiastas; ciencia abierta. |
-| D15 | **Toolkit frontend** | Tailwind + shadcn/ui + **Plotly** + **MapLibre** | Plotly para gráficos científicos (log, error bars, export); shadcn/ui accesible; MapLibre mapas vectoriales gratis (OSM). |
-| D16 | **Almacenamiento frío (capa 3)** | Cloudflare R2 | S3-compatible, 10GB gratis, sin egreso; dumps automáticos; migrable a Red Clara. |
-| D17 | **Idiomas (i18n)** | ES + EN + PT-BR | Cubre casi toda LatAm + ciencia internacional + Brasil. |
-| D18 | **Hosting Fase A** | Firebase Hosting (Spark/gratis) + Next.js **static export** | Billing-proof (Spark bloquea, no cobra); moderno (React/Tailwind/shadcn); datos vía SDK cliente; dominio propio gratis cuando se decida. App Hosting/Blaze evitado por riesgo de cobro. Fase B: SSR completo en Red Clara. |
-| D19 | **Licencia de datos** | CC-BY 4.0 (datos públicos) | Ciencia abierta con atribución obligatoria. Distinta de MIT (código). |
-| D20 | **Mapa del landing** | Agregación por **ciudad** (burbujas escaladas/numeradas) | Propósito demostrativo (alcance/recepción), no localización precisa. Visualmente atractivo aun con pocos detectores. |
-| D21 | **Modelo de entidades** | Dos niveles: **Estación** (perfil/sitio) → **Detector(es)** (dispositivo físico) | Resuelve la colisión de nombres; los datos van por detector; soporta device token y coincidencia futura. |
-| D22 | **Visibilidad** | Elección **obligatoria** al crear estación, **sin default**; embargo opcional | El usuario decide explícitamente; se respeta cualquiera de las opciones. |
-| D23 | **Configurabilidad** | Maximizar lo informativo / configurable / ajustable | Guardar todos los metadatos posibles; ajustes avanzados disponibles sin estorbar el flujo básico. Principio rector. |
-| D24 | **Visibilidad y permisos** | 3 visibilidades (Pública/Institución/Privada) + permisos por estación (owner/editor/viewer) | `editor` puede escribir datos desde otra máquina; resuelve compartir edición. Ver `11`. |
-| D25 | **Identidad y compartición** | Cuenta con email + username únicos + nombre; compartir por email/username mostrando nombre+institución | Selección fiable y con privacidad. Ver `11`. |
-| D26 | **Monetización** | Núcleo gratis siempre; solo ganchos (entitlements+metering), **sin cobro en v6** | Misión de ciencia abierta; sostenibilidad por grants/donaciones. Ver `13`. |
-| D27 | **Redes de estaciones** | Agrupar estaciones en redes/arrays para análisis conjunto | Eventos simultáneos = alta confianza; estudios geográficos. Ver `14`. |
-| D28 | **Idioma del código** | **Inglés** en todo el código (identificadores, comentarios, commits, esquema, API, claves i18n) | Estándar internacional; el inglés es el *source locale* de la UI; es/pt-BR son traducciones. Evita traducción parchada. |
-| D29 | **Idioma de documentos** | Híbrido: **specs nuevas, reporte científico y docs de usuario/técnicas en inglés**; `planning/` interno puede quedar en español hasta abrir el repo | Internacionalización donde importa (código-facing y público), sin retraducir todo ahora. Tareas pendientes: traducir `THEORETICAL-FOUNDATION.md` y `specs/0001` a inglés. |
-| D30 | **Checkpoint por milestone** | Milestone = **entregable sustancial = 1 commit de Alexander** (no por archivo, no infinito sin guardar). Agente entrega + Reporte de Etapa y **se detiene**; Alexander revisa, commitea, autoriza seguir. Dimensionar a una sesión; working tree = red de seguridad | Control de tokens + poder volver a etapas exitosas. Issues ≠ checkpoints (eso son los commits). Ver `03 §4bis`. |
-| D31 | **Ingesta de datos** | **Agente instalable (nuestro, hecho con Tauri) = camino ESTÁNDAR único**; Web Serial solo como **demo opcional con aviso** de "no se guarda offline". Visualización siempre web. Login = cuenta MunHub (sin segunda cuenta, sin servicio externo) | Cumple prioridad #1: no perder datos en detector 24/7 (offline/reinicio). |
-| D32 | **Commits/push (revisada)** | **Feature-branch + PR + CI, `main` protegido.** Agentes commitean/pushean ramas y abren PR (Conventional Commits, inglés); **solo Alexander mergea**. Token de flota sin bypass. Sustituye la regla previa "los agentes nunca commitean" | El control se mueve de "teclear cada commit" (frágil) a "gates automáticos + `main` protegido + único merger humano": más eficiente y más seguro. Ver `18 §8`. |
-| D33 | **Flota multi-proveedor** | Claude Opus orquesta e integra; ruteo por matriz (Sonnet/Haiku/Gemini/Cursor/Copilot); `AGENTS.md` = brief universal con shims; spec = unidad; worktree+paquete = carril; contratos-primero; olas de carriles disjuntos | Maximizar throughput y aprovechar suscripciones (Gemini/Cursor/Copilot) ahorrando quota Claude. Ver `18 §2–§3`. |
-| D34 | **Calidad defense-in-depth** | Gates automáticos por PR (CI build/test/lint/typecheck + cobertura + gitleaks + Bugbot + Copilot review) + DoD por spec + gate de fase + auditor de completitud + E2E del MVP | Usar la flota para verificar calidad de cada paso/etapa y la completitud final. Ver `18 §6`. |
-| D35 | **Revisión cruzada** | El autor nunca es el único revisor; revisa un **proveedor distinto**; personas Claude (Físico/Seguridad/Arquitecto) en PRs relevantes | Cada modelo tiene puntos ciegos distintos; el *ensemble* atrapa más que el auto-review. Ver `18 §6 Capa B/C`. |
-| D36 | **Lenguaje de diseño** | **"Observatory Dark"**: instrumento científico (no SaaS genérico), oscuro por defecto (+ light), datos como héroe, 1 acento cian + ámbar, Geist + mono tabular, cuerpo ≥16px, grid 8-pt, **doctrina anti-cara-de-IA**. Generación con v0 (Vercel), integración Cursor, dirección de arte Claude | El diseño destacado viene de un sistema definido + gusto humano, no de "hazlo bonito". Evita los *tells* de IA (letra chica, etc.). Ver `docs/design/DESIGN-LANGUAGE.md`. |
-| D37 | **Firebase-complete por defecto** | El producto corre completo e indefinido sobre Firebase gratis; Red Clara/Supabase = upgrade opcional, nunca requisito. Todo servicio Firebase (Auth, Storage, FCM, Functions) detrás de nuestras interfaces | Autonomía: no dependemos de que Red Clara provea. Spark bloquea, no cobra. Ver `19`. |
-| D38 | **Filosofía de integraciones** | Docs-as-code + sitio de docs; **no Notion**; n8n/Slack/Discord diferidos a ops/comunidad; invertir en Storybook + monitoreo (Sentry) + CodeQL + Playwright + DOI | Una calling card impresiona por coherencia, no por *kitchen-sink*. Cada integración gana su mantenimiento. Ver `19`. |
-| D39 | **Auth (Fase A)** | **Firebase Auth** + roles vía **custom claims** (admin/user/guest), detrás de un `AuthProvider` | Reemplaza el auth artesanal v5; roles sin lecturas extra; Supabase Auth mapea 1:1 en Fase B. Ver `19`. |
-| D40 | **Arquitectura limpia + SOLID** | **Clean/Hexagonal**: dependencias hacia adentro; `shared`+`physics` = dominio puro; `data-provider` = adaptadores; apps/services = detalles. **SOLID** como estándar (DIP = keystone). Patrones de diseño con criterio | Forma + disciplina que dan portabilidad y mantenibilidad; "future-proof" con **YAGNI/KISS** de contrapeso. Ver `docs/technical/ENGINEERING-STANDARDS.md`. |
-| D41 | **TDD pragmático** | Test-first donde la corrección **es** el producto (`physics`, esquemas `shared`); test-after / E2E para UI e integración | Garantiza la ciencia sin dogma. Cobertura = gate duro desde S06. |
-| D42 | **Estándares de documentación** | **C4** (Context+Container ahora), **ADRs**, **Conventional Commits + SemVer**, **Keep a Changelog**; **la documentación es parte de "done"** (todo PR actualiza docs + `CHANGELOG`) | Memoria del proyecto + calidad de calling card; nada se construye sin dejar rastro legible. |
-| D43 | **MoE — solo el espíritu** | Mixture-of-Experts literal (DL) **no** aplica a nuestra ML clásica; su idea (rutear a expertos) ya vive en la **flota de agentes** y el **ensemble champion-challenger** de ML | Adoptar el concepto útil sin maquinaria innecesaria (sin GPU, sin necesidad). Ver `ENGINEERING-STANDARDS.md`. |
-| D44 | **Estilo de commits/PRs** | Título y descripción cuentan **lo que el cambio aporta** (producto/ingeniería), para lector humano del historial; **prohibido** narrar proceso, opciones consideradas o enmarcar como reacción a corrección ("as requested", "ahora sin X"); sin disculpas. La deliberación va en el chat, no en Git | El historial público es una carta de presentación; debe leerse profesional y atemporal, no como diálogo IA↔humano. Ver `CONTRIBUTING.md`. |
-| D45 | **Versionado** | SemVer; **`6.0.0` = lanzamiento de MunHub Lab 6**. Pre-launch `6.0.0-alpha/beta/rc.N`; post-launch `6.0.x` (fixes), `6.x.0` (features compatibles), `7.0.0` (ruptura de contratos públicos) | Estándar claro y predecible para todo el equipo/flota. Ver `CONTRIBUTING.md`. |
-| D46 | **Mando y rol de Adjutant** | **CEO** (Alexander) → **Adjutant/Gerente** (el modelo más avanzado con el que habla directamente: orquesta la flota, perspectiva total, proactivo, reporta y consulta) → **supervisores** por área → **trabajadores**. El Adjutant reparte la carga por fortaleza de cada agente/proveedor e informa | Rol permanente (más allá de un chat) que convierte la visión en ejecución excelente y guarda la cultura. Ver `planning/20` + memoria `adjutant-role`. |
+**v6.0 vision:** professional platform, modular, scalable to multiple countries, with solid
+scientific foundation, data redundancy as priority #1, deployable both in the cloud
+(Firebase bridge) and on own server (Red Clara, Supabase self-hosted), prepared for
+an own AI, and built with an auditable agentic workflow.
 
 ---
 
-## 2. Arquitectura objetivo (alto nivel)
+## 1. Foundational decisions (CLOSED)
+
+| # | Decision | Choice | Rationale |
+|---|----------|--------|-----------|
+| D1 | **Frontend** | React + Next.js + TypeScript | SSR for landing/SEO + map, larger ecosystem of charts/scientific libraries, larger talent base for multi-university collaboration. |
+| D2 | **Backend/DB target** | Supabase self-hosted + TimescaleDB | Self-hostable Postgres on Red Clara, with auth/RLS, realtime and storage. No lock-in. TimescaleDB for scientific time series. |
+| D3 | **Backend/DB bridge** | Firebase `munhub-1` (fresh project) | Red Clara has not yet provisioned resources. Deploy NOW on new Firebase and migrate later. Service account in `private/` (NEVER commit). |
+| D4 | **Data layer** | Agnostic `DataProvider` (FirebaseProvider \| SupabaseProvider) | Enables Phase A (Firebase) → Phase B (Supabase) without rewriting the app. **This layer IS the admin migration/import tool.** |
+| D5 | **Detector reading + offline** | Installable local agent (Tauri) | Reads serial on any OS without manual Python + local SQLite backup + offline sync queue. Resolves serial + redundancy + offline. |
+| D6 | **Code structure** | Monorepo (pnpm + Turborepo) | Shared types/schema, single source of truth, ideal for agentic coordination. |
+| D7 | **Target hardware** | Mostly 1 SiPM (individual) | Physical constraint: muon vs electron cannot be cleanly separated with a thin scintillator. Science is based on rate, amplitude spectrum and coincidence where available. |
+| D8 | **Multi-tenant** | Hybrid: Institution → Users → Detectors, + independent users | Flexibility for universities and for standalone researchers/students. |
+| D9 | **Particle classification** | By phases: honest (physics) → ML | Phase 1 rigorous (amplitude + coincidence + declared uncertainty). Phase 2 ML when data is available. Do not overpromise. |
+| D10 | **Data redundancy (priority #1)** | 3 layers: local SQLite + primary cloud DB + automatic cold backups | Local on each detector PC + primary cloud + periodic dumps to cheap cold storage. |
+| D11 | **External APIs** | NMDB + NOAA SWPC + NASA DONKI + Dst/Kp | Scientific correlation with space weather. NMDB is the most comparable (neutron monitors ↔ muons, Forbush decreases). |
+| D12 | **AI** | Classical ML first, designed to scale to DL | Anomalies, barometric correction, forecasting, Forbush, insights, "normal values", self-heal/retraining. DL if GPU is available later. Design only now. |
+| D13 | **Backlog/specs** | Specs in `/specs` (Markdown, SDD) + GitHub Issues/Projects | Specs versioned alongside code (agents read them); Issues for tracking/assignment. |
+| D14 | **License** | MIT | Permissive and simple; maximum adoption by universities/enthusiasts; open science. |
+| D15 | **Frontend toolkit** | Tailwind + shadcn/ui + **Plotly** + **MapLibre** | Plotly for scientific charts (log, error bars, export); shadcn/ui accessible; MapLibre free vector maps (OSM). |
+| D16 | **Cold storage (layer 3)** | Cloudflare R2 | S3-compatible, 10 GB free, no egress; automatic dumps; migratable to Red Clara. |
+| D17 | **Languages (i18n)** | ES + EN + PT-BR | Covers almost all of LatAm + international science + Brazil. |
+| D18 | **Phase A hosting** | Firebase Hosting (Spark/free) + Next.js **static export** | Billing-proof (Spark blocks, does not charge); modern (React/Tailwind/shadcn); data via client SDK; own domain free when decided. App Hosting/Blaze avoided due to billing risk. Phase B: full SSR on Red Clara. |
+| D19 | **Data license** | CC-BY 4.0 (public data) | Open science with mandatory attribution. Distinct from MIT (code). |
+| D20 | **Landing map** | Aggregation by **city** (scaled/numbered bubbles) | Demonstrative purpose (reach/coverage), not precise location. Visually attractive even with few detectors. |
+| D21 | **Entity model** | Two levels: **Station** (profile/site) → **Detector(s)** (physical device) | Resolves the name collision; data belongs to detectors; supports device token and future coincidence. |
+| D22 | **Visibility** | **Mandatory** choice when creating a station, **no default**; optional embargo | User decides explicitly; any option is respected. |
+| D23 | **Configurability** | Maximize the informative / configurable / adjustable | Save all possible metadata; advanced settings available without cluttering the basic flow. Guiding principle. |
+| D24 | **Visibility and permissions** | 3 visibilities (Public/Institution/Private) + per-station permissions (owner/editor/viewer) | `editor` can write data from another machine; resolves shared editing. See `11`. |
+| D25 | **Identity and sharing** | Account with unique email + username + name; share by email/username showing name+institution | Reliable and privacy-respecting selection. See `11`. |
+| D26 | **Monetization** | Core always free; only hooks (entitlements+metering), **no billing in v6** | Open-science mission; sustainability via grants/donations. See `13`. |
+| D27 | **Station networks** | Group stations into networks/arrays for joint analysis | Simultaneous events = high confidence; geographic studies. See `14`. |
+| D28 | **Code language** | **English** throughout the code (identifiers, comments, commits, schema, API, i18n keys) | International standard; English is the UI *source locale*; es/pt-BR are translations. Avoids patchy translation. |
+| D29 | **Document language** | Hybrid: **new specs, scientific report and user/technical docs in English**; internal `planning/` may remain in Spanish until repo is opened | Internationalization where it matters (code-facing and public), without retranslating everything now. Pending tasks: translate `THEORETICAL-FOUNDATION.md` and `specs/0001` to English. |
+| D30 | **Checkpoint per milestone** | Milestone = **substantial deliverable = 1 Alexander commit** (not per file, not infinitely without saving). Agent delivers + Stage Report and **stops**; Alexander reviews, commits, authorizes continuation. Size to one session; working tree = safety net | Token control + ability to return to successful stages. Issues ≠ checkpoints (those are commits). See `03 §4bis`. |
+| D31 | **Data ingestion** | **Installable agent (ours, built with Tauri) = the single STANDARD path**; Web Serial only as **optional demo with notice** of "data not saved offline". Visualization always web. Login = MunHub account (no second account, no external service) | Fulfills priority #1: no data loss on a 24/7 detector (offline/restart). |
+| D32 | **Commits/push (revised)** | **Feature-branch + PR + CI, `main` protected.** Agents commit/push branches and open PRs (Conventional Commits, English); **only Alexander merges**. Fleet token without bypass. Replaces the previous rule "agents never commit" | Control moves from "type each commit" (fragile) to "automated gates + protected `main` + single human merger": more efficient and more secure. See `18 §8`. |
+| D33 | **Multi-provider fleet** | Claude Opus orchestrates and integrates; routing by matrix (Sonnet/Haiku/Gemini/Cursor/Copilot); `AGENTS.md` = universal brief with shims; spec = unit; worktree+package = lane; contracts-first; waves of disjoint lanes | Maximize throughput and leverage subscriptions (Gemini/Cursor/Copilot) saving Claude quota. See `18 §2–§3`. |
+| D34 | **Defense-in-depth quality** | Automated gates per PR (CI build/test/lint/typecheck + coverage + gitleaks + Bugbot + Copilot review) + DoD per spec + phase gate + completeness auditor + MVP E2E | Use the fleet to verify quality at each step/stage and final completeness. See `18 §6`. |
+| D35 | **Cross-review** | The author is never the sole reviewer; a **different provider** reviews; Claude personas (Physicist/Security/Architect) on relevant PRs | Each model has different blind spots; the *ensemble* catches more than self-review. See `18 §6 Layer B/C`. |
+| D36 | **Design language** | **"Observatory Dark"**: scientific instrument (not generic SaaS), dark by default (+ light), data as hero, 1 cyan accent + amber, Geist + tabular mono, body ≥16px, 8-pt grid, **anti-AI-face doctrine**. Generation with v0 (Vercel), Cursor integration, Claude art direction | Outstanding design comes from a defined system + human taste, not from "make it pretty". Avoids AI *tells* (small text, etc.). See `docs/design/DESIGN-LANGUAGE.md`. |
+| D37 | **Firebase-complete by default** | The product runs fully and indefinitely on free Firebase; Red Clara/Supabase = optional upgrade, never a requirement. All Firebase services (Auth, Storage, FCM, Functions) behind our interfaces | Autonomy: we do not depend on Red Clara provisioning. Spark blocks, does not charge. See `19`. |
+| D38 | **Integration philosophy** | Docs-as-code + docs site; **no Notion**; n8n/Slack/Discord deferred to ops/community; invest in Storybook + monitoring (Sentry) + CodeQL + Playwright + DOI | A calling card impresses through coherence, not *kitchen-sink*. Each integration must earn its maintenance cost. See `19`. |
+| D39 | **Auth (Phase A)** | **Firebase Auth** + roles via **custom claims** (admin/user/guest), behind an `AuthProvider` | Replaces v5 hand-crafted auth; roles without extra reads; Supabase Auth maps 1:1 in Phase B. See `19`. |
+| D40 | **Clean architecture + SOLID** | **Clean/Hexagonal**: dependencies inward; `shared`+`physics` = pure domain; `data-provider` = adapters; apps/services = details. **SOLID** as standard (DIP = keystone). Design patterns applied with judgment | Form + discipline that provide portability and maintainability; "future-proof" with **YAGNI/KISS** as counterweight. See `docs/technical/ENGINEERING-STANDARDS.md`. |
+| D41 | **Pragmatic TDD** | Test-first where correctness **is** the product (`physics`, `shared` schemas); test-after / E2E for UI and integration | Guarantees science without dogma. Coverage = hard gate from S06. |
+| D42 | **Documentation standards** | **C4** (Context+Container now), **ADRs**, **Conventional Commits + SemVer**, **Keep a Changelog**; **documentation is part of "done"** (every PR updates docs + `CHANGELOG`) | Project memory + calling-card quality; nothing is built without leaving a readable trace. |
+| D43 | **MoE — spirit only** | Literal Mixture-of-Experts (DL) does **not** apply to our classical ML; its idea (routing to experts) already lives in the **agent fleet** and the ML **champion-challenger ensemble** | Adopt the useful concept without unnecessary machinery (no GPU, no need). See `ENGINEERING-STANDARDS.md`. |
+| D44 | **Commit/PR style** | Title and description state **what the change delivers** (product/engineering), for a human reader of the history; **prohibited**: narrating process, options considered, or framing as a response to correction ("as requested", "now without X"); no apologies. Deliberation goes in chat, not in Git | The public history is a calling card; it must read professionally and timelessly, not like an AI↔human dialogue. See `CONTRIBUTING.md`. |
+| D45 | **Versioning** | SemVer; **`6.0.0` = MunHub Lab 6 launch**. Pre-launch `6.0.0-alpha/beta/rc.N`; post-launch `6.0.x` (fixes), `6.x.0` (compatible features), `7.0.0` (public contract break) | Clear and predictable standard for the entire team/fleet. See `CONTRIBUTING.md`. |
+| D46 | **Command and Adjutant role** | **CEO** (Alexander) → **Adjutant/Manager** (the most advanced model he talks to directly: orchestrates the fleet, full-picture perspective, proactive, reports and consults) → **supervisors** by area → **workers**. The Adjutant distributes load by each agent/provider's strength and reports | Permanent role (beyond a single chat) that turns vision into excellent execution and preserves culture. See `planning/20` + memory `adjutant-role`. |
+
+---
+
+## 2. Target architecture (high level)
 
 ```
                          ┌─────────────────────────────────────────┐
-   [Detector USB] ──────▶│  AGENTE LOCAL (Tauri, multiplataforma)   │
-                         │  • Lee serial (todos los SO)             │
-                         │  • Respaldo local SQLite (capa 1)        │
-                         │  • Cola de sync offline → reintenta      │
+   [Detector USB] ──────▶│  LOCAL AGENT (Tauri, cross-platform)     │
+                         │  • Reads serial (all OS)                 │
+                         │  • Local SQLite backup (layer 1)         │
+                         │  • Offline sync queue → retries          │
                          └───────────────────┬─────────────────────┘
-                                             │ (HTTPS/WSS, autenticado)
+                                             │ (HTTPS/WSS, authenticated)
                                              ▼
                          ┌─────────────────────────────────────────┐
-                         │     CAPA DE DATOS AGNÓSTICA (D4)         │
-                         │  DataProvider ──┬── FirebaseProvider     │  Fase A
-                         │                 └── SupabaseProvider     │  Fase B
+                         │     AGNOSTIC DATA LAYER (D4)             │
+                         │  DataProvider ──┬── FirebaseProvider     │  Phase A
+                         │                 └── SupabaseProvider     │  Phase B
                          └───────────────────┬─────────────────────┘
                                              ▼
               ┌──────────────────────────────────────────────────────┐
-              │  DB primaria (capa 2)    +   Respaldos fríos (capa 3) │
+              │  Primary DB (layer 2)    +   Cold backups (layer 3)   │
               │  Firebase munhub-1  →  Supabase/Postgres+TimescaleDB  │
               └───────────────────┬──────────────────────────────────┘
                                   ▼
    ┌──────────────────────────────────────────────────────────────────┐
    │                    WEB (Next.js, React, TS)                       │
-   │  • Landing pública (mapa de detectores, demo en vivo, educación)  │
-   │  • Dashboard de detector (charts, stats, espectros, clasificación)│
-   │  • Dashboard de cuenta / institución                             │
-   │  • Dashboard de administrador del sistema (DB, migración, usuarios)│
-   │  • Páginas de correlación con APIs externas (clima espacial)      │
+   │  • Public landing (detector map, live demo, education)            │
+   │  • Detector dashboard (charts, stats, spectra, classification)    │
+   │  • Account / institution dashboard                                │
+   │  • System administrator dashboard (DB, migration, users)          │
+   │  • Correlation pages with external APIs (space weather)           │
    └──────────────────────────────────────────────────────────────────┘
                                   ▲
    ┌──────────────────────────────┴───────────────────────────────────┐
-   │   SERVICIOS (Fase B, servidor Red Clara)                          │
-   │  • api/  servicios backend / edge functions                       │
-   │  • ai/   pipeline ML (Python): anomalías, forecasting, insights   │
-   │  • ingest de APIs externas (NMDB, NOAA SWPC, DONKI, Dst/Kp)        │
+   │   SERVICES (Phase B, Red Clara server)                            │
+   │  • api/  backend services / edge functions                        │
+   │  • ai/   ML pipeline (Python): anomalies, forecasting, insights   │
+   │  • ingestion of external APIs (NMDB, NOAA SWPC, DONKI, Dst/Kp)    │
    └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Layout del monorepo (propuesto)
+### Monorepo layout (proposed)
 
 ```
 munhub/
 ├─ apps/
 │  ├─ web/              # Next.js: landing + dashboards + admin
-│  └─ agent/            # Tauri: serial + SQLite local + sync offline
+│  └─ agent/            # Tauri: serial + local SQLite + offline sync
 ├─ services/
-│  ├─ api/              # (Fase B) backend / edge functions
-│  └─ ai/              # (diseño ahora) pipeline ML en Python
+│  ├─ api/              # (Phase B) backend / edge functions
+│  └─ ai/              # (design now) ML pipeline in Python
 ├─ packages/
-│  ├─ shared/           # tipos, esquema, constantes, validación (zod)
-│  ├─ data-provider/    # capa agnóstica D4 (Firebase | Supabase)
-│  ├─ ui/               # design system / componentes reutilizables
-│  └─ physics/          # cálculos científicos (corrección barométrica, flujo, espectros)
-├─ specs/               # Spec-Driven Development: una carpeta por feature
+│  ├─ shared/           # types, schema, constants, validation (zod)
+│  ├─ data-provider/    # agnostic layer D4 (Firebase | Supabase)
+│  ├─ ui/               # design system / reusable components
+│  └─ physics/          # scientific calculations (barometric correction, flux, spectra)
+├─ specs/               # Spec-Driven Development: one folder per feature
 ├─ docs/
-│  ├─ user/             # manual de usuario + FAQ
-│  ├─ technical/        # arquitectura, despliegue, ADRs
-│  ├─ research/         # fundamento científico (reporte teórico base)
-│  └─ paper/            # borrador del artículo (baja prioridad)
-├─ infra/               # docker, IaC, configs de despliegue (Red Clara)
-└─ .github/             # CI/CD, plantillas de issues/PR
+│  ├─ user/             # user manual + FAQ
+│  ├─ technical/        # architecture, deployment, ADRs
+│  ├─ research/         # scientific foundation (base theoretical report)
+│  └─ paper/            # article draft (low priority)
+├─ infra/               # docker, IaC, deployment configs (Red Clara)
+└─ .github/             # CI/CD, issue/PR templates
 ```
 
 ---
 
-## 3. Modelo de datos (lineamientos; detalle en spec dedicada)
+## 3. Data model (guidelines; detail in dedicated spec)
 
-**Entidades (modelo de dos niveles, D21):** `institutions`, `users`, `stations` (perfil/sitio),
-`detectors` (dispositivo físico, bajo una estación), `sessions`, `minute_records` (serie
-temporal, **por detector**), `realtime_records`, `external_events` (APIs), `ai_insights`.
-Detalle en `02-DATA-MODEL.md`.
+**Entities (two-level model, D21):** `institutions`, `users`, `stations` (profile/site),
+`detectors` (physical device, under a station), `sessions`, `minute_records` (time
+series, **per detector**), `realtime_records`, `external_events` (APIs), `ai_insights`.
+Detail in `02-DATA-MODEL.md`.
 
-**Metadatos OBLIGATORIOS:**
-- **Estación (sitio):** nombre, **lat/lon/altitud (manual)**, ciudad, país, emplazamiento,
-  `type` (single/coincidence), timezone, **visibilidad (sin default, D22)**, institución (si aplica).
-- **Detector (aparato):** modelo, firmware, `hw_version` (define τ_DT), # SiPM, `device_token`
-  (autogenerado), `calibration` (defaults por hw + edición avanzada opcional).
+**MANDATORY metadata:**
+- **Station (site):** name, **lat/lon/altitude (manual)**, city, country, placement,
+  `type` (single/coincidence), timezone, **visibility (no default, D22)**, institution (if applicable).
+- **Detector (device):** model, firmware, `hw_version` (defines τ_DT), # SiPM, `device_token`
+  (auto-generated), `calibration` (defaults per hw + optional advanced editing).
 
-**Compatibilidad hacia atrás (máxima):** estaciones/usuarios v5 sin metadatos se importan igual
-(+ se crea 1 detector con defaults); **notificación no intrusiva** para completarlos. Obligatorio
-solo en altas nuevas.
+**Maximum backward compatibility:** v5 stations/users without metadata are imported as-is
+(+ 1 detector created with defaults); **non-intrusive notification** to complete them. Mandatory
+only for new registrations.
 
-**Invariante científico (heredado, NO negociable):** todos los valores por minuto son
-**promedios, nunca sumas** (`ec`, `cc`, `sm/sx/sn`, `tp`, `pr`, `dt`). Sin filtrado de eventos.
-
----
-
-## 4. Hoja de ruta por fases
-
-| Fase | Nombre | Resultado | Backend |
-|------|--------|-----------|---------|
-| **F0** | Planificación (ACTUAL) | Specs, research físico, arquitectura, ADRs, backlog | — |
-| **F1** | Cimientos | Monorepo + `data-provider` + `shared` schema + auth/multi-tenant + migración de datos v5→v6 | Firebase munhub-1 |
-| **F2** | Núcleo de adquisición y visualización | Agente Tauri (serial+SQLite+sync) + dashboards reconstruidos (muchos más charts, espectros, stats, comparación) | Firebase |
-| **F3** | Landing pública | Mapa de detectores activos, demo en vivo de detector público, secciones educativas/info | Firebase |
-| **F4** | Correlación externa | Ingesta NMDB/NOAA/DONKI/Dst-Kp + vistas de correlación con eventos terrestres/solares | Firebase |
-| **F5** | Admin avanzado | Página dedicada: gestión de DB, **migración entre proveedores**, importación/conversión de DB externa, gestión de usuarios/roles, respaldos fríos | Firebase |
-| **F6** | Migración a servidor propio | Despliegue Supabase self-hosted + TimescaleDB en Red Clara; switch del DataProvider | → Supabase |
-| **F7** | IA | Despliegue del pipeline ML (anomalías, forecasting, insights, self-heal) | Supabase + ai/ |
-| **F8** | Documentación + paper | Manual usuario/FAQ, doc técnica completa, base del artículo científico | — |
-
-> La compatibilidad hacia atrás y la **seguridad/redundancia de datos** son transversales a
-> todas las fases, no una fase aparte.
+**Scientific invariant (inherited, NOT negotiable):** all per-minute values are
+**averages, never sums** (`ec`, `cc`, `sm/sx/sn`, `tp`, `pr`, `dt`). No event filtering.
 
 ---
 
-## 5. Roster de agentes y flujo Spec-Driven (resumen; detalle en Capa 4)
+## 4. Phased roadmap
 
-- 🔬 **Físico investigador** — fundamento teórico, qué es medible con 1 SiPM, validez de stats.
-- 🏗️ **Arquitecto** — diseño de sistema, esquema, ADRs, revisión de coherencia.
-- 💻 **Dev Frontend / Backend / Agente-local** — implementación por specs.
-- 🗄️ **Ingeniero de datos/DB** — migración, redundancia, time-series.
-- 🤖 **Ingeniero ML** — diseño del modelo propio + plan de recursos.
-- 🔐 **Seguridad** — auth, RLS, integridad y redundancia de datos.
-- 📖 **Documentación** — manuales + paper.
-- 🧭 **Orquestador** — mantiene a los agentes en su carril (specs como contrato).
+| Phase | Name | Outcome | Backend |
+|-------|------|---------|---------|
+| **F0** | Planning (CURRENT) | Specs, physics research, architecture, ADRs, backlog | — |
+| **F1** | Foundations | Monorepo + `data-provider` + `shared` schema + auth/multi-tenant + v5→v6 data migration | Firebase munhub-1 |
+| **F2** | Acquisition and visualization core | Tauri agent (serial+SQLite+sync) + reconstructed dashboards (many more charts, spectra, stats, comparison) | Firebase |
+| **F3** | Public landing | Map of active detectors, live public-detector demo, educational/info sections | Firebase |
+| **F4** | External correlation | NMDB/NOAA/DONKI/Dst-Kp ingestion + correlation views with terrestrial/solar events | Firebase |
+| **F5** | Advanced admin | Dedicated page: DB management, **provider migration**, external DB import/conversion, user/role management, cold backups | Firebase |
+| **F6** | Migration to own server | Self-hosted Supabase + TimescaleDB deployment on Red Clara; DataProvider switch | → Supabase |
+| **F7** | AI | ML pipeline deployment (anomalies, forecasting, insights, self-heal) | Supabase + ai/ |
+| **F8** | Documentation + paper | User manual/FAQ, complete technical docs, scientific article base | — |
 
-**Flujo SDD:** Idea → Spec (`/specs/NNN-feature/`) con requisitos + criterios de aceptación
-→ revisión humana → tareas atómicas → implementación → verificación contra criterios.
+> Backward compatibility and **data security/redundancy** are cross-cutting across
+> all phases, not a separate phase.
 
 ---
 
-## 6. Entregables de planificación (estado)
+## 5. Agent roster and Spec-Driven flow (summary; detail in Layer 4)
 
-- [x] `00-MASTER-PLAN.md` (este documento)
-- [x] `research/PHYSICS-DEEP-RESEARCH-PROMPT.md` → ejecutado; resultados en
-  `research/DEEP-RESEARCH-RESULTS.md` (temporal, descartable tras destilar)
-- [x] `01-ARCHITECTURE.md` — arquitectura detallada + ADRs clave
-- [x] `02-DATA-MODEL.md` — esquema completo + metadatos + migración v5→v6
-- [x] `03-AGENTS-AND-SDD.md` — roster, prompts base de agentes, plantillas de spec
-- [x] `04-BACKLOG.md` — épicas → specs → tareas con criterios de aceptación
-- [x] `05-REDUNDANCY-AND-SECURITY.md` — diseño de 3 capas + auth/RLS
-- [x] `06-AI-DESIGN.md` — diseño del modelo propio (solo planificación)
-- [x] `07-EXTERNAL-APIS.md` — contratos de NMDB/NOAA/DONKI/Dst-Kp
-- [x] `RED-CLARA-RESOURCE-TIERS.md` — 3 tiers de recursos a solicitar (tras fijar arquitectura+IA)
-- [x] `docs/research/THEORETICAL-FOUNDATION.md` — reporte teórico final (base científica oficial)
-- [x] `08-RISKS-AND-ASSUMPTIONS.md` — riesgos, supuestos, mitigaciones
-- [x] `09-DETECTOR-LIFECYCLE.md` — registro, auth, calibración por equipo, mantenimiento
-- [x] `10-OPERATIONS-AND-GOVERNANCE.md` — observabilidad/ops + gobernanza de datos
-- [x] `/AGENTS.md` (raíz) — **punto de entrada para agentes** + definición del corte vertical MVP
-- [x] `specs/0001-monorepo-scaffold/spec.md` — spec de ejemplo (patrón SDD)
-- [x] `11-PERMISSIONS-SHARING-ROLES.md` — visibilidad, roles, compartición
-- [x] `12-SUPPORT-NOTIFICATIONS-EMAIL.md` — tickets, centro de notificaciones, email
-- [x] `13-MONETIZATION-AND-ENTITLEMENTS.md` — postura + ganchos (sin cobro en v6)
-- [x] `14-STATION-NETWORKS.md` — redes de estaciones para análisis conjunto
-- [x] `15-ADMIN-CONSOLE.md` — consola admin completa (audit log, anuncios, onboarding…)
-- [x] `16-DEPLOYMENT-AND-CUTOVER.md` — estado real de despliegue + cutover seguro (GATED)
-- [x] `17-ACADEMIC-POSITIONING-AND-GOVERNANCE.md` — ORCID, atribución, DOI, ciencia abierta, legal
+- 🔬 **Research physicist** — theoretical foundation, what is measurable with 1 SiPM, statistical validity.
+- 🏗️ **Architect** — system design, schema, ADRs, coherence review.
+- 💻 **Frontend / Backend / Local-agent Dev** — implementation per specs.
+- 🗄️ **Data/DB engineer** — migration, redundancy, time-series.
+- 🤖 **ML engineer** — own model design + resource plan.
+- 🔐 **Security** — auth, RLS, data integrity and redundancy.
+- 📖 **Documentation** — manuals + paper.
+- 🧭 **Orchestrator** — keeps agents in their lane (specs as contract).
+
+**SDD flow:** Idea → Spec (`/specs/NNN-feature/`) with requirements + acceptance criteria
+→ human review → atomic tasks → implementation → verification against criteria.
+
+---
+
+## 6. Planning deliverables (status)
+
+- [x] `00-MASTER-PLAN.md` (this document)
+- [x] `research/PHYSICS-DEEP-RESEARCH-PROMPT.md` → executed; results in
+  `research/DEEP-RESEARCH-RESULTS.md` (temporary, discardable after distilling)
+- [x] `01-ARCHITECTURE.md` — detailed architecture + key ADRs
+- [x] `02-DATA-MODEL.md` — complete schema + metadata + v5→v6 migration
+- [x] `03-AGENTS-AND-SDD.md` — roster, agent base prompts, spec templates
+- [x] `04-BACKLOG.md` — epics → specs → tasks with acceptance criteria
+- [x] `05-REDUNDANCY-AND-SECURITY.md` — 3-layer design + auth/RLS
+- [x] `06-AI-DESIGN.md` — own model design (planning only)
+- [x] `07-EXTERNAL-APIS.md` — NMDB/NOAA/DONKI/Dst-Kp contracts
+- [x] `RED-CLARA-RESOURCE-TIERS.md` — 3 resource tiers to request (after fixing architecture+AI)
+- [x] `docs/research/THEORETICAL-FOUNDATION.md` — final theoretical report (official scientific basis)
+- [x] `08-RISKS-AND-ASSUMPTIONS.md` — risks, assumptions, mitigations
+- [x] `09-DETECTOR-LIFECYCLE.md` — registration, auth, calibration by device, maintenance
+- [x] `10-OPERATIONS-AND-GOVERNANCE.md` — observability/ops + data governance
+- [x] `/AGENTS.md` (root) — **agent entry point** + MVP vertical-slice definition
+- [x] `specs/0001-monorepo-scaffold/spec.md` — example spec (SDD pattern)
+- [x] `11-PERMISSIONS-SHARING-ROLES.md` — visibility, roles, sharing
+- [x] `12-SUPPORT-NOTIFICATIONS-EMAIL.md` — tickets, notification center, email
+- [x] `13-MONETIZATION-AND-ENTITLEMENTS.md` — posture + hooks (no billing in v6)
+- [x] `14-STATION-NETWORKS.md` — station networks for joint analysis
+- [x] `15-ADMIN-CONSOLE.md` — full admin console (audit log, announcements, onboarding…)
+- [x] `16-DEPLOYMENT-AND-CUTOVER.md` — actual deployment state + safe cutover (GATED)
+- [x] `17-ACADEMIC-POSITIONING-AND-GOVERNANCE.md` — ORCID, attribution, DOI, open science, legal
 - [x] `docs/technical/SERIAL-FORMATS.md` · `docs/technical/adr/002-local-agent-framework.md`
 
 ---
 
-## 7. Decisiones aún PENDIENTES (próximas rondas con el humano)
+## 7. Still-PENDING decisions (next rounds with the human)
 
-**Resueltas:** landing esencial pulido (F3); hosting Fase A (D18); licencia de datos (D19);
-mapa por ciudad (D20); modelo Estación+Detector (D21); visibilidad obligatoria (D22);
-configurabilidad (D23); auth (usuario+token, refuerzo en Fase B); calibración (defaults +
-avanzada opcional); auto-update (automático en background); embargo (opcional).
+**Resolved:** essential polished landing (F3); Phase A hosting (D18); data license (D19);
+city-level map (D20); Station+Detector model (D21); mandatory visibility (D22);
+configurability (D23); auth (user+token, reinforcement in Phase B); calibration (defaults +
+optional advanced); auto-update (automatic in background); embargo (optional).
 
-**Pendiente (no bloquea):**
-1. **Dominio definitivo** (decidir con el tutor; prototipo en `munhub-lab.web.app`, dominio
-   propio conectable gratis cuando se decida).
-2. **Branding fino** (logo, paleta) — se ajusta al construir el landing (F3).
+**Pending (non-blocking):**
+1. **Definitive domain** (decide with advisor; prototype on `munhub-lab.web.app`, own
+   domain connectable for free when decided).
+2. **Fine branding** (logo, palette) — adjusted when building the landing (F3).
 
 ---
 
-## 8. Notas de seguridad operativa
+## 8. Operational security notes
 
-- **Llaves en `private/` (ambas en `.gitignore`, NUNCA commitear; en prod por entorno/secreto):**
-  - `munra-1-firebase-adminsdk-*.json` → proyecto **viejo v5** (DB 1GB saturada/bloqueada) =
-    **fuente** de la migración v5→v6.
-  - `munhub-1-firebase-adminsdk-*.json` → proyecto **nuevo v6** = **destino** (Fase A).
-- Toda config sensible (claves Firebase, futuras de Supabase) vive en `.env` (no versionado)
-  y se documenta en `.env.example` (sin valores reales).
+- **Keys in `private/` (both in `.gitignore`, NEVER commit; in prod via env/secret):**
+  - `munra-1-firebase-adminsdk-*.json` → **old v5** project (1 GB DB saturated/blocked) =
+    **source** of the v5→v6 migration.
+  - `munhub-1-firebase-adminsdk-*.json` → **new v6** project = **destination** (Phase A).
+- All sensitive config (Firebase keys, future Supabase) lives in `.env` (not versioned)
+  and is documented in `.env.example` (without real values).

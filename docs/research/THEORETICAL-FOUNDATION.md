@@ -1,256 +1,264 @@
-# Fundamento Teórico y Científico de MunHub Lab
+# Theoretical and Scientific Foundation of MunHub Lab
 
-> **Estado:** v1 — destilado del deep research (`planning/research/DEEP-RESEARCH-RESULTS.md`,
-> temporal, descartable). Base científica OFICIAL del proyecto. Toda afirmación de física en
-> UI, landing, IA y documentación debe ser consistente con este documento.
-> **Revisión:** agente físico investigador. **Regla:** honestidad científica > marketing.
-
----
-
-## 0. Síntesis ejecutiva (lo que NO se puede ignorar)
-
-1. **Un solo SiPM no clasifica partículas.** Muón, electrón y gamma (vía Compton) producen
-   pulsos indistinguibles (todos son MIP, ~2 MeV). Reportar "muón detectado" por evento es
-   **especulación**. → Lo correcto: **"Tasa integral de partículas cargadas" / "tasa de
-   eventos tipo-MIP"**.
-2. **Los muones dominan estadísticamente** (~75–80% del flujo cargado a nivel del mar), así
-   que la *curva agregada* sí está impulsada por muones — pero esa dominancia **disminuye en
-   altitud** (Quito/Andes), donde el componente blando y hadrónico es 5–9× mayor.
-3. **Correcciones obligatorias antes de hablar de "señal cósmica":** tiempo muerto +
-   barométrica (coeficiente **local**, no universal) + térmica.
-4. **El minuto es demasiado ruidoso** (Poisson: error ~1.6% por minuto). Las anomalías
-   requieren integración de **muchas horas** (N≥100k) y umbrales **≥3σ persistentes**.
-5. **Ventaja única de Ecuador:** rigidez de corte geomagnético **14–16.8 GV** (la mayor del
-   planeta) → filtra ruido solar de baja energía; los datos andinos son señal galáctica pura
-   y escasa globalmente.
+> **Status:** v1 — distilled from the deep research (`planning/research/DEEP-RESEARCH-RESULTS.md`,
+> temporary, discardable). OFFICIAL scientific basis of the project. Every physics claim in
+> the UI, landing, AI, and documentation must be consistent with this document.
+> **Review:** research physicist agent. **Rule:** scientific honesty > marketing.
 
 ---
 
-## 1. Rayos cósmicos primarios y cascadas atmosféricas
+## 0. Executive summary (what CANNOT be ignored)
 
-- **Primarios:** ~89% protones, ~9% partículas alfa, ~2% núcleos pesados/electrones (PDG).
-  Origen solar (SEP, MeV–GeV), galáctico (GCR, supernovas, aceleración de Fermi) y
-  extragaláctico/AGN (>10¹⁸ eV).
-- **Espectro:** ley de potencias `dN/dE ∝ E⁻²·⁷` hasta el "codo" (~10¹⁵ eV). MunHub
-  interactúa con secundarios de primarios de **10¹⁰–10¹² eV**.
-- **Cascada (Extensive Air Shower):** un primario colisiona a 15–20 km y genera tres
-  componentes:
-  - **Hadrónico** (p, n, π, K) — núcleo, se atenúa rápido (Λ ≈ 110–148 g/cm²).
-  - **Electromagnético** (e⁺e⁻, γ) — del decaimiento π⁰→γγ, modelo de Heitler.
-  - **Muónico (penetrante)** — del decaimiento de π±/K± que no recolisionaron.
-- **A nivel del mar** (X≈1033 g/cm²): el flujo cargado está **dominado por muones (75–80%)**.
-  **En altitud andina** (Quito ~2850 m, ~730 hPa) la absorción es incompleta: flujo más
-  denso y mixto (más electrones secundarios y gammas) → la dominancia muónica baja.
-
-→ **Implicación MunHub:** el lenguaje debe distinguir "partícula cargada" de "muón"; el grado
-de dominancia muónica depende del sitio (altitud) y debe declararse.
+1. **A single SiPM does not classify particles.** A muon, electron, and gamma (via Compton) produce
+   indistinguishable pulses (all are MIP, ~2 MeV). Reporting "muon detected" per event is
+   **speculation**. → The correct wording: **"Integral rate of charged particles" / "MIP-type event rate"**.
+2. **Muons dominate statistically** (~75–80% of the charged flux at sea level), so the *aggregate
+   curve* is indeed driven by muons — but that dominance **decreases at altitude**
+   (Quito/Andes), where the soft and hadronic component is 5–9× larger.
+3. **Mandatory corrections before speaking of "cosmic signal":** dead time +
+   barometric (**local** coefficient, not universal) + thermal.
+4. **One minute is too noisy** (Poisson: error ~1.6% per minute). Anomalies
+   require integration over **many hours** (N≥100k) and **≥3σ persistent** thresholds.
+5. **Ecuador's unique advantage:** geomagnetic cutoff rigidity **≈12–13 GV** (among the highest
+   on Earth; the global maximum ≈17 GV lies over Southeast Asia) → filters low-energy solar
+   noise; Andean data is pure galactic signal, scarce globally.
 
 ---
 
-## 2. El muón atmosférico
+## 1. Primary cosmic rays and atmospheric cascades
 
-- **Qué es:** leptón, carga ±1e, espín ½, masa **105.66 MeV/c²** (~207× el electrón). No
-  siente la fuerza fuerte; solo EM y débil.
-- **Producción:** `π⁺→μ⁺+ν_μ`, `π⁻→μ⁻+ν̄_μ` (branching ~99.9%).
-- **Energía/flujo:** energía media en superficie **~4 GeV**; flujo integral vertical
-  **~1 muón·cm⁻²·min⁻¹** (detector horizontal).
-- **Dependencia angular:** `I(θ) ≈ I₀·cos²θ` (un muón inclinado atraviesa más atmósfera
-  `X/cosθ` → más pérdida y más probabilidad de decaer).
-- **Dilatación temporal (pilar educativo):** τ₀ = 2.197 µs ⇒ clásicamente solo ~660 m. Con
-  γ≈38 (muón de 4 GeV), τ≈83.6 µs y alcance ~25 km → por eso llegan a superficie. **Prueba
-  empírica directa de la Relatividad Especial.**
+- **Primaries:** ~89% protons, ~9% alpha particles, ~2% heavy nuclei/electrons (PDG).
+  Origin: solar (SEP, MeV–GeV), galactic (GCR, supernovae, Fermi acceleration) and
+  extragalactic/AGN (>10¹⁸ eV).
+- **Spectrum:** power law `dN/dE ∝ E⁻²·⁷` up to the "knee" (~10¹⁵ eV). MunHub
+  interacts with secondaries from primaries of **10¹⁰–10¹² eV**.
+- **Cascade (Extensive Air Shower):** a primary collides at 15–20 km and generates three
+  components:
+  - **Hadronic** (p, n, π, K) — core, attenuates quickly (Λ ≈ 110–148 g/cm²).
+  - **Electromagnetic** (e⁺e⁻, γ) — from π⁰→γγ decay, Heitler model.
+  - **Muonic (penetrating)** — from decay of π±/K± that did not re-collide.
+- **At sea level** (X≈1033 g/cm²): the charged flux is **dominated by muons (75–80%)**.
+  **At Andean altitude** (Quito ~2850 m, ~730 hPa) absorption is incomplete: denser and
+  mixed flux (more secondary electrons and gammas) → muonic dominance decreases.
 
----
-
-## 3. Física de detección (hardware CosmicWatch)
-
-- **Hardware:** centellador plástico (poliestireno/PVT, ~5×5×1 cm³) + **SiPM** (Hamamatsu
-  S13360 / SensL C-series). ADC 10-bit (v2) / 12-bit (v3X). (Axani et al. 2018; v3X 2025).
-- **Pérdida de energía (Bethe-Bloch):** `−⟨dE/dx⟩` con mínimo en β·γ≈3–4 → **MIP**. Los
-  muones cósmicos (>1 GeV) son MIP.
-- **Depósito típico:** MIP ≈ 1.5–2.0 MeV·g⁻¹·cm² × ρ(~1 g/cm³) × 1 cm ⇒ **~2.0 MeV**.
-- **Centelleo→señal:** ionización excita fluoróforos → fotones ~400 nm → reflexión interna →
-  SiPM en modo Geiger (ganancia ~10⁶) → pulso.
-- **Acondicionamiento:** peak-detector "estira" el pulso (ns→~100 µs) para que el ADC lo lea.
-  Calibración (polinomio) ADC→mV. **Saturación ~180–200 mV** (depósitos muy grandes "ciegan"
-  la amplitud → valor techo).
-
-→ **Implicación MunHub:** `sm/sx/sn` (mV) reflejan energía depositada con techo de saturación;
-documentarlo en tooltips. El espectro de amplitud es la observable física rica (§5).
+→ **MunHub implication:** the language must distinguish "charged particle" from "muon"; the
+degree of muonic dominance depends on the site (altitude) and must be declared.
 
 ---
 
-## 4. Tiempo muerto y corrección de tasa (OBLIGATORIA)
+## 2. The atmospheric muon
 
-- **Tiempo muerto por evento:** v2 ≈ **50 ms** (¡enorme!), v3X ≈ **400 µs** (Axani 2025,
+- **What it is:** lepton, charge ±1e, spin ½, mass **105.66 MeV/c²** (~207× the electron). Does
+  not interact via the strong force; only EM and weak.
+- **Production:** `π⁺→μ⁺+ν_μ`, `π⁻→μ⁻+ν̄_μ` (branching ~99.9%).
+- **Energy/flux:** mean energy at surface **~4 GeV**; vertical integral flux
+  **~1 muon·cm⁻²·min⁻¹** (horizontal detector).
+- **Angular dependence:** `I(θ) ≈ I₀·cos²θ` (an inclined muon traverses more atmosphere
+  `X/cosθ` → more energy loss and higher decay probability).
+- **Time dilation (educational pillar):** τ₀ = 2.197 µs ⇒ classically only ~660 m. With
+  γ≈38 (4 GeV muon), τ≈83.6 µs and range ~25 km → that is why they reach the surface. **Direct
+  empirical proof of Special Relativity.**
+
+---
+
+## 3. Detection physics (CosmicWatch hardware)
+
+- **Hardware:** plastic scintillator (polystyrene/PVT, ~5×5×1 cm³) + **SiPM** (Hamamatsu
+  S13360 / SensL C-series). 10-bit ADC (v2) / 12-bit (v3X). (Axani et al. 2018; v3X 2025).
+- **Energy loss (Bethe-Bloch):** `−⟨dE/dx⟩` with minimum at β·γ≈3–4 → **MIP**. Cosmic
+  muons (>1 GeV) are MIP.
+- **Typical deposit:** MIP ≈ 1.5–2.0 MeV·g⁻¹·cm² × ρ(~1 g/cm³) × 1 cm ⇒ **~2.0 MeV**.
+- **Scintillation→signal:** ionization excites fluorophores → photons ~400 nm → internal
+  reflection → SiPM in Geiger mode (gain ~10⁶) → pulse.
+- **Conditioning:** peak-detector "stretches" the pulse (ns→~100 µs) so the ADC can read it.
+  Calibration (polynomial) ADC→mV. **Saturation ~180–200 mV** (very large deposits "blind"
+  the amplitude → ceiling value).
+
+→ **MunHub implication:** `sm/sx/sn` (mV) reflect deposited energy with a saturation ceiling;
+document this in tooltips. The amplitude spectrum is the rich physical observable (§5).
+
+---
+
+## 4. Dead time and rate correction (MANDATORY)
+
+- **Dead time per event:** v2 ≈ **50 ms** (very large!), v3X ≈ **400 µs** (Axani 2025,
   arXiv:2508.12111).
-- La tasa medida **subestima** la real. Corrección no-paralizable:
+- The measured rate **underestimates** the true rate. Non-paralyzable correction:
 
-  `R_real = R_medida / (1 − R_medida · τ_DT)`
+  `R_real = R_measured / (1 − R_measured · τ_DT)`
 
-- Ignorarla causa subestimaciones sistemáticas fatales (especialmente en sitios andinos de
-  alta tasa) y arruina el cálculo barométrico.
+- Ignoring it causes fatal systematic underestimates (especially at high-rate Andean sites)
+  and ruins the barometric calculation.
 
-→ **Implicación MunHub:** `packages/physics` DEBE aplicar esta corrección; τ_DT depende de la
-versión de hardware (metadato del detector). El campo `dt` (% tiempo muerto) alimenta esto.
-
----
-
-## 5. Limitación crítica del detector individual (honestidad científica)
-
-- **Indistinguibilidad MIP:** un electrón de 15 MeV y un muón de 4 GeV depositan **los mismos
-  ~2 MeV** al cruzar 1 cm → sus pulsos en mV se solapan. **Imposible separarlos con 1 SiPM.**
-- **Contaminación gamma:** los γ ambientales (K-40, Th-232, radón) no ionizan directamente,
-  pero por **dispersión Compton** producen electrones de retroceso que sí generan pulsos
-  (engrosan canales bajos/medios).
-- **Sin direccionalidad ni energía del primario** con un solo centellador.
-
-**Qué SÍ es defendible reportar:**
-- **Tasa integral de partículas cargadas** / **tasa de eventos tipo-MIP** (con umbral de
-  amplitud declarado).
-- Inferencia **agregada**: la dominancia muónica (75–80% a nivel del mar) implica que las
-  *fluctuaciones* de la tasa rastrean a los muones galácticos (p. ej., un Forbush se ve).
-- **Nunca** etiquetar un evento individual como "muón" con certeza.
-
-→ **Implicación MunHub:** revisa S20 del backlog. El dashboard usa "partículas cargadas /
-tipo-MIP" + incertidumbre; "muón" solo en contexto agregado o con coincidencia (§7).
+→ **MunHub implication:** `packages/physics` MUST apply this correction; τ_DT depends on the
+hardware version (detector metadata). The `dt` field (% dead time) feeds into this.
 
 ---
 
-## 6. Espectro de amplitud (energía depositada)
+## 5. Critical limitation of the individual detector (scientific honesty)
 
-Histograma de amplitud agregado de un detector individual muestra 3 estructuras:
-1. **Ruido térmico / sub-umbral** (dark count del SiPM, gammas blandos) — se filtra (p. ej.
-   `ADC>30` o trigger dinámico).
-2. **Distribución de Landau** — pico ancho asimétrico; el **MPV** (valor más probable)
-   corresponde a los ~2 MeV del MIP.
-3. **Cola de Landau (alta energía)** — trayectorias diagonales (mayor Δx), chubascos
-   múltiples, rayos delta.
+- **MIP indistinguishability:** a 15 MeV electron and a 4 GeV muon deposit **the same
+  ~2 MeV** crossing 1 cm → their pulses in mV overlap. **Impossible to separate with 1 SiPM.**
+- **Gamma contamination:** ambient γ rays (K-40, Th-232, radon) do not ionize directly,
+  but via **Compton scattering** produce recoil electrons that do generate pulses
+  (broadening the low/mid channels).
+- **No directionality or primary energy** with a single scintillator.
 
-→ **Implicación MunHub:** el **espectro de amplitud/Landau es un chart de primera clase**
-(EPIC-5 S18), con escala log y el MPV marcado. Es lo más cercano a "física de energía" honesta.
+**What IS defensible to report:**
+- **Integral rate of charged particles** / **MIP-type event rate** (with declared
+  amplitude threshold).
+- **Aggregate** inference: muonic dominance (75–80% at sea level) implies that *fluctuations*
+  in the rate track galactic muons (e.g., a Forbush decrease is visible).
+- **Never** label an individual event as "muon" with certainty.
 
----
-
-## 7. Coincidencia y telescopios de muones (evolución)
-
-- Apilar 2+ detectores + (opcional) absorbente (Pb/acero); compuerta lógica **AND** en
-  ventana temporal (ns por hardware; ~10 ms por software/timestamps).
-- **Beneficios:** pureza de muones **>99%** (purga el componente blando), rechazo del ruido
-  térmico (coincidencia fortuita v3X ~4.5×10⁻⁵ Hz), y **direccionalidad** (cono de
-  aceptancia → anisotropía Este-Oeste).
-
-→ **Implicación MunHub:** `detector_type=coincidence` habilita reportar "muones" con rigor y
-direccionalidad. El esquema ya lo soporta (`02-DATA-MODEL`).
+→ **MunHub implication:** see S20 in the backlog. The dashboard uses "charged particles /
+MIP-type" + uncertainty; "muon" only in aggregate context or with coincidence (§7).
 
 ---
 
-## 8. Modulaciones del flujo y correcciones
+## 6. Amplitude spectrum (deposited energy)
 
-### (A) Barométrica — la dominante en superficie
-`I(P) = I₀·e^(β(P−P₀))` ⇒ lineal: `−ln(I/I₀) = β(P−P₀)`. **β NO es universal:**
+The amplitude histogram aggregated from an individual detector shows 3 structures:
+1. **Thermal noise / sub-threshold** (SiPM dark count, soft gammas) — filtered (e.g.
+   `ADC>30` or dynamic trigger).
+2. **Landau distribution** — wide asymmetric peak; the **MPV** (most probable value)
+   corresponds to the ~2 MeV of the MIP.
+3. **Landau tail (high energy)** — diagonal tracks (larger Δx), multiple showers,
+   delta rays.
 
-| Estación | β (%/hPa) | Referencia |
+→ **MunHub implication:** the **amplitude/Landau spectrum is a first-class chart**
+(EPIC-5 S18), with log scale and the MPV marked. It is the closest to honest "energy physics".
+
+---
+
+## 7. Coincidence and muon telescopes (evolution)
+
+- Stack 2+ detectors + (optional) absorber (Pb/steel); logical **AND** gate in
+  a time window (ns by hardware; ~10 ms by software/timestamps).
+- **Benefits:** muon purity **>99%** (purges the soft component), thermal noise rejection
+  (accidental coincidence rate v3X ~4.5×10⁻⁵ Hz), and **directionality** (acceptance cone →
+  East-West anisotropy).
+
+→ **MunHub implication:** `detector_type=coincidence` enables reporting "muons" rigorously and
+with directionality. The schema already supports this (`02-DATA-MODEL`).
+
+---
+
+## 8. Flux modulations and corrections
+
+### (A) Barometric — the dominant one at surface
+`I(P) = I₀·e^(β(P−P₀))` ⇒ linear: `−ln(I/I₀) = β(P−P₀)`. **β is NOT universal:**
+
+| Station | β (%/hPa) | Reference |
 |---|---|---|
-| Ecuatorial (Jeddah, superficie) | ≈ −0.24 ± 0.18 | Maghrabi et al. |
-| Polo Sur (Marambio, WCD) | ≈ −0.20 ± 0.03 | LAGO / Santos (2021) |
-| Global Muon Detector Network | ≈ −0.12 a −0.17 | De Mendonça et al. (2016) |
-| Baja latitud/alta rigidez (Hong Kong) | ≈ −0.085 | Wang & Lee (1967) |
+| Equatorial (Jeddah, surface) | ≈ −0.24 ± 0.18 | Maghrabi et al. |
+| South Pole (Marambio, WCD) | ≈ −0.20 ± 0.03 | LAGO / Santos (2021) |
+| Global Muon Detector Network | ≈ −0.12 to −0.17 | De Mendonça et al. (2016) |
+| Low latitude/high rigidity (Hong Kong) | ≈ −0.085 | Wang & Lee (1967) |
 
-→ **Implicación MunHub:** `packages/physics` calcula **β local por regresión** sobre el
-histórico de cada nodo; nunca asumir un β fijo. (Refuerza S04 y la capacidad C2 de IA.)
+→ **MunHub implication:** `packages/physics` calculates **local β by regression** over the
+historical data of each node; never assume a fixed β. (Reinforces S04 and AI capability C2.)
 
-### (B) Térmica — dual
-- **Negativa (superficie/altura):** aire caliente se expande → cascada se inicia más arriba →
-  muones recorren más → más decaen → menos flujo.
-- **Positiva (subterráneo profundo, p. ej. IceCube):** menor densidad → menos colisiones que
-  abortan piones → más muones duros.
-- Corrección fina requiere perfiles verticales (GFS/NCEP).
+### (B) Thermal — dual
+- **Negative (surface/altitude):** warm air expands → cascade initiates higher →
+  muons travel more → more decay → less flux.
+- **Positive (deep underground, e.g. IceCube):** lower density → fewer collisions that
+  abort pions → more hard muons.
+- Fine correction requires vertical profiles (GFS/NCEP).
 
-### (C) Diurna / estacional / solar
-- Variación diurna (anisotropía del viento solar), estacional (temperatura), y **ciclo solar
-  de 11 años** (anticorrelación: máximo solar → menos GCR).
+### (C) Diurnal / seasonal / solar
+- Diurnal variation (solar wind anisotropy), seasonal (temperature), and **11-year solar
+  cycle** (anticorrelation: solar maximum → fewer GCR).
 
-### (D) Altitud
-- Quito ~2850 m → ~730 hPa; flujo hadrónico/neutrónico **5–9× mayor** que a nivel del mar.
-  Normalizar análisis multi-estación por la isobara nativa de referencia.
+### (D) Altitude
+- Quito ~2850 m → ~730 hPa; hadronic/neutronic flux **5–9× larger** than at sea level.
+  Normalize multi-station analyses by the native reference isobar.
 
-### (E) Rigidez de corte geomagnético — el contexto de Ecuador
-- `R = pc/(ze)` [GV]. Solo partículas con `R > R_c` (rigidez de corte local) penetran.
-- Polos: R_c ~1 GV (entran partículas débiles). **Andes ecuatoriales: R_c ≈ 14.0–16.8 GV**
-  (la mayor del planeta) → filtro natural que purga el ruido solar de baja energía.
+### (E) Geomagnetic cutoff rigidity — Ecuador's context
+- `R = pc/(ze)` [GV]. Only particles with `R > R_c` (local cutoff rigidity) penetrate.
+- Poles: R_c ~1 GV (weak particles enter). **Ecuadorian Andes: R_c ≈ 12–13 GV**
+  (among the highest on Earth; the global maximum ≈17 GV corresponds to Doi Inthanon,
+  Thailand — Gerontidou et al. 2021; PSNM) → natural filter that purges low-energy solar noise.
 
-→ **Implicación MunHub:** principal argumento científico (y para la solicitud a Red Clara):
-los datos ecuatoriales son señal galáctica dura, prístina y escasa en redes del hemisferio norte.
-
----
-
-## 9. Clima espacial y eventos (correlación externa)
-
-- **Decrecimientos de Forbush (FD):** una CME barre los GCR → caída súbita y asimétrica de la
-  tasa (**1% a ~10%**, según latitud), inicio en horas, recuperación en **días–semanas**.
-  Certificar cruzando con **NMDB** (neutrones), **NOAA SWPC** (B, Bz, viento solar) y
-  **NASA DONKI** (catálogo CME/flares).
-- **GLE (Ground Level Enhancements):** protones solares directos. **Prácticamente nulos en
-  Ecuador** por la rigidez ~16 GV (honestidad: no prometer detección de GLE en Andes).
-- **Tormentas geomagnéticas:** índices **Kp** (3-horario, 0–9) y **Dst** (horario, nT) →
-  features para la IA; pueden bajar transitoriamente R_c.
-- **Ciclo solar 11 años:** anticorrelación de largo plazo.
-
-→ **Implicación MunHub:** valida y prioriza EPIC-7 (NMDB/NOAA/DONKI/Kp-Dst) y las vistas de
-correlación muones↔neutrones.
+→ **MunHub implication:** main scientific argument (and for the Red Clara application):
+Ecuadorian data is hard, pristine galactic signal, scarce in Northern Hemisphere networks.
 
 ---
 
-## 10. Estadística y "valores normales"
+## 9. Space weather and events (external correlation)
 
-- **Poisson:** los eventos son independientes; para N cuentas, `σ ≈ √N`. Error relativo
+- **Forbush decreases (FD):** a CME sweeps GCR → sudden asymmetric drop in the
+  rate (**1% to ~10%**, depending on latitude), onset within hours, recovery in **days–weeks**.
+  Certify by crossing with **NMDB** (neutrons), **NOAA SWPC** (B, Bz, solar wind) and
+  **NASA DONKI** (CME/flare catalog).
+- **GLE (Ground Level Enhancements):** direct solar protons. **Practically null in
+  Ecuador** due to the high cutoff rigidity (~12–13 GV; honesty: do not promise GLE detection
+  in the Andes).
+- **Geomagnetic storms:** indices **Kp** (3-hourly, 0–9) and **Dst** (hourly, nT) →
+  features for AI; can transiently lower R_c.
+- **11-year solar cycle:** long-term anticorrelation.
+
+→ **MunHub implication:** validates and prioritizes EPIC-7 (NMDB/NOAA/DONKI/Kp-Dst) and the
+muon↔neutron correlation views.
+
+---
+
+## 10. Statistics and "normal values"
+
+- **Poisson:** events are independent; for N counts, `σ ≈ √N`. Relative error
   `√N/N`.
-- **El minuto es ruidoso:** N≈3600/min → σ≈60 → error **~1.6%**. Un Forbush débil (~1%) queda
-  enterrado en el ruido por minuto.
-- **Buenas prácticas:** integrar **horas** (N≥100k) → error <0.3%. Definir anomalía con
-  umbrales **≥3σ persistentes**, sobre tasa ya corregida (tiempo muerto + barométrica + térmica).
-- **Línea base por detector:** construir el "normal" empíricamente con histórico en calma
-  solar, tras quitar deltas térmico-barométricos. No usar fórmulas a priori.
+- **One minute is noisy:** N≈3600/min → σ≈60 → error **~1.6%**. A weak Forbush (~1%) is
+  buried in the per-minute noise.
+- **Best practices:** integrate over **hours** (N≥100k) → error <0.3%. Define anomaly with
+  **≥3σ persistent** thresholds, over an already-corrected rate (dead time + barometric + thermal).
+- **Per-detector baseline:** build the "normal" empirically from a solar-quiet historical
+  record, after removing thermal-barometric deltas. Do not use a priori formulas.
 
-→ **Implicación MunHub:** los charts/alertas usan ventanas móviles largas; la IA respeta estos
-límites (nada de "anomalías" sobre un minuto). Refuerza C1/C3 de `06-AI-DESIGN`.
-
----
-
-## 11. IA/ML defendible (resumen; detalle en `06-AI-DESIGN.md`)
-
-- **Anomalías (no supervisado):** Autoencoders, Isolation Forest sobre el vector
-  multivariado (mV, tasa corregida, presión, temperatura).
-- **Corrección barométrica/térmica no lineal:** **Gradient Boosting (XGBoost/LightGBM)** en
-  vez de un β lineal estático.
-- **Forecasting:** ARIMA/SARIMA y LSTM (recuperación post-Forbush).
-- **Correlación cruzada:** clustering/SVM (DBSCAN) contra DONKI/NMDB/Kp para datar el choque.
-
-→ **Implicación MunHub:** actualizar `06-AI-DESIGN` con XGBoost como enfoque de corrección
-(C2) y el límite Poisson como restricción dura de las ventanas.
+→ **MunHub implication:** charts/alerts use long rolling windows; AI respects these
+limits (no "anomalies" over one minute). Reinforces C1/C3 of `06-AI-DESIGN`.
 
 ---
 
-## 12. Glosario divulgativo (para landing F3 y tooltips)
+## 11. Defensible AI/ML (summary; detail in `06-AI-DESIGN.md`)
 
-Versiones rigurosas pero accesibles disponibles en el deep research (sección "Glosario"):
-**Rayo cósmico, Cascada atmosférica, Muón, Dilatación temporal, Centellador plástico, SiPM,
-Corrección barométrica, Decrecimiento de Forbush, Rigidez de corte geomagnético.** El agente
-de documentación las adapta a es/en/pt-BR para los textos educativos.
+- **Anomaly detection (unsupervised):** Autoencoders, Isolation Forest on the
+  multivariate vector (mV, corrected rate, pressure, temperature).
+- **Non-linear barometric/thermal correction:** **Gradient Boosting (XGBoost/LightGBM)** instead
+  of a static linear β.
+- **Forecasting:** ARIMA/SARIMA and LSTM (post-Forbush recovery).
+- **Cross-correlation:** clustering/SVM (DBSCAN) against DONKI/NMDB/Kp to date the shock.
+
+→ **MunHub implication:** update `06-AI-DESIGN` with XGBoost as the correction approach
+(C2) and the Poisson limit as a hard constraint on windows.
 
 ---
 
-## 13. Referencias
+## 12. Outreach glossary (for landing F3 and tooltips)
 
-- Particle Data Group, *Review of Particle Physics* (sección Cosmic Rays).
+Rigorous but accessible versions available in the deep research (section "Glossary"):
+**Cosmic ray, Atmospheric cascade, Muon, Time dilation, Plastic scintillator, SiPM,
+Barometric correction, Forbush decrease, Geomagnetic cutoff rigidity.** The documentation
+agent adapts them to es/en/pt-BR for the educational texts.
+
+---
+
+## 13. References
+
+- Particle Data Group, *Review of Particle Physics* (section Cosmic Rays).
 - Axani et al., *The CosmicWatch Desktop Muon Detector* (2018); v3X (2025, arXiv:2508.12111).
 - Grieder, *Cosmic Rays at Earth*; Gaisser, *Cosmic Rays and Particle Physics*.
-- Heitler, *The Quantum Theory of Radiation* (modelo de cascada EM).
-- LAGO Collaboration; Santos (2021) — coeficiente barométrico, WCD.
+- Heitler, *The Quantum Theory of Radiation* (EM cascade model).
+- LAGO Collaboration; Santos (2021) — barometric coefficient, WCD.
 - De Mendonça et al. (2016) — Global Muon Detector Network.
-- Maghrabi et al. (KAAU) — estación ecuatorial; Wang & Lee (1967) — Hong Kong.
-- IGRF (International Geomagnetic Reference Field) — rigidez de corte.
+- Maghrabi et al. (KAAU) — equatorial station; Wang & Lee (1967) — Hong Kong.
+- IGRF (International Geomagnetic Reference Field) — cutoff rigidity.
+- Gerontidou et al. (2021), "World grid of cosmic ray vertical cut-off rigidity for the last
+  decade," *Adv. Space Res.* 67, 2231–2240. https://doi.org/10.1016/j.asr.2021.01.011
+- Banglieng et al. / PSNM Collaboration — Princess Sirindhorn Neutron Monitor at Doi Inthanon,
+  Thailand (R_c ≈ 17 GV, highest known station); arXiv:2605.15696 and refs therein.
+- Maghrabi et al. (2023), "The Role of Atmospheric Pressure, Temperature, and Humidity on
+  Cosmic Ray Muons at a Low Latitude Station (KAAU, Jeddah; β ≈ −0.24 ± 0.18 %/hPa),"
+  *Int. J. Astron. Astrophys.* 13, 236–258. https://doi.org/10.4236/ijaa.2023.133013
 - NMDB (Neutron Monitor Database); NOAA SWPC; NASA DONKI.
 
-> Verificar y completar citas (DOI/enlaces) al preparar el artículo científico (EPIC-12 S48).
+> Verify and complete citations (DOI/links) when preparing the scientific article (EPIC-12 S48).

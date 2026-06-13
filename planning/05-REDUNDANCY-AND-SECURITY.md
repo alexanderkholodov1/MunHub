@@ -1,106 +1,106 @@
-# MunHub Lab v6.0 — Redundancia y Seguridad
+# MunHub Lab v6.0 — Redundancy and Security
 
-> Depende de: `00`–`02`. **Prioridad #1 del sistema: la seguridad de los datos.**
-> Cubre EPIC-9 (S35–S38) y refuerza EPIC-3/8. Lectura obligatoria para ing. DB y seguridad.
+> Depends on: `00`–`02`. **System priority #1: the safety of the data.**
+> Covers EPIC-9 (S35–S38) and reinforces EPIC-3/8. Mandatory reading for the DB and
+> security engineers.
 
 ---
 
-## 1. Modelo de redundancia de 3 capas
+## 1. Three-layer redundancy model
 
-| Capa | Qué | Dónde | Cuándo | Falla que cubre |
+| Layer | What | Where | When | Failure it covers |
 |------|-----|-------|--------|-----------------|
-| **1. Borde** | Respaldo local | SQLite en cada PC de detector (agente Tauri) | Tiempo real, antes de subir | Caída de internet, de la nube, o de la plataforma (mantenimiento/actualización) |
-| **2. Primaria** | DB en línea | Firebase munhub-1 → Supabase/Postgres | Tiempo real | Pérdida del PC local; acceso global |
-| **3. Fría** | Respaldos comprimidos | Cloudflare R2 | Job programado (diario + semanal/mensual) | Corrupción/borrado de la primaria; proveedor caído |
+| **1. Edge** | Local backup | SQLite on each detector PC (Tauri agent) | Real time, before upload | Internet outage, cloud outage, or platform downtime (maintenance/update) |
+| **2. Primary** | Online DB | Firebase munhub-1 → Supabase/Postgres | Real time | Loss of the local PC; global access |
+| **3. Cold** | Compressed backups | Cloudflare R2 | Scheduled job (daily + weekly/monthly) | Corruption/deletion of the primary; provider down |
 
-**Principio:** ningún dato existe en una sola copia. El borde es la fuente de verdad local;
-la primaria es la fuente de verdad compartida; la fría es el seguro.
+**Principle:** no datum exists in a single copy. The edge is the local source of truth;
+the primary is the shared source of truth; the cold layer is the insurance.
 
-### Escenarios de recuperación (DR)
-- **Internet caído en el sitio:** el agente sigue grabando en SQLite; al volver la red,
-  sincroniza lo adelantado (idempotente por `(detector, ts)`).
-- **Plataforma en mantenimiento/actualización:** igual que arriba; el borde no depende de la
-  web para grabar.
-- **Corrupción/borrado en la primaria:** restaurar desde el último respaldo frío (R2) +
-  re-sincronizar desde los SQLite locales (que pueden estar más adelantados).
-- **Migración de proveedor:** `exportAll → importAll` (ver `01-ARCH §3`), con verificación.
-
----
-
-## 2. Respaldos fríos (S35/S36)
-
-- **Generación:** job programado usa `DataProvider.exportAll()` (streaming, paginado) →
-  archivo comprimido (gzip/zstd) + **checksum (SHA-256)** + manifiesto (rango, conteo, versión).
-- **Destino:** Cloudflare R2 (S3-compatible). Bucket privado; credenciales por entorno.
-- **Rotación:** p. ej. 30 diarios + 12 mensuales (configurable). Limpieza automática.
-- **Restauración:** verificar checksum → `importAll()` al destino → reporte de filas.
-- **Prueba de restauración:** job periódico que valida que el último respaldo es restaurable
-  (restore-to-temp + conteo), no solo que existe. Un respaldo no probado no cuenta.
+### Recovery scenarios (DR)
+- **Internet down on site:** the agent keeps recording to SQLite; when the network returns,
+  it syncs what is ahead (idempotent by `(detector, ts)`).
+- **Platform under maintenance/update:** same as above; the edge does not depend on the web
+  to record.
+- **Corruption/deletion in the primary:** restore from the latest cold backup (R2) +
+  re-sync from the local SQLite databases (which may be further ahead).
+- **Provider migration:** `exportAll → importAll` (see `01-ARCH §3`), with verification.
 
 ---
 
-## 3. Verificación de integridad (S38)
+## 2. Cold backups (S35/S36)
 
-- **Idempotencia y deduplicación** por clave natural `(detector_id, ts_minuto)`.
-- **Detección de gaps** (≥2 min) — ya existe en v5; se reporta, no se rellena con inventos.
-- **Checksums** en respaldos; **conteos cruzados** local vs primaria vs frío.
-- **Cuarentena** de registros que fallan validación `zod` (no se descartan: se aíslan para
-  revisión).
-- **Invariantes científicos** (promedios nunca sumas; sin filtrado de eventos) validados al
-  escribir.
+- **Generation:** a scheduled job uses `DataProvider.exportAll()` (streaming, paginated) →
+  compressed file (gzip/zstd) + **checksum (SHA-256)** + manifest (range, count, version).
+- **Destination:** Cloudflare R2 (S3-compatible). Private bucket; credentials per environment.
+- **Rotation:** e.g. 30 daily + 12 monthly (configurable). Automatic cleanup.
+- **Restoration:** verify checksum → `importAll()` into the target → row report.
+- **Restore test:** a periodic job validates that the latest backup is restorable
+  (restore-to-temp + count), not merely that it exists. An untested backup does not count.
 
 ---
 
-## 4. Autenticación y autorización
+## 3. Integrity verification (S38)
 
-- **Auth:** Firebase Auth (Fase A) → Supabase Auth (Fase B), detrás del `DataProvider`.
-- **Roles** (de DB, nunca hardcodeados): `admin` (global), `institution_admin` (su
-  institución), `user`, `guest`.
-- **Tenancy híbrida:** Institución→Usuarios→Detectores + usuarios independientes.
-- **Matriz de permisos (resumen):**
+- **Idempotency and deduplication** by natural key `(detector_id, ts_minute)`.
+- **Gap detection** (≥2 min) — already exists in v5; it is reported, never filled with
+  fabricated values.
+- **Checksums** on backups; **cross counts** local vs primary vs cold.
+- **Quarantine** for records that fail `zod` validation (not discarded: isolated for review).
+- **Scientific invariants** (averages never sums; no event filtering) validated at write time.
 
-| Acción | guest | user (dueño) | institution_admin | admin |
+---
+
+## 4. Authentication and authorization
+
+- **Auth:** Firebase Auth (Phase A) → Supabase Auth (Phase B), behind the `DataProvider`.
+- **Roles** (from DB, never hardcoded): `admin` (global), `institution_admin` (their
+  institution), `user`, `guest`.
+- **Hybrid tenancy:** Institution→Users→Detectors + independent users.
+- **Permission matrix (summary):**
+
+| Action | guest | user (owner) | institution_admin | admin |
 |--------|:----:|:----:|:----:|:----:|
-| Ver estación pública | ✓ | ✓ | ✓ | ✓ |
-| Ver/editar estación propia (y sus detectores) | — | ✓ | ✓ (de su institución) | ✓ |
-| Compartir estación | — | ✓ | ✓ | ✓ |
-| Gestionar usuarios de su institución | — | — | ✓ | ✓ |
-| Consola admin / migración DB | — | — | — | ✓ |
+| View public station | ✓ | ✓ | ✓ | ✓ |
+| View/edit own station (and its detectors) | — | ✓ | ✓ (within their institution) | ✓ |
+| Share station | — | ✓ | ✓ | ✓ |
+| Manage users of their institution | — | — | ✓ | ✓ |
+| Admin console / DB migration | — | — | — | ✓ |
 
 ---
 
-## 5. Reglas / RLS (deny-by-default)
+## 5. Rules / RLS (deny-by-default)
 
-- **Fase A (Firebase rules):** portar v5 con renombres (`profiles→stations`, detectores como
-  subnodo de la estación, `organizations→institutions`); lectura **pública** para estaciones
-  `public`, **institucional** para miembros de la institución dueña, y `private` solo
-  dueño/compartido/admin (D24, ver `11`). Deny-by-default en todo lo demás.
-- **Fase B (Postgres RLS):** una política por tabla y acción equivalente a las reglas. Nada
-  legible/escribible sin política explícita.
-- **Tests de reglas:** suite que verifica accesos permitidos y **denegados** (casos negativos).
-
----
-
-## 6. Manejo de secretos
-
-- `private/` (service account munhub-1) y `.env` → en `.gitignore`. **Nunca commitear.**
-- `.env.example` documenta variables sin valores reales.
-- En producción: inyección por variables de entorno / secret manager del servidor.
-- Rotación de claves documentada; claves del cliente Firebase (apiKey web) no son secretas
-  pero el acceso lo limitan las reglas.
+- **Phase A (Firebase rules):** port v5 with renames (`profiles→stations`, detectors as a
+  subnode of the station, `organizations→institutions`); **public** read for `public`
+  stations, **institutional** read for members of the owning institution, and `private` only
+  owner/shared/admin (D24, see `11`). Deny-by-default for everything else.
+- **Phase B (Postgres RLS):** one policy per table and action, equivalent to the rules.
+  Nothing readable/writable without an explicit policy.
+- **Rules tests:** a suite that verifies allowed and **denied** accesses (negative cases).
 
 ---
 
-## 7. Amenazas consideradas (resumen)
+## 6. Secret handling
 
-| Amenaza | Mitigación |
+- `private/` (munhub-1 service account) and `.env` → in `.gitignore`. **Never commit.**
+- `.env.example` documents variables without real values.
+- In production: injection via environment variables / the server's secret manager.
+- Key rotation documented; Firebase client keys (web apiKey) are not secret,
+  but access is limited by the rules.
+
+---
+
+## 7. Threats considered (summary)
+
+| Threat | Mitigation |
 |---------|-----------|
-| Borrado/corrupción de datos | 3 capas + respaldos probados + cuarentena |
-| Acceso no autorizado | deny-by-default + roles de DB + tests negativos |
-| Fuga de secretos | secretos fuera del repo + rotación |
-| Suplantación de detector (datos falsos) | auth de usuario + `device_token` por detector (aviso si cambia); refuerzo RLS por dispositivo en Fase B |
-| Pérdida de proveedor (Firebase/R2) | capa agnóstica + respaldo en proveedor distinto |
-| Inyección de datos inválidos | validación `zod` + idempotencia + invariantes |
+| Data deletion/corruption | 3 layers + tested backups + quarantine |
+| Unauthorized access | deny-by-default + DB roles + negative tests |
+| Secret leakage | secrets outside the repo + rotation |
+| Detector spoofing (fake data) | user auth + per-detector `device_token` (notice on change); per-device RLS hardening in Phase B |
+| Provider loss (Firebase/R2) | agnostic layer + backup on a different provider |
+| Invalid data injection | `zod` validation + idempotency + invariants |
 
-> **Evolución (post Red Clara):** réplica activa Postgres (primario+réplica) y, si aplica,
-> firma/clave por detector para autenticidad de los datos enviados.
+> **Evolution (post Red Clara):** active Postgres replica (primary+replica) and, where
+> applicable, a per-detector signature/key for authenticity of the submitted data.

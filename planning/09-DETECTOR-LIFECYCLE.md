@@ -1,88 +1,86 @@
-# MunHub Lab v6.0 — Ciclo de vida de Estaciones y Detectores
+# MunHub Lab v6.0 — Station and Detector Lifecycle
 
-> Depende de: `01`, `02`, `05`, `docs/research/THEORETICAL-FOUNDATION.md`.
-> Modelo de dos niveles (D21): **Estación** = perfil/sitio; **Detector** = dispositivo físico.
-> Principio (D23): **máxima informatividad/configurabilidad/ajustabilidad**, sin estorbar el
-> flujo básico. Afecta EPIC-3 (auth), EPIC-4 (agente) e integridad científica.
+> Depends on: `01`, `02`, `05`, `docs/research/THEORETICAL-FOUNDATION.md`.
+> Two-level model (D21): **Station** = profile/site; **Detector** = physical device.
+> Principle (D23): **maximum informativeness/configurability/adjustability**, without
+> obstructing the basic flow. Affects EPIC-3 (auth), EPIC-4 (agent), and scientific integrity.
 
 ---
 
-## 1. Etapas
+## 1. Stages
 
 ```
-Crear Estación → Registrar Detector(es) → Calibración → Operación → Mantenimiento → Baja
+Create Station → Register Detector(s) → Calibration → Operation → Maintenance → Decommission
 ```
 
-## 2. Crear Estación (en la web)
+## 2. Create Station (web)
 
-- El usuario crea la estación con sus **metadatos de sitio** (`02 §3`): nombre, ubicación
-  (**lat/lon/altitud ingresados a mano**, sin geolocalización automática), ciudad/país,
-  emplazamiento, `type` (single/coincidence), timezone.
-- **Visibilidad = elección obligatoria, sin default** (público/privado/unlisted); opción de
-  **embargo** (privado hasta una fecha → luego público).
-- Compatibilidad CosmicWatch: no se le pide nada especial al hardware.
+- The user creates the station with its **site metadata** (`02 §3`): name, location
+  (**lat/lon/altitude entered manually**, no automatic geolocation), city/country,
+  deployment setting, `type` (single/coincidence), timezone.
+- **Visibility = mandatory choice, no default** (public/private/unlisted); optional
+  **embargo** (private until a date → then public).
+- CosmicWatch compatibility: no special hardware requirements.
 
-## 3. Registrar Detector(es) (dispositivo físico)
+## 3. Register Detector(s) (physical device)
 
-- Dentro de la estación se registra ≥1 Detector con: `hardware_model`, `firmware_version`,
+- Within the station, register ≥1 Detector with: `hardware_model`, `firmware_version`,
   `hw_version` (v2/v3X → τ_DT), `sipm_count`.
-- El sistema **genera un `device_token`** para el aparato — **sin ralentizar el registro**
-  (transparente). Visible luego en los **ajustes avanzados/metadatos** del detector.
-- **Emparejamiento del agente:** el agente Tauri se vincula iniciando sesión el dueño y
-  eligiendo la estación/detector (o pegando un código). Guarda credenciales locales seguras y
-  marca sus envíos con el `device_token`.
-- **Auth de origen (D-auth):** Fase A → auth de usuario + reglas que validan permiso sobre la
-  estación; el `device_token` se usa para **identidad/aviso de consistencia**. Fase B →
-  refuerzo opcional con credencial por detector (RLS por dispositivo).
+- The system **generates a `device_token`** for the device — **without slowing down
+  registration** (transparent). Visible later in the detector's **advanced settings/metadata**.
+- **Agent pairing:** the Tauri agent connects by the owner logging in and selecting the
+  station/detector (or entering a code). Stores secure local credentials and tags its
+  transmissions with the `device_token`.
+- **Origin auth (D-auth):** Phase A → user auth + rules that validate permission over the
+  station; `device_token` used for **identity/consistency warning**. Phase B → optional
+  enforcement with per-detector credential (RLS per device).
 
-### Aviso de consistencia (multi-dispositivo)
-Si llega data con un `device_token` distinto al registrado (edición compartida, o el dueño
-conecta otro aparato al mismo Detector), la app **avisa fuerte**: *"No recomendamos mezclar
-dispositivos: la calibración puede diferir y afectar la consistencia de los datos. Te
-sugerimos crear un nuevo Detector/Estación."* Si el usuario continúa, el Detector queda con
-varios aparatos registrados (todo trazable).
+### Consistency warning (multi-device)
+If data arrives with a `device_token` different from the registered one (shared editing, or
+the owner connects another device to the same Detector), the app **issues a prominent warning**:
+*"Mixing devices is not recommended: calibration may differ and affect data consistency.
+Consider creating a new Detector/Station."* If the user proceeds, the Detector records
+multiple devices (fully traceable).
 
-## 4. Calibración (qué es y alcance)
+## 4. Calibration (scope and meaning)
 
-La plataforma **no calibra físicamente**; almacena constantes para que los cálculos sean
-correctos. **Buena noticia:** el firmware CosmicWatch **ya entrega mV y dead time**, así que
-en la práctica basta con la `hw_version` (para τ_DT). Aun así, por el principio D23:
+The platform **does not perform physical calibration**; it stores constants so that
+calculations are correct. **Good news:** CosmicWatch firmware **already delivers mV and dead
+time**, so in practice the `hw_version` (for τ_DT) is sufficient. Still, per principle D23:
 
-- **Defaults por `hw_version`** aplicados automáticamente (cero fricción para el 99%).
-- **Edición avanzada OPCIONAL** (en ajustes avanzados del detector): `adc_to_mv`,
-  `saturation_mv` (~180–200 mV), `trigger_adc_min`, τ_DT override — para quien calibró su
-  equipo con osciloscopio. Con botón **"volver a defaults"**.
-- Los datos quedan marcados con la `calibration`/`model_version` vigente al capturarse
-  (trazabilidad científica). Sin calibración válida → se reporta en crudo, marcado "sin calibrar".
+- **Defaults by `hw_version`** applied automatically (zero friction for 99% of users).
+- **Optional advanced editing** (in detector advanced settings): `adc_to_mv`,
+  `saturation_mv` (~180–200 mV), `trigger_adc_min`, τ_DT override — for users who
+  calibrated their hardware with an oscilloscope. Includes a **"restore defaults"** button.
+- Data is tagged with the `calibration`/`model_version` in effect at capture time
+  (scientific traceability). Without a valid calibration → reported raw, marked "uncalibrated".
 
-## 5. Operación
+## 5. Operation
 
-- El agente: lee serial → **persiste en SQLite (capa 1)** → calcula derivados **en el borde**
-  (promedios/min, corrección de tiempo muerto, validación) → sincroniza vía `DataProvider`
-  con cola offline idempotente (`01 §4`).
-- La estación muestra estado **activo/inactivo** (alimenta el mapa del landing, S23, agregado
-  por ciudad).
+- The agent: reads serial → **persists to SQLite (layer 1)** → computes derivatives **at the
+  edge** (per-minute averages, dead-time correction, validation) → syncs via `DataProvider`
+  with an idempotent offline queue (`01 §4`).
+- The station shows **active/inactive** status (feeds the landing map, S23, aggregated by city).
 
-## 6. Mantenimiento
+## 6. Maintenance
 
-- **Auto-actualización del agente (D-update):** **automática en background**, firmada, se
-  aplica al reiniciar y **nunca interrumpe la grabación ni pierde datos**.
-- **Recalibración:** el usuario puede ajustar la calibración; trazable por `model_version`.
-- **Reubicación/cambio de hardware:** actualizar metadatos (nueva altitud/emplazamiento cambia
-  la física) → se marca un **nuevo tramo** para no mezclar regímenes; si cambia el aparato,
-  registrar nuevo Detector.
+- **Agent auto-update (D-update):** **automatic in the background**, signed, applied on
+  restart and **never interrupts recording or causes data loss**.
+- **Recalibration:** the user can adjust calibration; traceable via `model_version`.
+- **Relocation/hardware change:** update metadata (new altitude/setting changes the physics)
+  → a **new segment** is marked to avoid mixing regimes; if the physical device changes,
+  register a new Detector.
 
-## 7. Baja
-- Estación/Detector se marca inactivo/archivado **sin borrar histórico** (retención
-  indefinida). Borrado solo por admin, con respaldo previo (tombstone para datos públicos
-  ya citados).
+## 7. Decommission
+- Station/Detector is marked inactive/archived **without deleting historical data** (indefinite
+  retention). Deletion only by admin, with prior backup (tombstone for publicly cited data).
 
 ---
 
-## 8. Decisiones (resueltas)
-- ✅ Auth: usuario + registro manual; `device_token` desde F1 para identidad/aviso; refuerzo
-  por detector en Fase B.
-- ✅ Calibración: defaults por hardware + **edición avanzada opcional** + reset; guardar todos
-  los metadatos (incl. firmware).
-- ✅ Auto-update: automático en background, sin interrumpir grabación.
-- ✅ Visibilidad: elección obligatoria al crear la estación, sin default; embargo opcional.
+## 8. Resolved decisions
+- ✅ Auth: user + manual registration; `device_token` from F1 for identity/warning; per-detector
+  enforcement in Phase B.
+- ✅ Calibration: hardware defaults + **optional advanced editing** + reset; store all metadata
+  (including firmware).
+- ✅ Auto-update: automatic in background, without interrupting recording.
+- ✅ Visibility: mandatory choice at station creation, no default; optional embargo.

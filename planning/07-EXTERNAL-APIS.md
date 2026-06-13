@@ -1,78 +1,80 @@
-# MunHub Lab v6.0 — Integración de APIs externas
+# MunHub Lab v6.0 — External API Integration
 
-> Depende de: `00`–`02`. Cubre EPIC-7 (S26–S29). Todas las fuentes son **gratuitas y sin
-> pago**. Objetivo: correlacionar nuestros datos de muones con clima espacial y eventos
-> cósmicos/geomagnéticos para explicar variaciones del flujo.
+> Depends on: `00`–`02`. Covers EPIC-7 (S26–S29). All sources are **free and unpaid**.
+> Goal: correlate detector data with space weather and cosmic/geomagnetic events to
+> explain flux variations.
 >
-> ⚠️ Los endpoints/formatos exactos deben **verificarse al implementar** (las APIs cambian).
-> Este doc fija qué fuente, qué datos y para qué; el dev confirma URLs/parámetros vigentes.
+> ⚠️ Exact endpoints/formats must be **verified at implementation time** (APIs change).
+> This document fixes which source, which data, and for what purpose; the developer confirms
+> current URLs/parameters.
 
 ---
 
-## 1. Fuentes seleccionadas (D11)
+## 1. Selected sources (D11)
 
-| Fuente | Qué aporta | Por qué | Auth |
-|--------|-----------|---------|------|
-| **NMDB** (Neutron Monitor Database) | Conteos de monitores de neutrones en tiempo casi real; decrecimientos Forbush | **Lo más comparable** a muones: ambos siguen el flujo de rayos cósmicos | Sin clave (uso académico; citar) |
-| **NOAA SWPC** | Viento solar, índice Kp, fulguraciones, alertas geomagnéticas | "Drivers" solares que explican variaciones del flujo | Sin clave (JSON abierto) |
-| **NASA DONKI** | Catálogo de eventos: CME, fulguraciones, choques | Marcar eventos puntuales sobre las gráficas | API key gratuita (DEMO_KEY / propia) |
-| **Índices Dst/Kp** (Kyoto WDC / GFZ Potsdam) | Índices geomagnéticos | Correlación con rigidez de corte ecuatorial (ventaja Ecuador) | Sin clave (citar) |
-
----
-
-## 2. Qué se obtiene de cada una
-
-- **NMDB:** series de conteo por estación (vía NEST / servicio de datos en tiempo real).
-  Usar 1–2 estaciones de referencia + alguna de baja rigidez para contraste. Resolución
-  horaria/minutal. Uso: detectar Forbush y comparar con nuestra tasa corregida.
-- **NOAA SWPC:** productos JSON (p. ej. viento solar plasma/mag, Kp planetario, rayos X de
-  fulguraciones GOES). Resolución sub-horaria. Uso: contexto solar y disparadores.
-- **NASA DONKI:** consultas por rango de fechas de CME/flares/SEP. Uso: anotaciones de
-  eventos en los charts ("CME el …").
-- **Dst/Kp:** índice por hora/3h. Uso: nivel de actividad geomagnética para correlación.
+| Source | Contribution | Rationale | Auth |
+|--------|-------------|-----------|------|
+| **NMDB** (Neutron Monitor Database) | Near-real-time neutron monitor counts; Forbush decreases | **Most comparable** to charged-particle rates: both track the cosmic-ray flux | No key required (academic use; cite) |
+| **NOAA SWPC** | Solar wind, Kp index, flares, geomagnetic alerts | Solar "drivers" that explain flux variations | No key required (open JSON) |
+| **NASA DONKI** | Event catalog: CMEs, flares, shocks | Mark point events on charts | Free API key (DEMO_KEY or own key) |
+| **Dst/Kp indices** (Kyoto WDC / GFZ Potsdam) | Geomagnetic indices | Correlation with equatorial cutoff rigidity (Ecuador advantage) | No key required (cite) |
 
 ---
 
-## 3. Diseño de ingesta
+## 2. Data obtained from each source
+
+- **NMDB:** count series per station (via NEST / real-time data service).
+  Use 1–2 reference stations plus one low-rigidity station for contrast. Hourly/minutal
+  resolution. Purpose: detect Forbush decreases and compare with corrected rate.
+- **NOAA SWPC:** JSON products (e.g. solar wind plasma/mag, planetary Kp, GOES X-ray flares).
+  Sub-hourly resolution. Purpose: solar context and triggers.
+- **NASA DONKI:** CME/flare/SEP queries by date range. Purpose: event annotations on charts
+  ("CME on …").
+- **Dst/Kp:** hourly/3-hour index. Purpose: geomagnetic activity level for correlation.
+
+---
+
+## 3. Ingestion design
 
 ```
-[Scheduler] ─▶ [Fetcher por fuente] ─▶ [Normalizador] ─▶ external_events (cache local)
-                     │ (respeta rate limits,                       │
-                     │  reintentos, backoff)                       ▼
-                     └──────────────────────────────▶ [UI: overlays/correlación]
+[Scheduler] ─▶ [Per-source Fetcher] ─▶ [Normalizer] ─▶ external_events (local cache)
+                     │ (respects rate limits,                    │
+                     │  retries, backoff)                        ▼
+                     └─────────────────────────────▶ [UI: overlays/correlation]
 ```
 
-- **Cache local obligatorio:** nunca consultar la API externa desde el navegador del usuario
-  en cada vista. Un job programado trae los datos y los guarda en `external_events`; la UI
-  lee de nuestra DB. (Protege rate limits, da offline y velocidad.)
-- **Esquema `external_events`** (ver `02-DATA-MODEL`): `{id, source, kind, ts, payload jsonb,
-  fetched_at}`. `payload` guarda el dato crudo normalizado.
-- **Idempotencia:** clave `(source, kind, ts)` para no duplicar al re-traer.
-- **Rate limits / cortesía:** intervalos de fetch razonables; backoff; User-Agent
-  identificable; **citar/atribuir** cada fuente en la UI (requisito académico).
-- **Tolerancia a fallos:** si una fuente cae, las demás siguen; se marca "stale" en UI.
+- **Local cache mandatory:** never query an external API directly from the user's browser
+  on each view. A scheduled job fetches data and stores it in `external_events`; the UI
+  reads from the project database. (Protects rate limits, enables offline use and speed.)
+- **`external_events` schema** (see `02-DATA-MODEL`): `{id, source, kind, ts, payload jsonb,
+  fetched_at}`. `payload` stores the normalized raw data.
+- **Idempotency:** key `(source, kind, ts)` prevents duplicates on re-fetch.
+- **Rate limits / courtesy:** reasonable fetch intervals; backoff; identifiable User-Agent;
+  **cite/attribute** each source in the UI (academic requirement).
+- **Fault tolerance:** if one source is unavailable, the others continue; the UI marks data
+  as "stale".
 
 ---
 
-## 4. Vistas de correlación (S29)
+## 4. Correlation views (S29)
 
-- Overlay de eventos externos (CME, Forbush, picos Kp) como marcadores/bandas sobre nuestras
-  series temporales del detector.
-- **Comparación muones ↔ neutrones (NMDB):** dos series alineadas; resaltar Forbush
-  simultáneos (validación cruzada de nuestros datos).
-- Análisis de **lag/correlación** con Kp/Dst/viento solar (apoya capacidad C6 de la IA).
-- Todo el lenguaje científico revisado por el agente físico.
-
----
-
-## 5. Contratos por fuente (a completar al implementar)
-
-Para cada fuente, el dev backend documenta en su spec: URL base vigente, endpoints/parámetros,
-formato de respuesta, resolución temporal, límites, términos de uso/atribución, y el mapeo
-exacto a `external_events`. Mantener esa documentación junto al código del fetcher.
+- Overlay of external events (CMEs, Forbush decreases, Kp peaks) as markers/bands over
+  detector time series.
+- **Charged-particle rate vs. neutron comparison (NMDB):** two aligned series; highlight
+  simultaneous Forbush decreases (cross-validation of data).
+- **Lag/correlation analysis** with Kp/Dst/solar wind (supports AI capability C6).
+- All scientific language reviewed by the physics agent.
 
 ---
 
-## 6. Fuera de alcance
-- Fuentes de pago o con cuotas restrictivas.
-- Re-distribuir datos crudos de terceros sin atribución/licencia adecuada.
+## 5. Per-source contracts (to be completed at implementation)
+
+For each source, the backend developer documents in the spec: current base URL,
+endpoints/parameters, response format, temporal resolution, limits, terms of use/attribution,
+and the exact mapping to `external_events`. Keep that documentation alongside the fetcher code.
+
+---
+
+## 6. Out of scope
+- Paid sources or sources with restrictive quotas.
+- Re-distributing raw third-party data without adequate attribution/licensing.

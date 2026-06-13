@@ -1,93 +1,93 @@
-# MunHub Lab v6.0 — Operación, Observabilidad y Gobernanza de Datos
+# MunHub Lab v6.0 — Operations, Observability, and Data Governance
 
-> Depende de: `01`, `05`. Dos partes: (A) cómo operamos y observamos el sistema en producción;
-> (B) cómo se gobiernan los datos en una red internacional multi-universidad.
+> Depends on: `01`, `05`. Two parts: (A) how the system is operated and observed in
+> production; (B) how data is governed in an international multi-university network.
 
 ---
 
-# Parte A — Observabilidad y operación
+# Part A — Observability and Operations
 
-## A1. Principios
-- "Si no se puede observar, no se puede operar." Toda la plataforma emite logs estructurados,
-  métricas y errores; los fallos se detectan antes de que los reporte un usuario.
-- Empezar simple y barato (compatible con Firebase ahora y Red Clara después).
+## A1. Principles
+- "If it cannot be observed, it cannot be operated." The entire platform emits structured
+  logs, metrics, and errors; failures are detected before users report them.
+- Start simple and cheap (compatible with Firebase now and Red Clara later).
 
 ## A2. Logging
-- **Estructurado (JSON)** con niveles, en web, api, agente y jobs de IA.
-- `correlation_id` por petición/sincronización para rastrear extremo a extremo.
-- El agente local guarda logs rotados localmente (diagnóstico aunque esté offline).
+- **Structured (JSON)** with severity levels, in the web app, API, agent, and AI jobs.
+- `correlation_id` per request/synchronization for end-to-end tracing.
+- The local agent stores rotated logs locally (diagnostics even when offline).
 
 ## A3. Error tracking
-- Captura centralizada de excepciones (frontend y backend). Opción autoalojable y gratuita
-  (p. ej. **GlitchTip/Sentry self-hosted**) para no depender de servicios de pago y poder
-  correr en Red Clara. En Fase A puede empezar con logging + un panel simple.
+- Centralized exception capture (frontend and backend). Self-hostable and free option
+  (e.g. **GlitchTip/Sentry self-hosted**) to avoid paid services and to run on Red Clara.
+  In Phase A can start with logging + a simple dashboard.
 
-## A4. Métricas y health checks
-- **Salud del sistema:** endpoints `/health` (web/api), estado de la DB, estado de los jobs.
-- **Salud de la red:** nº estaciones activas/inactivas, último dato por detector, latencia
-  de sincronización, detectores con gaps. (Reutiliza el estado del mapa S23, agregado por ciudad.)
-- **Métricas de datos:** filas/min ingeridas, tasa de cuarentena, uso de almacenamiento
-  (vigila el límite de Firebase — ver R4).
+## A4. Metrics and health checks
+- **System health:** `/health` endpoints (web/API), DB status, job status.
+- **Network health:** number of active/inactive stations, last data per detector, sync
+  latency, detectors with gaps. (Reuses map state from S23, aggregated by city.)
+- **Data metrics:** rows/min ingested, quarantine rate, storage usage
+  (monitors Firebase limit — see R4).
 
-## A5. Alertas
-- Disparadores: caída de un detector clave, fallo de job de respaldo (¡crítico!), error de
-  migración, uso de almacenamiento sobre umbral, tasa de errores elevada.
-- Canal: email/webhook al admin. Sin ruido: agrupar y limitar.
+## A5. Alerts
+- Triggers: key detector down, backup job failure (critical!), migration error, storage
+  usage above threshold, elevated error rate.
+- Channel: email/webhook to admin. No noise: group and rate-limit alerts.
 
-## A6. Runbooks (en `docs/technical/`)
-- Procedimientos para: restaurar desde respaldo frío, rotar secretos, migrar de proveedor,
-  re-sincronizar un agente atascado, responder a "detector caído". (Los redacta documentación.)
+## A6. Runbooks (in `docs/technical/`)
+- Procedures for: restore from cold backup, rotate secrets, migrate provider,
+  re-sync a stuck agent, respond to "detector down". (Authored by the documentation role.)
 
-## A7. SLO informal (arranque)
-- Disponibilidad best-effort en Fase A; objetivo alto con redundancia en Fase B.
-- **Cero pérdida de datos** es el SLO duro (la redundancia de 3 capas existe para esto).
-
----
-
-# Parte B — Gobernanza de datos
-
-## B1. Propiedad
-- Los datos de cada detector **pertenecen a su dueño/institución**. MunHub es custodio, no
-  propietario. La institución decide visibilidad y uso.
-
-## B2. Visibilidad y política de compartición
-- Por **estación**: **pública / institución / privada** (D24, ver `11`).
-- **Consentimiento de ML (opt-out):** entrenar es opt-in por defecto; interruptor en ajustes
-  para excluir una estación del entrenamiento (default a nivel de usuario), con mensaje honesto
-  que recomienda mantenerlo. El pipeline de IA respeta el opt-out. Ver `13`/`06`.
-- **Embargo opcional:** una institución puede mantener datos privados por un período y
-  liberarlos después (apoya la práctica científica de publicar primero).
-- Compartir con usuarios/instituciones específicas (`detector_shares`).
-- Datos públicos → visibles en landing/mapa y vía export; privados → solo dueño/compartidos/admin.
-
-## B3. Atribución y licencia de datos
-- Datos públicos bajo **CC-BY 4.0** (D19) → exige atribución. (El código es MIT.)
-- La UI muestra a quién atribuir cada detector (institución + ubicación).
-- Datos de **APIs externas** (NMDB/NOAA/DONKI) se citan según sus términos (ver `07`).
-
-## B4. Términos de uso y privacidad
-- **Términos** para instituciones/usuarios: qué se recopila, cómo se respalda, qué se hace
-  público según su elección.
-- **Datos personales mínimos:** solo lo necesario de la cuenta (email, nombre, institución,
-  país, idioma). No recolectar de más. Permitir exportar/eliminar la cuenta.
-- Los datos científicos del detector no son personales, pero la ubicación precisa puede ser
-  sensible → permitir mostrar ubicación **aproximada** en público si la institución lo prefiere.
-
-## B5. Retención y borrado
-- Minutos: retención indefinida (valor científico). Realtime: ventana corta.
-- Borrado de un detector/cuenta: con respaldo previo y, para datos públicos ya citados,
-  política de tombstone (no romper referencias científicas).
-
-## B6. Cumplimiento (pragmático)
-- Sin pretensión legal pesada al inicio, pero alineado con principios GDPR-like (minimización,
-  consentimiento, derecho a exportar/borrar) por ser red internacional. Revisar con la USFQ.
+## A7. Informal SLO (startup)
+- Best-effort availability in Phase A; high-availability target with redundancy in Phase B.
+- **Zero data loss** is the hard SLO (the 3-layer redundancy exists for this).
 
 ---
 
-## Decisiones resueltas
-- ✅ Licencia de datos públicos = **CC-BY 4.0** (D19).
-- ✅ Mapa público = **agregación por ciudad** (D20); la ubicación exacta (lat/lon) se almacena
-  pero NO se expone en el mapa público (solo ciudad). Sí disponible en datos compartidos/privados.
+# Part B — Data Governance
 
-## Decisiones de producto pendientes (para el humano)
-- ¿Permitir embargo temporal de datos? ¿Cuánto por defecto? (Ronda B)
+## B1. Ownership
+- Data from each detector **belongs to its owner/institution**. MunHub is custodian, not
+  owner. The institution decides visibility and use.
+
+## B2. Visibility and sharing policy
+- Per **station**: **public / institution / private** (D24, see `11`).
+- **ML consent (opt-out):** training is opt-in by default; a toggle in settings excludes
+  a station from training (default at user level), with an honest message recommending
+  keeping it enabled. The AI pipeline respects the opt-out. See `13`/`06`.
+- **Optional embargo:** an institution can keep data private for a period and release it
+  afterwards (supports the scientific practice of publishing first).
+- Share with specific users/institutions (`detector_shares`).
+- Public data → visible on landing/map and via export; private → owner/shared/admin only.
+
+## B3. Data attribution and license
+- Public data under **CC-BY 4.0** (D19) → requires attribution. (Code is MIT.)
+- The UI displays who to attribute for each detector (institution + location).
+- Data from **external APIs** (NMDB/NOAA/DONKI) are cited according to their terms (see `07`).
+
+## B4. Terms of use and privacy
+- **Terms** for institutions/users: what is collected, how it is backed up, what is made
+  public according to their choice.
+- **Minimal personal data:** only what is necessary for the account (email, name, institution,
+  country, language). No over-collection. Allow account export/deletion.
+- Detector scientific data is not personal, but precise location can be sensitive → allow
+  showing an **approximate location** publicly if the institution prefers.
+
+## B5. Retention and deletion
+- Minutes: indefinite retention (scientific value). Realtime: short window.
+- Deletion of a detector/account: with prior backup and, for publicly cited data,
+  tombstone policy (do not break scientific references).
+
+## B6. Compliance (pragmatic)
+- No heavy legal framework at launch, but aligned with GDPR-like principles (minimization,
+  consent, right to export/delete) given the international network. Review with USFQ.
+
+---
+
+## Resolved decisions
+- ✅ Public data license = **CC-BY 4.0** (D19).
+- ✅ Public map = **aggregation by city** (D20); exact location (lat/lon) is stored but
+  NOT exposed on the public map (city only). Available in shared/private data.
+
+## Pending product decisions (for the maintainer)
+- Allow temporary data embargo? How long by default? (Round B)

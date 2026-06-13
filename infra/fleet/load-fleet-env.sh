@@ -38,4 +38,13 @@ else
 fi
 
 unset -f _load_secret
-echo "fleet-env: ready (values are NOT printed)"
+
+# ── Executor preconditions: set these so workers never stall on a first-run prompt ───────────
+# Gemini CLI refuses headless (-p) mode in an "untrusted" workspace and exits 55. Trust the repo
+# up-front so a dispatched worker never blocks on the trust prompt. (adapters/gemini.md)
+export GEMINI_CLI_TRUST_WORKSPACE=true
+# Cursor's REST API (api.cursor.com) authenticates with a **Bearer** token, NOT HTTP Basic.
+# Tooling that uses Basic gets HTTP 401 "Invalid User API Key". Documented here so callers wire
+# the header correctly: Authorization: Bearer $CURSOR_API_KEY. (adapters/cursor.md)
+
+echo "fleet-env: ready (values are NOT printed; GEMINI_CLI_TRUST_WORKSPACE=true set)"

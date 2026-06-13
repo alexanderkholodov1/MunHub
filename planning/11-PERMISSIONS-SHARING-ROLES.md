@@ -1,91 +1,91 @@
-# MunHub Lab v6.0 — Permisos, Compartición y Roles
+# MunHub Lab v6.0 — Permissions, Sharing, and Roles
 
-> Depende de: `02-DATA-MODEL`, `05-REDUNDANCY-AND-SECURITY`. Decisiones D8, D24, D25.
-> Define el modelo de autorización completo de la plataforma. Lo aplica el agente de seguridad.
+> Depends on: `02-DATA-MODEL`, `05-REDUNDANCY-AND-SECURITY`. Decisions D8, D24, D25.
+> Defines the complete authorization model for the platform. Applied by the security agent.
 
 ---
 
-## 1. Dos capas ortogonales
+## 1. Two orthogonal layers
 
-1. **Rol de sistema** (quién eres en toda la plataforma):
-   `admin` (global) · `institution_admin` (su institución) · `user` · `guest` (no autenticado/solo lectura pública).
-2. **Permiso por estación** (qué puedes hacer en *esa* estación):
+1. **System role** (who you are across the whole platform):
+   `admin` (global) · `institution_admin` (their institution) · `user` · `guest` (unauthenticated / public read-only).
+2. **Per-station permission** (what you can do on *that* station):
    `owner` · `editor` · `viewer`.
 
-Ambas se combinan: p. ej. un `user` puede ser `owner` de su estación y `viewer` de otra compartida.
+Both layers combine: e.g. a `user` can be `owner` of their own station and `viewer` of another shared station.
 
 ---
 
-## 2. Visibilidad de una estación (D24)
+## 2. Station visibility (D24)
 
-| Nivel | Quién la lee |
-|-------|--------------|
-| **Pública** | Cualquiera (incl. invitados); aparece en el mapa del landing |
-| **Institucional** | Miembros de la institución dueña (solo si la estación tiene institución) |
-| **Privada** | Dueño + usuarios/instituciones con permiso explícito |
+| Level | Who can read it |
+|-------|----------------|
+| **Public** | Anyone (including guests); shown on the landing map |
+| **Institutional** | Members of the owning institution (only if the station belongs to an institution) |
+| **Private** | Owner + users/institutions with explicit permission |
 
-- Elección **obligatoria al crear, sin default** (D22). Cambiable luego por owner/admin.
-- **Embargo** opcional: privada hasta una fecha → luego pública (para publicar paper primero).
+- Selection is **required at creation, with no default** (D22). Changeable afterward by owner/admin.
+- Optional **embargo**: private until a specified date → then public (to allow paper publication first).
 
 ---
 
-## 3. Qué puede hacer cada permiso por estación
+## 3. What each per-station permission allows
 
-| Acción | viewer | editor | owner | institution_admin* | admin |
+| Action | viewer | editor | owner | institution_admin* | admin |
 |--------|:--:|:--:|:--:|:--:|:--:|
-| Ver datos y metadatos | ✓ | ✓ | ✓ | ✓ | ✓ |
-| **Escribir/ingerir datos** (agente) | — | ✓ | ✓ | ✓ | ✓ |
-| Editar metadatos / calibración | — | ✓ | ✓ | ✓ | ✓ |
-| Gestionar detectores (dispositivos) | — | ✓ | ✓ | ✓ | ✓ |
-| Compartir / cambiar visibilidad | — | — | ✓ | ✓ | ✓ |
-| Eliminar estación | — | — | ✓ (confirmación) | ✓ | ✓ |
+| View data and metadata | ✓ | ✓ | ✓ | ✓ | ✓ |
+| **Write / ingest data** (agent) | — | ✓ | ✓ | ✓ | ✓ |
+| Edit metadata / calibration | — | ✓ | ✓ | ✓ | ✓ |
+| Manage detectors (devices) | — | ✓ | ✓ | ✓ | ✓ |
+| Share / change visibility | — | — | ✓ | ✓ | ✓ |
+| Delete station | — | — | ✓ (confirmation required) | ✓ | ✓ |
 
-\* `institution_admin` solo sobre estaciones de su institución.
+\* `institution_admin` applies only to stations belonging to their institution.
 
-> **Caso de uso resuelto (D-edit):** el `editor` **puede escribir datos** sobre la estación
-> aunque sea desde otra máquina/agente (p. ej. el dueño no tiene el equipo a mano y un colega
-> sube los datos). Se conecta con el aviso de device-token: si el aparato físico difiere,
-> avisamos por consistencia pero permitimos.
-
----
-
-## 4. Membresía e instituciones
-
-- Un usuario puede pertenecer a **una institución** (o ninguna → independiente).
-- `institution_admin` gestiona miembros y estaciones de su institución (no de otras).
-- **Default institucional configurable:** una institución puede definir que sus estaciones
-  nazcan con visibilidad `institucional` por defecto (sugerido, no impuesto).
-- Unirse a una institución: por **invitación del institution_admin** o solicitud + aprobación
-  (evita que cualquiera se autoadscriba a una universidad).
+> **Resolved use case (D-edit):** the `editor` **can write data** to the station even from a
+> different machine/agent (e.g. the owner does not have the hardware on hand and a colleague
+> uploads the data). This intersects with the device-token warning: if the physical device
+> differs from the registered one, the platform notifies for consistency but still allows the write.
 
 ---
 
-## 5. Identidad de usuario y compartición (D25)
+## 4. Membership and institutions
 
-Cada cuenta registra: **email** (único), **username** (único), **nombre para mostrar**, país,
-idioma, institución (opcional), rol.
-
-**Flujo de compartir una estación:**
-- Buscar por **email exacto** (modo invitación) o por **username**; la UI muestra
-  **nombre + institución** para confirmar que es la persona correcta.
-- Alternativa: elegir de la **lista de miembros de tu institución**.
-- Asignar permiso (`viewer`/`editor`).
-- **Privacidad:** no se revela si un email existe (se "invita" igual); búsqueda libre por
-  username solo si el usuario lo permite en sus ajustes (directorio opt-in).
+- A user may belong to **one institution** (or none → independent).
+- `institution_admin` manages members and stations of their institution only (not others).
+- **Configurable institutional default:** an institution can set its stations to be created with
+  `institutional` visibility by default (suggested, not enforced).
+- Joining an institution: by **invitation from the institution_admin** or by request + approval
+  (prevents any user from self-assigning to a university).
 
 ---
 
-## 6. Traducción a reglas técnicas
+## 5. User identity and sharing (D25)
 
-- **Fase A (Firebase rules):** validar visibilidad + grants (`station_shares`) +
-  pertenencia institucional + rol de sistema. Deny-by-default.
-- **Fase B (Postgres RLS):** una política por tabla/acción equivalente; el `editor` habilita
-  `INSERT` en `minute_records`/`realtime_records` de esa estación.
-- **Tests obligatorios:** casos **permitidos y denegados** (negativos) por cada combinación
-  rol × permiso × visibilidad.
+Each account stores: **email** (unique), **username** (unique), **display name**, country,
+language, institution (optional), role.
+
+**Station sharing flow:**
+- Search by **exact email** (invite mode) or by **username**; the UI shows
+  **name + institution** to confirm the correct person.
+- Alternative: select from the **member list of your institution**.
+- Assign permission (`viewer`/`editor`).
+- **Privacy:** the platform does not reveal whether an email exists (the invite is always sent);
+  free username search is only available if the user opts in via their settings (opt-in directory).
 
 ---
 
-## 7. Pendiente de producto
-- ¿El "directorio de usuarios" buscable por username es opt-in por defecto? (propuesta: sí, opt-in).
-- ¿Una estación puede compartirse con **otra institución** completa, o solo con usuarios? (propuesta: ambos).
+## 6. Technical rule mapping
+
+- **Phase A (Firebase rules):** validate visibility + grants (`station_shares`) +
+  institutional membership + system role. Deny-by-default.
+- **Phase B (Postgres RLS):** one policy per table/action equivalently; the `editor` role
+  enables `INSERT` on `minute_records`/`realtime_records` for that station.
+- **Mandatory tests:** both **allowed and denied** (negative) cases for every
+  role × permission × visibility combination.
+
+---
+
+## 7. Open product questions
+- Should the username-searchable user directory be opt-in by default? (Proposal: yes, opt-in.)
+- Can a station be shared with an **entire institution**, or only with individual users? (Proposal: both.)

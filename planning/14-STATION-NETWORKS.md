@@ -1,49 +1,50 @@
-# MunHub Lab v6.0 — Redes de Estaciones ("la manada")
+# MunHub Lab v6.0 — Station Networks ("the array")
 
-> Decisión D27: agrupar estaciones en **redes/arrays** para análisis conjunto. Es lo
-> científicamente más valioso de una red distribuida. Fase F4/F5. Depende de `02`, `07`, `06`.
+> Decision D27: group stations into **networks/arrays** for joint analysis. This is the
+> highest scientific value of a distributed network. Phase F4/F5. Depends on `02`, `07`, `06`.
 
 ---
 
-## 1. Concepto
+## 1. Concept
 
-Una **Red** (network/array) es una agrupación lógica de estaciones para verlas y analizarlas
-en conjunto. Ejemplos: "Andes Ecuador", "Campus USFQ", "Red EL-BONGO LatAm". Una estación
-puede pertenecer a varias redes.
+A **Network** (network/array) is a logical grouping of stations for viewing and analyzing them
+together. Examples: "Andes Ecuador", "Campus USFQ", "EL-BONGO LatAm Network". A station
+can belong to multiple networks.
 
-> No incluye (por D27): respaldo de datos entre estaciones (peer backup) — la redundancia de
-> 3 capas ya protege los datos. La capacidad de varios detectores por estación existe en el
-> modelo, pero la designación primario/backup no se construye ahora.
+> Not included (per D27): data backup between stations (peer backup) — the 3-layer redundancy
+> already protects the data. The ability to have multiple detectors per station exists in the
+> model, but the primary/backup designation is not built now.
 
-## 2. Quién las crea
-- Un usuario/institución crea una red y añade estaciones (propias o públicas).
-- Vinculación al **crear o editar** una estación, o desde un **panel de red** dedicado.
-- Visibilidad de la red hereda las reglas de sus estaciones (solo se ven en conjunto las que
-  el usuario puede ver).
+## 2. Who creates them
+- A user/institution creates a network and adds stations (their own or public ones).
+- Linking happens **at station creation or editing**, or from a dedicated **network panel**.
+- Network visibility inherits the rules of its member stations (only stations the user can see
+  are visible in the joint view).
 
-## 3. Valor científico (lo que habilita)
+## 3. Scientific value (what this enables)
 
-- **Comparar y contrastar** varias estaciones en un mismo eje temporal (tasa corregida,
-  presión, espectros).
-- **Agregados regionales** (mapa/serie de la red completa).
-- **Detección de eventos en red:** un Forbush **simultáneo en varias estaciones** = señal real
-  de altísima confianza (vs. un artefacto local). Igual que NMDB confirma con múltiples monitores.
-- **Estudios geográficos:** efecto de altitud/latitud entre estaciones de la red (aprovecha la
-  ventaja ecuatorial: rigidez de corte única).
-- **IA a nivel de red:** el pipeline (`06-AI-DESIGN`) puede correr análisis cruzado y reportar
-  insights de red (correlación entre estaciones, propagación de un evento).
+- **Compare and contrast** multiple stations on the same time axis (corrected rate,
+  pressure, spectra).
+- **Regional aggregates** (map/time-series of the full network).
+- **Network-level event detection:** a Forbush **simultaneous across multiple stations** = a
+  real signal of very high confidence (vs. a local artefact). Same principle by which NMDB
+  confirms events with multiple monitors.
+- **Geographic studies:** altitude/latitude effects across network stations (exploits the
+  equatorial advantage: unique geomagnetic cutoff rigidity).
+- **Network-level AI:** the pipeline (`06-AI-DESIGN`) can run cross-station analysis and
+  report network insights (inter-station correlation, event propagation).
 
-## 4. Modelo de datos (resumen; detalle en `02`)
+## 4. Data model (summary; detail in `02`)
 - `networks(id, name, description, owner_uid, institution_id null, visibility, created_at)`
-- `network_stations(network_id, station_id)`  — relación N:N
-- `ai_insights` puede referenciar `network_id` (insights de red).
+- `network_stations(network_id, station_id)`  — N:N relationship
+- `ai_insights` can reference `network_id` (network-level insights).
 
 ## 5. UI
-- **Panel de red:** lista de estaciones, mapa de la red, charts comparativos, eventos
-  detectados en común. Reutiliza componentes de `EPIC-5` (charts) y `S23` (mapa).
-- Marcadores en el mapa del landing pueden agruparse por red además de por ciudad.
+- **Network panel:** station list, network map, comparative charts, detected common events.
+  Reuses components from `EPIC-5` (charts) and `S23` (map).
+- Map markers on the landing page can be grouped by network in addition to city.
 
-## 6. Backlog (nuevas specs → ver `04`)
-- Crear/editar red y vincular estaciones.
-- Vista comparativa multi-estación.
-- Detección de eventos simultáneos en la red (con el agente físico validando el criterio).
+## 6. Backlog (new specs → see `04`)
+- Create/edit network and link stations.
+- Multi-station comparative view.
+- Simultaneous network-event detection (with the physics agent validating the criterion).

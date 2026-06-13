@@ -1,54 +1,55 @@
-# MunHub Lab v6.0 — Monetización y Entitlements (solo diseño / ganchos)
+# MunHub Lab v6.0 — Monetization and Entitlements (design / hooks only)
 
-> Decisión D26: **el núcleo es gratis siempre.** En v6.0 NO se implementa cobro; solo se
-> dejan los **ganchos técnicos** (entitlements + metering) para habilitar tiers/cuotas/donaciones
-> en el futuro **sin reescribir**. La decisión de negocio/legal la toma el humano + la universidad.
+> Decision D26: **the core is always free.** v6.0 does NOT implement billing; only the
+> **technical hooks** (entitlements + metering) are put in place to enable tiers/quotas/donations
+> in the future **without a rewrite**. The business/legal decision belongs to the maintainer and
+> the university.
 
 ---
 
-## 1. Principio
+## 1. Principle
 
-MunHub nace de una **misión de ciencia abierta** (Erasmus+/EU): adquirir, almacenar,
-visualizar, analizar y unirse a la red debe ser **gratis para todos**, sin freemium que
-interrumpa el trabajo de nadie. La monetización, si llega, **solo cubre costos de extras
-caros**, nunca bloquea el núcleo.
+MunHub is born from an **open-science mission** (Erasmus+/EU): acquiring, storing,
+visualizing, analyzing, and joining the network must be **free for everyone**, with no freemium
+gate that disrupts anyone's research. Monetization, if it ever arrives, **only covers the cost
+of expensive extras**, and never blocks the core.
 
-## 2. Qué podría costar (futuro, opcional, alto costo marginal)
+## 2. What could have a cost (future, optional, high marginal cost)
 
-- **Cómputo ML intensivo bajo demanda** / entrenamiento de modelos a medida.
-- **Cuota de API** por encima del tier gratuito (uso programático masivo).
-- **Exportaciones masivas** / retención extendida de realtime de alta resolución.
-- **Instancias privadas / white-label** para una institución (su propio despliegue + soporte).
-- **Soporte/SLA institucional** (B2B; no afecta al usuario individual).
+- **On-demand intensive ML compute** / custom model training.
+- **API quota** above the free tier (high-volume programmatic use).
+- **Bulk exports** / extended retention of high-resolution realtime data.
+- **Private instances / white-label** for an institution (their own deployment + support).
+- **Institutional support/SLA** (B2B; does not affect individual users).
 
-## 3. Sostenibilidad preferida (sin cobrar al usuario)
-- **Donaciones** (botón "apoyar el proyecto").
-- **Grants** y fondos de investigación.
-- **Convenios/sponsorship institucional**.
+## 3. Preferred sustainability model (without charging users)
+- **Donations** ("support the project" button).
+- **Grants** and research funding.
+- **Institutional agreements/sponsorships**.
 
-## 4. Ganchos técnicos a construir AHORA (sin UI de cobro)
+## 4. Technical hooks to build NOW (no billing UI)
 
-- **Modelo de plan/entitlements:** `plans(id, name, limits jsonb)` y
+- **Plan/entitlements model:** `plans(id, name, limits jsonb)` and
   `entitlements(subject_type[user|institution], subject_id, plan_id, valid_until)`.
-  Por defecto **todos en plan "Open" (gratis) sin límites que estorben**.
-- **Metering (medición de uso):** registrar uso de recursos caros (jobs ML, llamadas API,
-  bytes exportados) en `usage_events`. Hoy solo informa/observa; mañana puede facturar.
-- **Feature flags** ligados a entitlements (una función avanzada se activa por plan), todos
-  encendidos en "Open" por ahora.
-- **Cero pasarela de pago** en v6.0.
+  By default **everyone is on the "Open" plan (free) with no obstructive limits**.
+- **Metering (usage measurement):** record usage of expensive resources (ML jobs, API calls,
+  exported bytes) in `usage_events`. Today it only observes/reports; tomorrow it can bill.
+- **Feature flags** tied to entitlements (an advanced feature is enabled per plan), all
+  enabled in "Open" for now.
+- **Zero payment gateway** in v6.0.
 
-> Así, si algún día se decide cobrar, se añade una pasarela + se ajustan límites de planes,
-> sin tocar el resto del sistema.
+> This way, if billing is ever decided, a payment gateway is added and plan limits are adjusted,
+> without touching the rest of the system.
 
-## 5. Realidad legal/pagos (para cuando se decida — fuera de alcance técnico v6)
+## 5. Legal/payments reality (for when a decision is made — outside v6 technical scope)
 
-- Requiere **entidad legal** (USFQ, una fundación, o registro personal) y cumplir
-  facturación/impuestos de Ecuador + internacional.
-- Pasarelas: verificar disponibilidad de payout en Ecuador (Stripe históricamente limitado;
-  PayPal viable; o cobro vía la universidad). Métodos locales (tarjetas, transferencias).
-- Cumplir leyes de protección de datos y términos de servicio (ver `10-Gobernanza`).
-- **Recomendación:** no apurar; primero tracción y respaldo institucional.
+- Requires a **legal entity** (USFQ, a foundation, or personal registration) and compliance
+  with billing/tax law in Ecuador + internationally.
+- Payment gateways: verify Ecuador payout availability (Stripe historically limited;
+  PayPal viable; or billing via the university). Local methods (cards, transfers).
+- Comply with data-protection laws and terms of service (see `10-Governance`).
+- **Recommendation:** do not rush; build traction and institutional backing first.
 
-## 6. Fase
-- Esquema de entitlements/metering: F1 (parte del modelo de datos), sin UI de cobro.
-- Pasarela/planes de pago: **fuera de v6.0** (módulo futuro).
+## 6. Phase
+- Entitlements/metering schema: F1 (part of the data model), no billing UI.
+- Payment gateway/paid plans: **outside v6.0** (future module).

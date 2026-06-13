@@ -1,55 +1,55 @@
-# MunHub Lab v6.0 — Consola de Administración
+# MunHub Lab v6.0 — Admin Console
 
-> Depende de: `05`, `11`, `12`. Expande EPIC-8. Principio rector: **todo se gestiona desde la
-> plataforma, sin tocar el código/servidor** (migrar datos, editar usuarios/estaciones,
-> resolver errores). Ecosistema autosuficiente (D23). Página dedicada, solo `admin`.
+> Depends on: `05`, `11`, `12`. Expands EPIC-8. Guiding principle: **everything is managed
+> from the platform, without touching code or the server** (migrate data, edit users/stations,
+> resolve errors). Self-sufficient ecosystem (D23). Dedicated page, `admin` role only.
 
 ---
 
-## 1. Capacidades del admin global
+## 1. Global admin capabilities
 
-**Usuarios**
-- Crear, editar, **deshabilitar** y eliminar cuentas (con confirmación destructiva).
-- Asignar/quitar roles, incluido **nombrar nuevos admins** e `institution_admin`.
-- **Crear cuentas e instituciones en nombre de terceros** (para usuarios con baja
-  alfabetización digital). Reset de contraseña / reenvío de verificación.
+**Users**
+- Create, edit, **disable**, and delete accounts (with destructive confirmation).
+- Assign/remove roles, including **promoting new admins** and `institution_admin`.
+- **Create accounts and institutions on behalf of others** (for users with low digital literacy).
+  Password reset / verification-email resend.
 
-**Estaciones y detectores**
-- Crear/editar/eliminar estaciones y detectores; **asignar/revocar permisos** (owner/editor/viewer).
-- Cambiar visibilidad, reasignar dueño, mover estación entre instituciones.
+**Stations and detectors**
+- Create/edit/delete stations and detectors; **assign/revoke permissions** (owner/editor/viewer).
+- Change visibility, reassign owner, move a station between institutions.
 
-**Datos / infraestructura (sin tocar el servidor)**
-- Estadísticas de uso/almacenamiento; **migración entre proveedores** (Firebase↔Supabase);
-  **importar DB externa desde archivo**; respaldos fríos y **restauración**; verificación de
-  integridad. (Ya en EPIC-8/EPIC-9, accesible aquí.)
+**Data / infrastructure (without touching the server)**
+- Usage/storage statistics; **provider migration** (Firebase ↔ Supabase);
+  **import external DB from file**; cold backups and **restoration**; integrity verification.
+  (Already in EPIC-8/EPIC-9, accessible here.)
 
-**Soporte y comunicación**
-- Bandeja de **tickets** (responder, asignar, cerrar) — ver `12`.
-- **Anuncios/broadcast** (avisos de mantenimiento/novedades).
+**Support and communications**
+- **Ticket inbox** (respond, assign, close) — see `12`.
+- **Announcements/broadcast** (maintenance notices / release notes).
 
-**Sistema**
-- **Feature flags / ajustes globales** (p. ej. activar/desactivar entrenamiento ML, registro
-  abierto, modo mantenimiento).
-- **Audit log** (ver §3).
-- **Ver-como-usuario** (modo soporte para diagnosticar) — registrado en el audit log.
-- Entitlements/metering (ver `13`) — observación, sin cobro.
+**System**
+- **Feature flags / global settings** (e.g. enable/disable ML training, open registration,
+  maintenance mode).
+- **Audit log** (see §3).
+- **View-as-user** (support mode to diagnose issues) — recorded in the audit log.
+- Entitlements/metering (see `13`) — observation only, no billing.
 
-## 2. Confirmaciones destructivas (estilo GitHub)
-Toda acción irreversible (eliminar estación/usuario/institución, migrar/sobrescribir datos)
-exige **escribir el nombre exacto del recurso** + un aviso claro de consecuencias. Donde sea
-posible, **borrado suave (soft-delete) + respaldo previo** antes del borrado físico.
+## 2. Destructive confirmations (GitHub style)
+Every irreversible action (delete station/user/institution, migrate/overwrite data)
+requires **typing the exact resource name** plus a clear warning of consequences. Where
+possible, **soft-delete + prior backup** before physical deletion.
 
-## 3. Audit log (seguridad y confianza)
-- Registra: actor, acción, recurso, antes/después (resumen), timestamp, IP/sesión.
-- Inmutable/append-only; consultable y exportable por el admin.
-- Cubre acciones sensibles: cambios de rol/permiso, borrados, migraciones, ver-como-usuario,
-  cambios de visibilidad, edición de calibración.
+## 3. Audit log (security and trust)
+- Records: actor, action, resource, before/after (summary), timestamp, IP/session.
+- Immutable/append-only; queryable and exportable by admin.
+- Covers sensitive actions: role/permission changes, deletions, migrations, view-as-user,
+  visibility changes, calibration edits.
 
-## 4. Onboarding wizard (para todos, incluso no técnicos)
-- Asistente paso a paso: crear/unirse a institución → crear estación (con ayuda contextual)
-  → registrar detector → conectar el agente. Con textos claros y enlaces a la documentación.
-- El admin/`institution_admin` puede ejecutarlo **en nombre de** un usuario que lo necesite.
+## 4. Onboarding wizard (for all users, including non-technical)
+- Step-by-step assistant: create/join institution → create station (with contextual help)
+  → register detector → connect the agent. With clear text and links to documentation.
+- Admin/`institution_admin` can run it **on behalf of** a user who needs assistance.
 
-## 5. Backlog (ver `04`, EPIC-8 ampliada)
-- Página admin dedicada · gestión usuarios/roles/instituciones · gestión estaciones/detectores
-  · audit log · anuncios · feature flags · ver-como-usuario · bandeja de tickets · onboarding wizard.
+## 5. Backlog (see `04`, expanded EPIC-8)
+- Dedicated admin page · user/role/institution management · station/detector management
+  · audit log · announcements · feature flags · view-as-user · ticket inbox · onboarding wizard.

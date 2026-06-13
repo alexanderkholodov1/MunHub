@@ -1,58 +1,58 @@
-# MunHub Lab v6.0 — Soporte, Notificaciones y Email
+# MunHub Lab v6.0 — Support, Notifications, and Email
 
-> Depende de: `10-OPERATIONS-AND-GOVERNANCE`. Hace el sistema **autosuficiente**: los usuarios
-> abren tickets (no escriben al correo del admin), y el sistema avisa por sí mismo. Fase F5
-> (con piezas de notificación antes). Principio D23: informativo y completo.
+> Depends on: `10-OPERATIONS-AND-GOVERNANCE`. Makes the system **self-sufficient**: users open
+> tickets (rather than emailing the admin directly), and the system sends alerts automatically.
+> Phase F5 (with notification pieces landing earlier). Principle D23: informative and complete.
 
 ---
 
-## 1. Sistema de tickets de soporte
+## 1. Support ticket system
 
-- **Quién:** cualquier usuario autenticado (y opcionalmente invitados, con email + captcha).
-- **Categorías:** Pregunta · Problema/Bug · Sugerencia · Agradecimiento/Feedback.
-- **Metadatos automáticos adjuntos** (con consentimiento): usuario, rol, institución,
-  estación/detector en contexto, versión del agente, navegador/SO, errores recientes del
-  cliente, timestamp, idioma. Reduce el ida y vuelta.
-- **Ciclo:** abierto → en progreso → esperando respuesta → resuelto → cerrado. Hilo de
-  mensajes usuario↔admin, adjuntos (capturas).
-- **Bandeja del admin** dentro de la consola (no email manual): filtrar por estado, categoría,
-  institución; asignar, responder, cerrar.
-- **FAQ pública** enlazada para desviar dudas comunes (reduce tickets).
-- **Votación de sugerencias** (opcional, fase posterior): otros usuarios apoyan una idea.
+- **Who:** any authenticated user (and optionally guests, with email + captcha).
+- **Categories:** Question · Problem/Bug · Suggestion · Feedback/Appreciation.
+- **Automatically attached metadata** (with consent): user, role, institution,
+  station/detector in context, agent version, browser/OS, recent client errors, timestamp,
+  language. Reduces back-and-forth.
+- **Lifecycle:** open → in progress → awaiting response → resolved → closed. Message thread
+  user ↔ admin, with attachments (screenshots).
+- **Admin inbox** inside the console (no manual email): filter by status, category,
+  institution; assign, respond, close.
+- **Linked public FAQ** to deflect common questions (reduces ticket volume).
+- **Suggestion voting** (optional, later phase): other users can upvote an idea.
 
-## 2. Centro de notificaciones (in-app + email)
+## 2. Notification center (in-app + email)
 
-Un solo centro, con preferencias por canal (in-app / email) y por tipo:
+A single center with per-channel (in-app / email) and per-type preferences:
 
-| Evento | A quién | Canal sugerido |
-|--------|---------|----------------|
-| Actualización de tu ticket | usuario (y admin) | in-app + **email** |
-| Detector caído / sin datos | dueño/editores | in-app + email |
-| Gap de datos detectado | dueño | in-app |
-| Anomalía / Forbush detectado | dueño + (red si aplica) | in-app + email |
-| Recordatorio de metadatos incompletos | dueño | in-app (no intrusivo) |
-| Invitación a compartir estación | invitado | in-app + email |
-| Anuncio del sistema (mantenimiento) | todos | in-app (+ email si crítico) |
-| Cambios de rol/permiso | afectado | in-app + email |
+| Event | Recipient | Suggested channel |
+|-------|-----------|-------------------|
+| Your ticket updated | user (and admin) | in-app + **email** |
+| Detector down / no data | owner/editors | in-app + email |
+| Data gap detected | owner | in-app |
+| Anomaly / Forbush detected | owner + (network if applicable) | in-app + email |
+| Incomplete metadata reminder | owner | in-app (non-intrusive) |
+| Station sharing invitation | invitee | in-app + email |
+| System announcement (maintenance) | all | in-app (+ email if critical) |
+| Role/permission change | affected user | in-app + email |
 
-- **Preferencias por usuario:** silenciar tipos, elegir canal, frecuencia (inmediato/resumen diario).
-- Internacionalizado (es/en/pt-BR).
+- **Per-user preferences:** mute types, choose channel, frequency (immediate / daily digest).
+- Internationalized (es / en / pt-BR).
 
-## 3. Email transaccional (infraestructura)
+## 3. Transactional email (infrastructure)
 
-Necesario para tickets y notificaciones. Requisito: **tier gratuito y billing-proof**.
-- Opciones: **Brevo** (~300/día gratis), **Resend** (~3.000/mes gratis), o la extensión
-  **"Trigger Email"** de Firebase con un SMTP gratuito. (Decisión técnica menor; elegir al implementar.)
-- Plantillas versionadas, multi-idioma, con remitente verificado (SPF/DKIM del dominio).
-- **Sin secretos en el repo:** API key del proveedor por variable de entorno.
-- Manejar rebotes y opt-out de correos no esenciales (cumplir buenas prácticas anti-spam).
+Required for tickets and notifications. Requirement: **free tier and billing-proof**.
+- Options: **Brevo** (~300/day free), **Resend** (~3,000/month free), or the Firebase
+  **"Trigger Email"** extension with a free SMTP provider. (Minor technical decision; choose at implementation time.)
+- Versioned, multi-language templates with a verified sender (SPF/DKIM for the domain).
+- **No secrets in the repo:** provider API key via environment variable.
+- Handle bounces and unsubscribes for non-essential emails (comply with anti-spam best practices).
 
-## 4. Modelo de datos (resumen; detalle en `02`)
+## 4. Data model (summary; detail in `02`)
 - `support_tickets(id, user_uid, category, status, subject, context jsonb, created_at, updated_at)`
 - `ticket_messages(id, ticket_id, author_uid, body, attachments, created_at)`
 - `notifications(id, user_uid, type, payload jsonb, read_at, created_at)`
 - `notification_prefs(user_uid, type, channel, frequency)`
 
-## 5. Fase / prioridad
-- Notificaciones in-app básicas: con el dashboard (F2).
-- Email + tickets completos: F5 (consola admin).
+## 5. Phase / priority
+- Basic in-app notifications: delivered with the dashboard (F2).
+- Full email + tickets: F5 (admin console).

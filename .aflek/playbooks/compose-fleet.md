@@ -85,7 +85,10 @@ Per role, estimate tokens/quota (frontier vs cheap vs free) and wall-clock. Feed
 Emit the **wave plan** (`templates/wave-plan.template.md`): live roster (UP/DOWN), task tier,
 the composed tree (who supervises whom, who executes what), per-provider quota estimate, and the
 disjoint-lane manifest for the preflight gate. **The maintainer sees this and approves before any
-execution.** Escalation rule (the maintainer delegated the threshold): trivial + cheap/free →
+execution.** To adjust without spending any quota negotiating, the maintainer edits the plan
+directly in **`tools/fleet-console.html`** — toggle providers on/off, change a model's role or
+command, re-level supervision, add a model — and exports the edited `wave-plan.json`; the
+orchestrator then executes exactly that. Editing is local and free; the dialogue stays out of chat. Escalation rule (the maintainer delegated the threshold): trivial + cheap/free →
 proceed on the automatic preflight; anything spending frontier/paid quota, or Large/Huge, or
 touching production → explicit approval first. When in doubt, show it.
 

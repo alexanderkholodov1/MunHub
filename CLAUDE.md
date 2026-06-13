@@ -4,6 +4,18 @@ This file orients Claude Code in this repository. **The binding contract for all
 [`AGENTS.md`](AGENTS.md) — read it in full before changing anything.** This page only adds
 Claude-Code-specific operational notes; if the two ever disagree, `AGENTS.md` wins.
 
+## Starting work — the one word
+
+When the maintainer says **"empieza" / "procedemos con la implementación" / "start"**, run
+[`.aflek/playbooks/start.md`](.aflek/playbooks/start.md) top to bottom — this repo is managed by
+the AFLEK fleet (Adjutant: `alexanderkholodov1/adjutant-AFLEK`). The flow is: selftest
+(`pwsh .aflek/tools/aflek-selftest.ps1 -Project .`) → self-update (`aflek-sync`) → orient (next
+milestone from `docs/STATUS.md`) → compose the fleet → **propose the role distribution for the
+maintainer's approval** → execute under live monitoring (`fleet-status.ps1`) → self-review →
+**one** PR only when truly done → self-improve. Autonomous except the one approval gate; never
+open a PR for partial or unverified work — keep going on the same branch. One-time per machine:
+`AFLEK_KIT` points at the kit clone (see `.aflek/playbooks/sync-and-update.md`).
+
 ## What this repository is
 
 **MunHub Lab v6.0** (pre-alpha): ground-up reconstruction of a cosmic-ray detector monitoring

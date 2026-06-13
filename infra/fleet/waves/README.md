@@ -1,10 +1,11 @@
 # Wave manifests
 
 A wave manifest declares the work packages of one fleet fan-out and feeds the **mandatory**
-preflight gate (`infra/fleet/wave-preflight.ps1`). No wave launches until the gate exits 0.
+preflight gate (`.aflek/tools/wave-preflight.ps1`, synced from the kit). No wave launches until
+the gate exits 0.
 
 ```
-pwsh infra/fleet/wave-preflight.ps1 -Wave infra/fleet/waves/<name>.json [-MaxIndependentPRs 8]
+pwsh .aflek/tools/wave-preflight.ps1 -Project . -Wave infra/fleet/waves/<name>.json [-MaxIndependentPRs 8]
 ```
 
 ## Format

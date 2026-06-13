@@ -1,88 +1,89 @@
-# MunHub Lab v6.0 — Posicionamiento Académico, Atribución y Gobernanza
+# MunHub Lab v6.0 — Academic Positioning, Attribution, and Governance
 
-> Para que MunHub esté **listo para ser anunciado** en la comunidad científica, con atribución
-> correcta a Alexander Kholodov (clave para su carrera investigadora) y siguiendo las mejores
-> prácticas de **ciencia abierta**. Incluye lo legal/académico/"burocrático" en orden.
-> Alexander es nuevo en investigación → aquí van los estándares explicados + acciones concretas.
+> This document covers what MunHub needs to be **ready to announce** to the scientific community,
+> with correct attribution to Alexander Kholodov (critical for his research career), following
+> best practices for **open science**. Includes the legal/academic/administrative steps in order.
 
 ---
 
-## 1. Autoría y atribución (lo más importante para tu carrera)
+## 1. Authorship and attribution (highest priority for career)
 
-- **Creador y desarrollador principal:** Alexander Kholodov (USFQ). Debe quedar registrado de
-  forma inequívoca y citable.
-- **Supervisor / investigador responsable (PI):** Dennis Cazar (LEOPARD, USFQ).
-- **Marco:** proyecto EL-BONGO, Erasmus+ CBHE (financiado por la UE); USFQ; laboratorio LEOPARD.
-- **Cómo se materializa en el repo y la plataforma:**
-  - `CITATION.cff` (formato estándar de GitHub) → genera "Citar este repositorio" automáticamente.
-  - `AUTHORS.md` + créditos claros en el `README` y en el **footer/Acerca de** de la plataforma.
-  - Acknowledgments de financiamiento (Erasmus+/EU CBHE, USFQ, LEOPARD) en README y papers.
+- **Creator and lead developer:** Alexander Kholodov (USFQ). Must be unambiguously and citably
+  recorded.
+- **Supervisor / responsible researcher (PI):** Dennis Cazar (LEOPARD, USFQ).
+- **Framework:** EL-BONGO project, Erasmus+ CBHE (EU-funded); USFQ; LEOPARD laboratory.
+- **How this materializes in the repo and platform:**
+  - `CITATION.cff` (GitHub standard format) → automatically generates "Cite this repository".
+  - `AUTHORS.md` + clear credits in the `README` and the platform **footer/About** page.
+  - Funding acknowledgments (Erasmus+/EU CBHE, USFQ, LEOPARD) in README and papers.
 
-## 2. Identificadores persistentes (estándar de investigador)
+## 2. Persistent identifiers (research standard)
 
-- **ORCID:** Alexander debe **crear su ORCID iD** (gratis, 5 min, orcid.org) → identificador
-  único de investigador. Enlazarlo en: perfil de la plataforma, `CITATION.cff`, repo, y papers.
-  (También útil: ORCID-login opcional para investigadores en la plataforma — futuro.)
-- **DOI del software (citable):** integrar **GitHub ↔ Zenodo** → cada *release* etiquetado
-  obtiene un **DOI**. Así el software MunHub se cita formalmente (con tu nombre como autor).
-- **DOI de datasets:** los datos públicos pueden recibir DOI (S68) → las instituciones citan los
-  datos de la red (y a ti como creador de la plataforma).
+- **ORCID:** Alexander must **create his ORCID iD** (free, 5 min, orcid.org) → unique researcher
+  identifier. Link it in: platform profile, `CITATION.cff`, repo, and papers.
+  (Also useful: optional ORCID login for researchers on the platform — future.)
+- **Software DOI (citable):** integrate **GitHub ↔ Zenodo** → each tagged *release* receives a
+  **DOI**. This makes MunHub software formally citable (with your name as author).
+- **Dataset DOI:** public datasets can receive a DOI (S68) → institutions cite the network data
+  (and you as the platform creator).
 
-## 3. Licencias (ya decididas, aquí en contexto académico)
+## 3. Licenses (already decided, context here for reference)
 
-- **Código:** MIT (D14) — máxima adopción, requiere conservar el aviso de copyright (tu crédito).
-- **Datos públicos:** CC-BY 4.0 (D19) — reutilizables **con atribución obligatoria**.
+- **Code:** MIT (D14) — maximum adoption, requires preserving the copyright notice (your credit).
+- **Public data:** CC-BY 4.0 (D19) — reusable **with mandatory attribution**.
 
-## 4. Publicación científica (camino recomendado)
+## 4. Scientific publication (recommended path)
 
-- **Preprint primero:** subir a **arXiv** (establece prioridad/fecha, gratis, citable) cuando el
-  sistema y/o los primeros datos estén listos.
-- **Revista para el SOFTWARE:** **JOSS** (Journal of Open Source Software) — ideal y diseñado
-  para software científico open source como MunHub; revisión por pares enfocada en el software.
-- **Revista para la CIENCIA/instrumento:** opciones según resultados — p. ej. *JINST*,
-  *Rev. Sci. Instrum.*, *EPJ Plus*, o *The Physics Teacher* (vertiente educativa). El físico
-  + tutor eligen el venue según el aporte.
-- Base teórica ya lista (`docs/research/THEORETICAL-FOUNDATION.md`) → insumo del paper (EPIC-12 S48).
+- **Preprint first:** submit to **arXiv** (establishes priority/date, free, citable) when the
+  system and/or first data are ready.
+- **Journal for the SOFTWARE:** **JOSS** (Journal of Open Source Software) — ideal and designed
+  for open-source scientific software like MunHub; peer review focused on the software.
+- **Journal for the SCIENCE/instrument:** options depend on results — e.g. *JINST*,
+  *Rev. Sci. Instrum.*, *EPJ Plus*, or *The Physics Teacher* (educational angle). The physicist
+  and supervisor choose the venue based on the contribution.
+- Theoretical foundation already available (`docs/research/THEORETICAL-FOUNDATION.md`) → input
+  for the paper (EPIC-12 S48).
 
-## 5. Estándares de ciencia abierta (checklist FAIR-ish)
+## 5. Open science standards (FAIR-ish checklist)
 
-- ✅ Código abierto (MIT) · ✅ Datos abiertos (CC-BY) · ✅ Documentación (EPIC-12).
-- **Versionado semántico** (vX.Y.Z) + `CHANGELOG.md` + *releases* etiquetados.
-- **Reproducibilidad:** README con pasos de despliegue (Firebase y Red Clara), datos de ejemplo.
-- **DOIs + ORCID** (arriba). **Datos FAIR** (Findable, Accessible, Interoperable, Reusable):
-  metadatos ricos por estación (¡ya en el modelo!), formatos abiertos (CSV/JSON), API pública (S67).
+- ✅ Open source (MIT) · ✅ Open data (CC-BY) · ✅ Documentation (EPIC-12).
+- **Semantic versioning** (vX.Y.Z) + `CHANGELOG.md` + tagged *releases*.
+- **Reproducibility:** README with deployment steps (Firebase and Red Clara), sample data.
+- **DOIs + ORCID** (above). **FAIR data** (Findable, Accessible, Interoperable, Reusable):
+  rich metadata per station (already in the model!), open formats (CSV/JSON), public API (S67).
 
-## 6. Gobernanza de contribuciones (al sumarse universidades)
+## 6. Contribution governance (when universities join)
 
-- `CONTRIBUTING.md` (cómo contribuir, flujo SDD) + `CODE_OF_CONDUCT.md` (convivencia).
-- Crédito a contribuidores (p. ej. all-contributors) sin diluir la autoría principal.
-- Acuerdo simple de contribución (qué licencia aplica a los aportes externos).
+- `CONTRIBUTING.md` (how to contribute, SDD workflow) + `CODE_OF_CONDUCT.md` (community norms).
+- Credit to contributors (e.g. all-contributors) without diluting primary authorship.
+- Simple contribution agreement (which license applies to external contributions).
 
-## 7. Legal / institucional / "burocrático" (ACCIONES de Alexander, fuera del código)
+## 7. Legal / institutional / administrative (Alexander's actions — outside the code)
 
-> Esto NO lo resuelve un agente; son gestiones humanas. Listado para que esté en orden:
+> These are human-managed tasks, not resolvable by an agent. Listed here so they stay on record:
 
-- [ ] **Crear ORCID iD.**
-- [ ] **Clarificar la propiedad intelectual (IP) con la USFQ/Dennis**: el sistema lo creaste tú,
-      bajo investigación de la USFQ y financiamiento Erasmus+. Conviene un **acuerdo/escrito**
-      que reconozca tu autoría y tus derechos de uso para tu portafolio/carrera, y defina si la
-      IP es tuya, compartida o institucional. **Hazlo temprano** (evita ambigüedad futura).
-- [ ] **Obtener por escrito el reconocimiento de autoría** (tu tutor ya redactó una carta de
-      aporte — guardarla; ampliarla si hace falta).
-- [ ] **Confirmar requisitos de acknowledgment** del financiamiento Erasmus+/EU (suele exigir
-      mención específica + logos en outputs).
-- [ ] **Términos de Servicio + Política de Privacidad** de la plataforma (apoya `10-Gobernanza`;
-      revisar con la USFQ antes del lanzamiento público).
-- [ ] Definir el **nombre/identidad** oficial (MunHub Lab), logo, y si se registra de algún modo.
+- [ ] **Create ORCID iD.**
+- [ ] **Clarify intellectual property (IP) with USFQ/Dennis**: the system was built by Alexander
+      under USFQ research and Erasmus+ funding. A **written agreement** is advisable to recognize
+      authorship and usage rights for portfolio/career purposes, and to define whether IP is
+      personal, shared, or institutional. **Do this early** (avoids future ambiguity).
+- [ ] **Obtain written authorship recognition** (the supervisor has already drafted a contribution
+      letter — keep it; expand if needed).
+- [ ] **Confirm acknowledgment requirements** of the Erasmus+/EU funding (typically requires a
+      specific mention + logos on outputs).
+- [ ] **Terms of Service + Privacy Policy** for the platform (supports `10-Governance`; review
+      with USFQ before public launch).
+- [ ] Define the official **name/identity** (MunHub Lab), logo, and whether it is formally
+      registered in any way.
 
-## 8. Presencia en la comunidad (a futuro, ir pensando)
+## 8. Community presence (future, to keep in mind)
 
-- Landing público como cara del proyecto (F3) + un **whitepaper** corto.
-- El paper + preprint + DOIs construyen tu **huella citable**.
-- Presentar en conferencias/escuelas (EL-BONGO, LAGO, redes LatAm de física de partículas).
-- La **red de estaciones** como recurso citable para otras universidades.
+- Public landing page as the project's face (F3) + a short **whitepaper**.
+- Paper + preprint + DOIs build a **citable footprint**.
+- Present at conferences/schools (EL-BONGO, LAGO, LatAm particle physics networks).
+- The **station network** as a citable resource for other universities.
 
-## 9. Decisiones a confirmar (cuando quieras)
-- ¿Apuntamos a **JOSS** para el software + **arXiv** preprint? (recomendado).
-- ¿Configuramos **Zenodo↔GitHub** para DOIs de releases desde el primer release?
-- Postura de **IP** (a definir con la USFQ) — no la decide la IA.
+## 9. Decisions to confirm (when ready)
+- Target **JOSS** for the software + **arXiv** preprint? (recommended).
+- Set up **Zenodo↔GitHub** for release DOIs from the first release?
+- **IP position** (to be defined with USFQ) — not an AI decision.

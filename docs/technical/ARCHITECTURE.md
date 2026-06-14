@@ -113,9 +113,18 @@ auth failures to stable provider codes, and is tested against the Firebase Emula
 Authentication follows the same dependency rule: `apps/web` consumes `DataProvider` through its
 `useAuth()` context and never imports `firebase/*`. Registration creates the Firebase Auth account
 and the canonical `/users/{uid}` profile in one provider flow before the dashboard is opened.
+If the public Firebase environment variables are absent in a preview or local build, the web app
+surfaces a designed **Backend not configured** state through `getDataProviderConfigState()` and
+`AuthProvider`; provider construction is not attempted and the client does not white-screen.
 
 The corrections pipeline (mandatory order): **raw → dead-time → barometric (local β) → thermal**.
 See [`DATA-MODEL.md`](DATA-MODEL.md) and the scientific foundation.
+
+The station detail dashboard (spec 0018) reads detector minute records only through
+`DataProvider.getMinuteRecords`, then delegates its corrected-rate series, local beta, robust
+baseline, Poisson uncertainty, and anomaly flags to `@munhub/physics`. The web layer renders those
+outputs with Plotly and Observatory Dark tokens; it does not recompute dead-time or barometric
+corrections inline.
 
 ## 5. Ingestion paths
 

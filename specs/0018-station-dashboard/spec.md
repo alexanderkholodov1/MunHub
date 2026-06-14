@@ -1,6 +1,6 @@
 # 0018 — Station dashboard: corrected rate + spectrum + insights (the science payoff)
 
-- **Status:** ready for implementation
+- **Status:** implemented
 - **Responsible:** Adjutant (spec) → Cursor (implementation, Claude model) → Gemini (cross-provider review, D35) → Adjutant (verification + macro + PR)
 - **Depends on:** 0005 (`@munhub/physics`), 0007 (`DataProvider.getMinuteRecords`/`subscribeRealtime`), 0008 (`@munhub/ui`), 0009 (auth), 0011 (station/detector). Branches from a linear `main`.
 - **Phase:** F2/F3 entry · **Epic:** EPIC-5 · **Implements:** backlog 0018 (station dashboard) **and** `specs/0006-insights-v0` (corrected rate + statistical baseline). Honest particle labeling per D9 (backlog 0021).

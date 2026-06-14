@@ -17,3 +17,5 @@ allowBuilds:
   sharp: false
   # unrs-resolver: Rust-based module resolver used by tailwindcss v4 / next; must build
   unrs-resolver: true
+  # es5-ext: optional compatibility helper pulled by Plotly dependencies; no native build needed
+  es5-ext: false

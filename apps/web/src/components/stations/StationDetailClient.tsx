@@ -8,6 +8,7 @@ import { Button, Card } from "@munhub/ui";
 import { ArrowLeft, Edit3, Plus } from "lucide-react";
 import { useAuth } from "../AuthProvider";
 import { getDataProvider } from "../../lib/data-provider";
+import { StationDashboard } from "./StationDashboard";
 import { DetectorRegistrationForm, StationForm } from "./StationForms";
 import {
   missingOptionalStationMetadata,
@@ -152,6 +153,8 @@ export function StationDetailClient(): React.ReactElement {
             }}
           />
         )}
+
+        <StationDashboard station={station} detectors={detectors} />
 
         <Card title="Station metadata">
           <dl className="grid gap-4 text-sm md:grid-cols-3">

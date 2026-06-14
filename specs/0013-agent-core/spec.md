@@ -14,8 +14,9 @@ the `DataProvider`. The **Tauri desktop shell + the OS serial port binding are s
 real-hardware run is a manual verification** (the operator's physical detector); CI validates the
 TS core.
 
-**Data-integrity is the point here (guardrail 5):** per-minute values are **time-averages, never
-sums**; no event filtering; validate at the boundary with zod.
+**Data-integrity is the point here (guardrail 5):** measurement fields are **time-averages, never
+sums**; event and coincidence fields are per-minute rates (counts per minute); no event filtering;
+validate at the boundary with zod.
 
 ## Functional requirements
 
@@ -30,10 +31,11 @@ sums**; no event filtering; validate at the boundary with zod.
 
 ### Per-minute aggregation — the data-integrity core
 - **FR3 — Minute aggregator** (`apps/agent/src/aggregate.ts`): fold raw readings within a minute
-  window into a `MinuteRecord` where every value is the **time-average over the minute, NEVER a sum**
-  (rate `ec`, amplitudes `sm/sx/sn`, `tp`, `pr`, `dt`). Validate the produced record with the shared
-  `MinuteRecordSchema`. No event filtering. Unit tests assert averaging (not summing) and that
-  records of partial completeness stay rate-correct.
+  window into a `MinuteRecord` where `ec` and `cc` are event rates (total counts divided by the
+  window length in minutes) while measurement fields (`sm`, `tp`, `pr`, `dt`) are time-averages.
+  Validate the produced record with the shared `MinuteRecordSchema`. No event filtering. Unit tests
+  assert rate scaling for event-driven readings and averaging for measurement fields so records of
+  partial completeness stay comparable.
 
 ### Local backup + offline sync queue (0014/0015)
 - **FR4 — Local-first persistence:** a `LocalStore` abstraction persists each record **before** any
@@ -63,9 +65,10 @@ sums**; no event filtering; validate at the boundary with zod.
 ## Acceptance criteria
 1. Each of the 4 formats parses real sample lines correctly; format auto-detection picks the right
    parser; malformed lines are skipped without crashing (unit tests).
-2. The minute aggregator produces a schema-valid `MinuteRecord` whose values are **averages, not
-   sums** (a test with N readings asserts the mean, and that doubling the count does not double the
-   stored rate).
+2. The minute aggregator produces a schema-valid `MinuteRecord` whose `ec`/`cc` values are
+   count-per-minute rates and whose measurement fields are **averages, not sums** (a test with N
+   event readings asserts `ec = N` for a one-minute bucket, and that doubling the event count
+   doubles `ec` while environment fields remain averaged).
 3. The sync queue: queues offline, flushes on reconnect, suppresses duplicates by `(detectorId,ts)`,
    and resumes after a partial flush (unit tests, using the in-memory store + a fake provider).
 4. Records are persisted to the local store **before** an upload attempt.

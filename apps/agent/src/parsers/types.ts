@@ -18,11 +18,11 @@ export const consoleParserLogger: ParserLogger = {
 export interface RawReading {
   /** Agent-side event timestamp in epoch milliseconds. */
   timestamp: number;
-  /** Per-reading trigger/rate value. Aggregation stores the minute average, never a sum. */
+  /** Per-reading event contribution; aggregation stores ec as count per minute. */
   eventCount: number;
   /** SiPM pulse amplitude in mV. */
   sipmMv: number;
-  /** Coincidence flag/value as received from the detector. */
+  /** Per-reading coincidence contribution; aggregation stores cc as count per minute. */
   coincident: number;
   sourceFormat: SerialFormat;
   eventId?: number;

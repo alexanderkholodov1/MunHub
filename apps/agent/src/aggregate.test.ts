@@ -27,7 +27,7 @@ function readingWithoutTemp(overrides: Partial<RawReading>): RawReading {
 }
 
 describe("aggregateMinuteReadings", () => {
-  it("produces a schema-valid MinuteRecord with averaged values", () => {
+  it("produces a schema-valid MinuteRecord with rates and averaged measurements", () => {
     const record = aggregateMinuteReadings(
       [
         reading({ timestamp: MINUTE_START + 1_000, eventCount: 2, sipmMv: 10, coincident: 0 }),
@@ -47,8 +47,8 @@ describe("aggregateMinuteReadings", () => {
     expect(MinuteRecordSchema.parse(record)).toEqual(record);
     expect(record).toEqual({
       ts: MINUTE_START,
-      ec: 3,
-      cc: 0.5,
+      ec: 6,
+      cc: 1,
       sm: 15,
       sx: 20,
       sn: 10,
@@ -58,10 +58,28 @@ describe("aggregateMinuteReadings", () => {
     });
   });
 
-  it("does not double the stored rate when the same readings are duplicated", () => {
+  it("stores one-minute event-driven counts as per-minute event rates", () => {
+    const record = aggregateMinuteReadings(
+      [
+        reading({ timestamp: MINUTE_START + 1_000, eventCount: 1, sipmMv: 10, coincident: 1 }),
+        reading({ timestamp: MINUTE_START + 2_000, eventCount: 1, sipmMv: 20, coincident: 0 }),
+        reading({ timestamp: MINUTE_START + 3_000, eventCount: 1, sipmMv: 30, coincident: 1 }),
+      ],
+      { minuteStartTs: MINUTE_START },
+    );
+
+    // Event and coincidence fields are count-per-minute rates; measurements stay averages.
+    expect(record.ec).toBe(3);
+    expect(record.cc).toBe(2);
+    expect(record.sm).toBe(20);
+    expect(record.tp).toBe(20);
+    expect(record.pr).toBe(1_010);
+  });
+
+  it("doubles ec and cc when the number of one-minute events doubles", () => {
     const baseReadings = [
-      reading({ timestamp: MINUTE_START + 1_000, eventCount: 3, sipmMv: 11 }),
-      reading({ timestamp: MINUTE_START + 2_000, eventCount: 5, sipmMv: 13 }),
+      reading({ timestamp: MINUTE_START + 1_000, eventCount: 1, sipmMv: 11, coincident: 1 }),
+      reading({ timestamp: MINUTE_START + 2_000, eventCount: 1, sipmMv: 13, coincident: 0 }),
     ];
 
     const original = aggregateMinuteReadings(baseReadings, { minuteStartTs: MINUTE_START });
@@ -69,9 +87,12 @@ describe("aggregateMinuteReadings", () => {
       minuteStartTs: MINUTE_START,
     });
 
-    expect(original.ec).toBe(4);
+    expect(original.ec).toBe(2);
     expect(duplicated.ec).toBe(4);
-    expect(duplicated.ec).not.toBe(original.ec * 2);
+    expect(duplicated.ec).toBe(original.ec * 2);
+    expect(duplicated.cc).toBe(original.cc * 2);
+    expect(duplicated.tp).toBe(original.tp);
+    expect(duplicated.pr).toBe(original.pr);
   });
 
   it("keeps partial field completeness rate-correct while averaging available environment fields", () => {
@@ -83,7 +104,7 @@ describe("aggregateMinuteReadings", () => {
       { minuteStartTs: MINUTE_START },
     );
 
-    expect(record.ec).toBe(6);
+    expect(record.ec).toBe(12);
     expect(record.tp).toBe(30);
   });
 

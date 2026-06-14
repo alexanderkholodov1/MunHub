@@ -29,6 +29,7 @@ export function aggregateMinuteReadings(
 
   const ts = options.minuteStartTs ?? minuteStart(readings[0]?.timestamp ?? 0);
   const windowEnd = ts + MINUTE_MS;
+  const windowMinutes = (windowEnd - ts) / MINUTE_MS;
 
   let eventTotal = 0;
   let coincidenceTotal = 0;
@@ -69,10 +70,11 @@ export function aggregateMinuteReadings(
     }
   }
 
+  // ec/cc are event rates (counts per minute); measurement fields remain time-averages.
   return MinuteRecordSchema.parse({
     ts,
-    ec: average(eventTotal, readings.length, "event-rate"),
-    cc: average(coincidenceTotal, readings.length, "coincidence"),
+    ec: eventTotal / windowMinutes,
+    cc: coincidenceTotal / windowMinutes,
     sm: average(sipmTotal, readings.length, "SiPM amplitude"),
     sx: sipmMax,
     sn: sipmMin,

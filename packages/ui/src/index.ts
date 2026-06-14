@@ -1,11 +1,29 @@
 /**
- * @munhub/ui
+ * @munhub/ui — Observatory Dark design system.
  *
- * MunHub design system: Tailwind CSS + shadcn/ui components + Plotly chart wrappers.
- * Consumed only by apps/web (and potentially apps/agent for its Tauri UI).
+ * Exports:
+ * - ThemeProvider + useTheme (dark/light toggle, prefers-reduced-motion aware)
+ * - Button (primary/secondary/ghost; default/hover/focus/disabled/loading)
+ * - Card (title + body; empty/loading/error states)
+ * - Stat (KPI tile; mono tabular-nums readout; loading/error states)
  *
- * Real components land in S13 (dashboard charts) and S11 (station dashboard UI).
- * This stub validates the build pipeline only.
+ * CSS tokens (Observatory Dark):
+ *   import "@munhub/ui/styles";   ← in apps/web global stylesheet
+ *
+ * All colors via CSS custom properties (never raw hex in components).
+ * Tailwind v4 @theme maps tokens to utility classes (bg-surface, text-secondary, etc.)
  */
 
-export const UI_STUB = "ui-stub-v6" as const;
+export { ThemeProvider, useTheme } from "./components/ThemeProvider";
+export type { Theme } from "./components/ThemeProvider";
+
+export { Button } from "./components/Button";
+export type { ButtonProps } from "./components/Button";
+
+export { Card } from "./components/Card";
+export type { CardProps } from "./components/Card";
+
+export { Stat } from "./components/Stat";
+export type { StatProps, StatTrend } from "./components/Stat";
+
+export { cn } from "./lib/cn";

@@ -16,15 +16,20 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
+    "test:emulator": "firebase emulators:exec --only database,auth --project demo-munhub --config ../../infra/firebase/firebase.json \"vitest run --config vitest.emulator.config.ts\"",
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase-tools": "^15.20.0",
     "typescript": "*",
     "vitest": "*"
   },
   "dependencies": {
-    "@munhub/shared": "workspace:*"
+    "@munhub/shared": "workspace:*",
+    "firebase": "^12.14.0",
+    "firebase-admin": "^14.0.0"
   }
 }

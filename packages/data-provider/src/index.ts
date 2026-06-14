@@ -2,8 +2,8 @@
  * @munhub/data-provider
  *
  * Provider-agnostic data access layer (keystone, D4). Exposes the {@link DataProvider} interface
- * and its supporting types. Implementations (FirebaseProvider in S08, SupabaseProvider in Phase B)
- * live behind this contract; nothing outside this package imports a backend SDK directly.
+ * and its supporting types, plus the concrete `FirebaseProvider` (Phase A over munhub-1).
+ * Implementations live behind this contract; nothing outside this package imports a backend SDK.
  */
 export type { DataProvider } from "./provider.js";
 export type {
@@ -15,3 +15,11 @@ export type {
   DataChunk,
   ImportReport,
 } from "./types.js";
+
+// ── Phase A: concrete FirebaseProvider over the munhub-1 Realtime Database ──────────────────────
+export { createFirebaseProvider } from "./firebase-provider.js";
+export type {
+  FirebaseProviderConfig,
+  FirebaseClientConfig,
+  FirebaseAdminConfig,
+} from "./firebase-provider.js";

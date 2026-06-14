@@ -1,0 +1,49 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+
+    "institutions": {
+      ".read": true,
+      "$id": {
+        ".write": "auth != null && auth.token.admin === true"
+      }
+    },
+
+    "stations": {
+      ".indexOn": ["visibility", "ownerUid"],
+      "$sid": {
+        ".read": "data.child('visibility').val() === 'public' || (auth != null && (data.child('ownerUid').val() === auth.uid || data.child('shares').child(auth.uid).exists() || auth.token.admin === true))",
+        ".write": "auth != null && (auth.token.admin === true || (!data.exists() && newData.child('ownerUid').val() === auth.uid) || (data.exists() && (data.child('ownerUid').val() === auth.uid || data.child('shares').child(auth.uid).val() === 'editor')))",
+
+        "detectors": {
+          "$did": {
+            "minutes": {
+              ".write": "auth != null && (root.child('stations').child($sid).child('ownerUid').val() === auth.uid || root.child('stations').child($sid).child('shares').child(auth.uid).val() === 'editor' || auth.token.admin === true)"
+            },
+            "realtime": {
+              ".write": "auth != null && (root.child('stations').child($sid).child('ownerUid').val() === auth.uid || root.child('stations').child($sid).child('shares').child(auth.uid).val() === 'editor' || auth.token.admin === true)"
+            },
+            "latest": {
+              ".write": "auth != null && (root.child('stations').child($sid).child('ownerUid').val() === auth.uid || root.child('stations').child($sid).child('shares').child(auth.uid).val() === 'editor' || auth.token.admin === true)"
+            }
+          }
+        }
+      }
+    },
+
+    "detector_index": {
+      ".read": true,
+      "$did": {
+        ".write": "auth != null && (auth.token.admin === true || ((!data.exists() || root.child('stations').child(data.val()).child('ownerUid').val() === auth.uid || root.child('stations').child(data.val()).child('shares').child(auth.uid).val() === 'editor') && (root.child('stations').child(newData.val()).child('ownerUid').val() === auth.uid || root.child('stations').child(newData.val()).child('shares').child(auth.uid).val() === 'editor')))"
+      }
+    }
+  }
+}

@@ -4,14 +4,14 @@
 > Source of truth for "where are we" across the agent fleet. The system that produces these
 > numbers is the AFLEK kit (pinned in `FLEET-VERSION`).
 
-_Last updated: 2026-06-12 (wave F1-W3: **physics package in PR #31** — critical path; WP-03
-spec renumbering in PR #29; WP-01 translation wave 1 in PR #30)_
+_Last updated: 2026-06-13 (wave F1-W4: **FirebaseProvider — first concrete DataProvider** over
+munhub-1, in PR for review; AFLEK selftest/preflight self-healing shipped to the kit)_
 
 ## Phase progress
 | Phase | Scope | Status |
 |---|---|---|
 | **F0** | Safety net: CI, branch protection, fleet infra | ✅ done (PR #19 merged) |
-| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (scaffold ✅; contracts ✅ #24; DataProvider interface ✅ #25; **physics in PR #31**; web/agent skeleton next) |
+| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (scaffold ✅; contracts ✅ #24; DataProvider interface ✅ #25; physics ✅ #31; **FirebaseProvider in review**; web/agent skeleton next) |
 | **Design** | Design Language "Observatory Dark" (D36) → feeds all UI specs | ✅ merged (PR #20); landing design session pending |
 | **Docs** | README v6, technical docs, standards, fleet charter | ✅ merged (PRs #21–#23) |
 | **Audit** | Project audit + English agent entry points + reconstruction work packages | ✅ merged (PR #26; see `docs/audit/2026-06-12-STATE-OF-PROJECT.md`) |
@@ -27,7 +27,9 @@ spec renumbering in PR #29; WP-01 translation wave 1 in PR #30)_
 | `specs/0002-ci-cd` | CI quality gate | Claude | ✅ merged | PR #19 |
 | `specs/0003-shared-contracts` | Shared types + zod contracts | Claude | ✅ merged | PR #24 |
 | `specs/0004-data-provider-interface` | DataProvider interface | Claude | ✅ merged | PR #25 |
-| `specs/0005-physics` | dead-time, β regression, spectrum, Poisson stats | Adjutant (spec + implementation) | 🔍 in review | PR #31 |
+| `specs/0005-physics` | dead-time, β regression, spectrum, Poisson stats | Adjutant (spec + implementation) | ✅ merged | PR #31 |
+| `specs/0006-insights-v0` | per-station corrected rate + statistical baseline | Adjutant (spec) | 📋 spec merged (impl after 0007) | PR #34 |
+| `specs/0007-firebase-provider` | concrete FirebaseProvider over munhub-1 | Adjutant (spec) + Sonnet (impl) | 🔍 in review | this PR |
 
 > ⚠️ **Numbering note:** the `specs/NNNN-*` folders are canonical. The backlog renumbering
 > (WP-03) is in PR #29 (old S-number → NNNN mapping table at the bottom of

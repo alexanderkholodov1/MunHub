@@ -295,16 +295,22 @@ async function buildAdminAdapter(
     await import("firebase-admin/app");
   const { getDatabase } = await import("firebase-admin/database");
 
+  // Against the emulator (emulators:exec sets FIREBASE_DATABASE_EMULATOR_HOST),
+  // the admin SDK needs no real credential: initialize with just the databaseURL.
+  const usingEmulator = Boolean(process.env["FIREBASE_DATABASE_EMULATOR_HOST"]);
+
   const existing = getApps().find((a: App) => a.name === "munhub-admin");
   const app: App =
     existing ??
     initializeApp(
-      {
-        credential: config.serviceAccount
-          ? cert(JSON.parse(config.serviceAccount) as ServiceAccount)
-          : applicationDefault(),
-        databaseURL: config.databaseURL,
-      },
+      usingEmulator && !config.serviceAccount
+        ? { databaseURL: config.databaseURL }
+        : {
+            credential: config.serviceAccount
+              ? cert(JSON.parse(config.serviceAccount) as ServiceAccount)
+              : applicationDefault(),
+            databaseURL: config.databaseURL,
+          },
       "munhub-admin",
     );
 

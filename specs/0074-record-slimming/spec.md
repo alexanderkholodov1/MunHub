@@ -1,6 +1,6 @@
 # 0074 — Storage record slimming + realtime cap enforcement (storage optimization, M1)
 
-- **Status:** ready for implementation
+- **Status:** implemented
 - **Responsible:** Adjutant (spec) → Cursor (impl) → Gemini (D35) → Adjutant (verify + macro + PR)
 - **Depends on:** 0003 (schemas), 0007 (FirebaseProvider serializer + realtime cap). Branches from `main`.
 - **Phase:** F3 · **Epic:** Storage federation (M1) · **Source:** storage strategy 2026-06-14. Non-migration; the canonical **slim record format** here is what the future v5→v6 migration also writes.

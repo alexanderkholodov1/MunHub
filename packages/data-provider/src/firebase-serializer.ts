@@ -29,6 +29,10 @@ import {
   RealtimeRecordSchema,
 } from "@munhub/shared";
 import { padTs, unpadTs } from "./firebase-paths.js";
+import {
+  type CanonicalSlimMinuteRecord,
+  toCanonicalSlimMinuteRecord,
+} from "./slim-minute-record.js";
 
 // ── Internal logger (never throws) ───────────────────────────────────────────
 
@@ -179,9 +183,24 @@ export function deserializeSession(
 
 // ── MinuteRecord ──────────────────────────────────────────────────────────────
 
-/** Store the record without the ts (ts is the key). */
-export function serializeMinuteRecord(record: MinuteRecord): Record<string, unknown> {
-  return record as unknown as Record<string, unknown>;
+/** Store only the canonical raw fields; `ts` is the padded RTDB key. */
+export function serializeMinuteRecord(
+  record: MinuteRecord,
+): CanonicalSlimMinuteRecord {
+  return toCanonicalSlimMinuteRecord(record);
+}
+
+/**
+ * `latest` has no timestamp key, so it stores `ts` plus the canonical raw
+ * observables. Derived fields are still omitted.
+ */
+export function serializeLatestMinuteRecord(
+  record: MinuteRecord,
+): CanonicalSlimMinuteRecord & Pick<MinuteRecord, "ts"> {
+  return {
+    ts: record.ts,
+    ...toCanonicalSlimMinuteRecord(record),
+  };
 }
 
 export function deserializeMinuteRecord(
@@ -189,13 +208,41 @@ export function deserializeMinuteRecord(
   raw: unknown,
 ): MinuteRecord | null {
   if (raw == null || typeof raw !== "object") return null;
-  // The key is the padded ts; use the ts from the stored object if present,
-  // otherwise fall back to the key (supports both storage variants).
   const rawObj = raw as Record<string, unknown>;
-  const ts = rawObj["ts"] ?? unpadTs(key);
-  const result = MinuteRecordSchema.safeParse({ ...rawObj, ts });
+  const result = MinuteRecordSchema.safeParse({
+    ts: unpadTs(key),
+    ec: rawObj["ec"],
+    cc: rawObj["cc"],
+    sm: rawObj["sm"],
+    sx: rawObj["sx"],
+    sn: rawObj["sn"],
+    tp: rawObj["tp"],
+    pr: rawObj["pr"],
+    dt: rawObj["dt"],
+  });
   if (!result.success) {
     warn(`MinuteRecord(key=${key}) parse failed`, result.error.message);
+    return null;
+  }
+  return result.data;
+}
+
+export function deserializeLatestMinuteRecord(raw: unknown): MinuteRecord | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const rawObj = raw as Record<string, unknown>;
+  const result = MinuteRecordSchema.safeParse({
+    ts: rawObj["ts"],
+    ec: rawObj["ec"],
+    cc: rawObj["cc"],
+    sm: rawObj["sm"],
+    sx: rawObj["sx"],
+    sn: rawObj["sn"],
+    tp: rawObj["tp"],
+    pr: rawObj["pr"],
+    dt: rawObj["dt"],
+  });
+  if (!result.success) {
+    warn("latest MinuteRecord parse failed", result.error.message);
     return null;
   }
   return result.data;

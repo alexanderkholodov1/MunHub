@@ -90,6 +90,31 @@ at 5000 records in Firebase). Powers the 1m/5m chart views; auto-expires.
   `hw_version` (defines τ_DT — v2 ≈ 50 ms, v3X ≈ 400 µs), SiPM count, calibration (sensible
   defaults by hardware + optional advanced override).
 
+## 5.1 Station and detector creation
+
+Spec 0011 adds authenticated owner flows for creating station profiles/sites and registering the
+physical detectors under them:
+
+| Step | Source of truth | Persistence path |
+|---|---|---|
+| Create station | `StationSchema` validates mandatory metadata; `ownerUid` is always the signed-in user. Visibility has no default and must be chosen explicitly. | `DataProvider.upsertStation` writes `/stations/{id}`. |
+| Register detector | `DetectorSchema` validates device metadata. The web app auto-generates `deviceToken` and applies `defaultCalibration(hwVersion)` before saving. | `DataProvider.upsertDetector` writes `/stations/{stationId}/detectors/{detId}` and `/detector_index/{detId}`. |
+| Edit station metadata | The same `StationSchema` validates updates while preserving owner, sharing, and creation metadata. | `DataProvider.upsertStation` overwrites the station record. |
+
+Optional station fields (`floor`, `shielding`, `orientation`, `notes`) are non-blocking: missing
+values show a completion reminder so migrated or partially known stations can still be used.
+Multiple detectors under a station are allowed for coincidence setups; if saved detectors carry
+different device tokens, the UI shows a non-blocking consistency advisory instead of blocking the
+workflow.
+
+Calibration defaults are pure shared logic in `@munhub/shared`:
+
+| `hwVersion` | `adcToMv` | `saturationMv` | `triggerAdcMin` |
+|---|---:|---:|---:|
+| `v2` | `[4.8876, 0]` | `5000` | `50` |
+| `v3X` | `[0.8059, 0]` | `3300` | `120` |
+| `unknown` | `[1, 0]` | `3300` | `0` |
+
 ## 6. Scientific note on `cc` / "muons"
 
 A single SiPM cannot distinguish muon/electron/gamma (all minimum-ionizing, ~2 MeV). Therefore:

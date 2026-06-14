@@ -302,10 +302,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function runtimeImport<TModule>(specifier: string): Promise<TModule> {
-  const importer = new Function("specifier", "return import(specifier)") as (
-    value: string,
-  ) => Promise<unknown>;
-  return (await importer(specifier)) as TModule;
+  return (await import(specifier)) as TModule;
 }
 
 // ── Client SDK adapter ────────────────────────────────────────────────────────

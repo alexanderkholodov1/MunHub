@@ -4,8 +4,9 @@
 > Source of truth for "where are we" across the agent fleet. The system that produces these
 > numbers is the AFLEK kit (pinned in `FLEET-VERSION`).
 
-_Last updated: 2026-06-14 (F1-W4…W6 merged: FirebaseProvider #42, web/ui #43, auth #44;
-**F1-W7 station+detector #45** in CI. Fleet runs Cursor (impl) + Gemini (review) under a live monitor.)_
+_Last updated: 2026-06-14 (MVP path merged through the dashboard: #42–#46; **agent core #47** in CI
+— closing the detector→agent→provider→dashboard slice. Fleet runs Cursor (impl) + Gemini (review,
+D35) under a live detached monitor; the D35 gate caught a critical ec-rate physics bug pre-merge.)_
 
 ## Phase progress
 | Phase | Scope | Status |
@@ -28,12 +29,13 @@ _Last updated: 2026-06-14 (F1-W4…W6 merged: FirebaseProvider #42, web/ui #43, 
 | `specs/0003-shared-contracts` | Shared types + zod contracts | Claude | ✅ merged | PR #24 |
 | `specs/0004-data-provider-interface` | DataProvider interface | Claude | ✅ merged | PR #25 |
 | `specs/0005-physics` | dead-time, β regression, spectrum, Poisson stats | Adjutant (spec + implementation) | ✅ merged | PR #31 |
-| `specs/0006-insights-v0` | per-station corrected rate + statistical baseline | Adjutant (spec) | ✅ implemented in 0018 | PR #46 |
+| `specs/0006-insights-v0` | per-station corrected rate + statistical baseline | Adjutant (spec) | ✅ merged (in 0018) | PR #46 |
 | `specs/0007-firebase-provider` | concrete FirebaseProvider over munhub-1 | Adjutant (spec) + Sonnet (impl) | ✅ merged | PR #42 |
 | `specs/0008-web-ui-skeleton` | web shell + Observatory Dark UI foundation | Adjutant (spec) + Sonnet/Cursor (impl) | ✅ merged | PR #43 |
 | `specs/0009-auth` | Firebase Auth behind DataProvider + auth UI | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #44 |
 | `specs/0011-station-detector` | Create Station + Detector management | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #45 |
-| `specs/0018-station-dashboard` | corrected rate + spectrum + insights (impl 0006) | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #46 |
+| `specs/0018-station-dashboard` | corrected rate + spectrum + insights (impl 0006) | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #46 |
+| `specs/0013-agent-core` | serial parsing + per-minute aggregation + offline sync queue | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #47 |
 
 > ⚠️ **Numbering note:** the `specs/NNNN-*` folders are canonical. The backlog renumbering
 > (WP-03) is in PR #29 (old S-number → NNNN mapping table at the bottom of

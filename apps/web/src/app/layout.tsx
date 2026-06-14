@@ -32,15 +32,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
       data-theme="dark"
       className={`${GeistSans.variable} ${GeistMono.variable}`}
     >
-      <body
-        style={{
-          fontFamily: "var(--font-geist-sans, var(--font-ui))",
-          backgroundColor: "var(--color-bg)",
-          color: "var(--color-text)",
-          margin: 0,
-          padding: 0,
-        }}
-      >
+      <body>
         <ThemeProvider defaultTheme="dark">
           <SiteHeader />
           <main>{children}</main>

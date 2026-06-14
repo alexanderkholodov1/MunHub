@@ -144,6 +144,15 @@ baseline, Poisson uncertainty, and anomaly flags to `@munhub/physics`. The web l
 outputs with Plotly and Observatory Dark tokens; it does not recompute dead-time or barometric
 corrections inline.
 
+The public landing network section (spec 0024) is also provider-backed and static-export compatible:
+the client calls `DataProvider.listStations({ visibility: "public" })`, immediately strips each
+station down to city/country summary data for rendering, and aggregates detectors into one marker per
+city. The map never renders station names, owner identity, addresses, or exact site coordinates.
+Marker positions come from curated city centroids; unknown cities fall back to deterministic coarse
+country-level positions that are not derived from station coordinates. The live demo selects a public
+detector through the provider and reuses the same corrected-rate chart path as the station dashboard,
+with corrections delegated to `@munhub/physics`.
+
 ## 5. Ingestion paths
 
 - **Agent (standard):** the installable Tauri agent is the single standard ingestion path — runs in

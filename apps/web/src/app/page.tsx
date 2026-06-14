@@ -18,12 +18,13 @@ import React from "react";
 import Link from "next/link";
 import { Activity, Globe, ShieldCheck, ArrowRight, Zap } from "lucide-react";
 import { Button } from "@munhub/ui";
+import { PublicLandingNetwork } from "../components/landing/PublicLandingNetwork";
 
 const features = [
   {
     icon: Activity,
     title: "Real-time charged-particle rate",
-    body: "Monitor MIP-type event rates live from CosmicWatch detectors. Dead-time and barometric corrections applied in the agent before upload — the platform always shows corrected science.",
+    body: "Monitor MIP-type event rates live from CosmicWatch detectors. Dead-time and local barometric corrections are computed by the shared physics package so every chart follows the same scientific contract.",
   },
   {
     icon: Globe,
@@ -174,9 +175,10 @@ export default function LandingPage() {
           >
             CosmicWatch single-SiPM detectors measure charged-particle / MIP-type (minimum ionising
             particle) events — a proxy for the secondary cosmic-ray flux at ground level. MunHub
-            aggregates these measurements, applies dead-time correction (Bothe formula) and local
-            barometric correction (β coefficient fit per station), and surfaces the corrected rate
-            alongside raw counts so researchers retain full audit trail of every data point.
+            aggregates these measurements, applies dead-time correction and local barometric
+            correction (β coefficient fit per station) through <span className="font-mono">@munhub/physics</span>,
+            and surfaces the corrected rate alongside raw counts so researchers retain full audit
+            trail of every data point.
           </p>
 
           {/* Feature grid */}
@@ -230,6 +232,8 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      <PublicLandingNetwork />
 
       {/* ── CTA section ───────────────────────────────────────────────────── */}
       <section

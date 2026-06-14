@@ -11,6 +11,7 @@
 
 /* Observatory Dark design tokens + Tailwind v4 base */
 @import "../../node_modules/@munhub/ui/src/styles/tokens.css";
+@import "../../node_modules/maplibre-gl/dist/maplibre-gl.css";
 
 /* Scan workspace UI package for Tailwind class names */
 @source "../../packages/ui/src/**/*.{ts,tsx}";

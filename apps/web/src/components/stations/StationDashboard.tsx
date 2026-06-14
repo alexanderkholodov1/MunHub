@@ -5,7 +5,6 @@ import dynamic from "next/dynamic";
 import type { Config, Data, Layout, Shape } from "plotly.js";
 import type { PlotParams } from "react-plotly.js";
 import type { Detector, MinuteRecord, Station } from "@munhub/shared";
-import { GAP_THRESHOLD_MS } from "@munhub/shared";
 import {
   DEFAULT_BETA_MIN_POINTS,
   buildAmplitudeHistogram,
@@ -15,6 +14,11 @@ import {
 } from "@munhub/physics";
 import { Button, Card, Stat } from "@munhub/ui";
 import { Activity, AlertTriangle, BarChart3, Gauge, Sigma } from "lucide-react";
+import {
+  CorrectedRateChart,
+  correctedRateMetricLabel,
+  correctedRateTooltip,
+} from "../charts/CorrectedRateChart";
 import { getDataProvider } from "../../lib/data-provider";
 
 const Plot = dynamic<PlotParams>(
@@ -47,12 +51,6 @@ const RANGES: ReadonlyArray<{ key: RangeKey; label: string; durationMs: number }
 const ANOMALY_DISCLAIMER =
   "Individual-minute anomalies are statistical noise; confirmed anomalies need sustained deviation or multi-station coincidence.";
 
-const SINGLE_STATION_TOOLTIP =
-  "A single SiPM does not classify particles. The defensible metric is the integral rate of charged particles / MIP-type event rate, with declared uncertainty.";
-
-const COINCIDENCE_STATION_TOOLTIP =
-  "Coincidence stations use multiple detectors in a shared time window; the coincidence channel is the selected-rate observable.";
-
 const PLOT_CONFIG: Partial<Config> = {
   responsive: true,
   displaylogo: false,
@@ -68,11 +66,6 @@ interface SpectrumModel {
   readonly histogram: ReturnType<typeof buildAmplitudeHistogram>;
   readonly mpv: number;
   readonly thresholdMv: number | null;
-}
-
-interface GappedSeries {
-  readonly x: Array<Date | null>;
-  readonly y: Array<number | null>;
 }
 
 export function StationDashboard({
@@ -159,12 +152,8 @@ export function StationDashboard({
     }
   }, [records, selectedDetector]);
 
-  const primaryMetricLabel =
-    station.type === "coincidence"
-      ? "Selected coincidence rate"
-      : "Charged-particle / MIP-type rate";
-  const scientificTooltip =
-    station.type === "coincidence" ? COINCIDENCE_STATION_TOOLTIP : SINGLE_STATION_TOOLTIP;
+  const primaryMetricLabel = correctedRateMetricLabel(station.type);
+  const scientificTooltip = correctedRateTooltip(station.type);
 
   if (detectors.length === 0) {
     return (
@@ -350,7 +339,7 @@ function DashboardBody({
       )}
 
       <CorrectedRateChart
-        station={station}
+        stationType={station.type}
         insights={insights}
         logScale={logScale}
         primaryMetricLabel={primaryMetricLabel}
@@ -361,42 +350,6 @@ function DashboardBody({
         <InsightsPanel insights={insights} collecting={collecting} />
       </div>
     </div>
-  );
-}
-
-function CorrectedRateChart({
-  station,
-  insights,
-  logScale,
-  primaryMetricLabel,
-}: {
-  readonly station: Station;
-  readonly insights: CorrectedRateInsights;
-  readonly logScale: boolean;
-  readonly primaryMetricLabel: string;
-}): React.ReactElement {
-  const chart = useMemo(() => correctedRateChartModel(insights, logScale, primaryMetricLabel), [
-    insights,
-    logScale,
-    primaryMetricLabel,
-  ]);
-
-  return (
-    <Card title={`${primaryMetricLabel} · corrected rate`}>
-      <Plot
-        data={chart.data}
-        layout={chart.layout}
-        config={PLOT_CONFIG}
-        className="min-h-[460px] w-full"
-        style={{ width: "100%", minHeight: "460px" }}
-        useResizeHandler
-      />
-      <p className="mt-4 text-sm leading-relaxed text-[var(--color-text-secondary)]">
-        Raw event counts provide the Poisson uncertainty; the primary series is corrected rate, not
-        raw event rate. Gaps of at least {GAP_THRESHOLD_MS / 60_000} minutes break the line.
-        {station.type === "single" ? ` ${SINGLE_STATION_TOOLTIP}` : ` ${COINCIDENCE_STATION_TOOLTIP}`}
-      </p>
-    </Card>
   );
 }
 
@@ -517,132 +470,6 @@ function InsightsPanel({
   );
 }
 
-function correctedRateChartModel(
-  insights: CorrectedRateInsights,
-  logScale: boolean,
-  primaryMetricLabel: string,
-): { readonly data: Data[]; readonly layout: Partial<Layout> } {
-  const correctedSeries = gappedSeries(insights.points, (point) => point.barometricCorrectedRate);
-  const correctedUpper = gappedSeries(insights.points, (point) =>
-    point.barometricCorrectedRate == null || point.barometricSigma == null
-      ? null
-      : point.barometricCorrectedRate + point.barometricSigma,
-  );
-  const correctedLower = gappedSeries(insights.points, (point) =>
-    point.barometricCorrectedRate == null || point.barometricSigma == null
-      ? null
-      : Math.max(0, point.barometricCorrectedRate - point.barometricSigma),
-  );
-  const deadTimeSeries = gappedSeries(insights.points, (point) => point.deadTimeCorrectedRate);
-  const anomalySeries = {
-    x: insights.anomalies.map((anomaly) => new Date(anomaly.ts)),
-    y: insights.anomalies.map((anomaly) => anomaly.correctedRate),
-  };
-
-  const data: Data[] = [
-    {
-      type: "scatter",
-      mode: "lines",
-      name: "sqrt(N) lower band",
-      x: correctedLower.x,
-      y: correctedLower.y,
-      line: { color: "transparent" },
-      hoverinfo: "skip",
-      showlegend: false,
-    },
-    {
-      type: "scatter",
-      mode: "lines",
-      name: "sqrt(N) band",
-      x: correctedUpper.x,
-      y: correctedUpper.y,
-      fill: "tonexty",
-      fillcolor: "color-mix(in srgb, var(--color-accent) 18%, transparent)",
-      line: { color: "transparent" },
-      hoverinfo: "skip",
-    },
-    {
-      type: "scatter",
-      mode: "lines",
-      name: "Dead-time corrected ecDt",
-      x: deadTimeSeries.x,
-      y: deadTimeSeries.y,
-      line: { color: "var(--color-data-2)", width: 1.5 },
-      connectgaps: false,
-      hovertemplate: "%{x}<br>ecDt %{y:.2f} counts/min<extra></extra>",
-    },
-    {
-      type: "scatter",
-      mode: "lines",
-      name: "Pressure corrected ecCorr",
-      x: correctedSeries.x,
-      y: correctedSeries.y,
-      line: { color: "var(--color-accent)", width: 2.4 },
-      connectgaps: false,
-      hovertemplate: "%{x}<br>ecCorr %{y:.2f} counts/min<extra></extra>",
-    },
-    {
-      type: "scatter",
-      mode: "markers",
-      name: ">=3 sigma flags",
-      x: anomalySeries.x,
-      y: anomalySeries.y,
-      marker: {
-        color: "var(--color-warning)",
-        size: 9,
-        symbol: "triangle-up",
-        line: { color: "var(--color-bg)", width: 1 },
-      },
-      hovertemplate: "%{x}<br>flag %{y:.2f} counts/min<extra></extra>",
-    },
-  ];
-
-  if (insights.baseline != null) {
-    data.push(
-      baselineTrace(insights, insights.baseline.lower, "Baseline lower", false),
-      baselineTrace(insights, insights.baseline.upper, "Robust baseline band", true),
-    );
-  }
-
-  return {
-    data,
-    layout: baseLayout({
-      title: primaryMetricLabel,
-      yTitle: "Corrected rate (counts / min)",
-      logScale,
-      shapes: [],
-    }),
-  };
-}
-
-function baselineTrace(
-  insights: CorrectedRateInsights,
-  value: number,
-  name: string,
-  fill: boolean,
-): Data {
-  const x = insights.points.map((point) => new Date(point.ts));
-  const y = insights.points.map(() => value);
-  const trace = {
-    type: "scatter",
-    mode: "lines",
-    name,
-    x,
-    y,
-    line: { color: "var(--color-data-3)", width: 1, dash: "dot" },
-    hoverinfo: "skip",
-    showlegend: fill,
-  } satisfies Data;
-  if (fill) {
-    return {
-      ...trace,
-      fill: "tonexty",
-      fillcolor: "color-mix(in srgb, var(--color-data-3) 14%, transparent)",
-    } satisfies Data;
-  }
-  return trace;
-}
-
 function spectrumChartModel(
   spectrum: SpectrumModel,
 ): { readonly data: Data[]; readonly layout: Partial<Layout> } {
@@ -752,28 +579,6 @@ function baseLayout({
     },
     shapes: [...shapes],
   };
-}
-
-function gappedSeries(
-  points: CorrectedRateInsights["points"],
-  readValue: (point: CorrectedRateInsights["points"][number]) => number | null,
-): GappedSeries {
-  const x: Array<Date | null> = [];
-  const y: Array<number | null> = [];
-  let previousTs: number | null = null;
-
-  for (const point of points) {
-    if (previousTs != null && point.ts - previousTs >= GAP_THRESHOLD_MS) {
-      x.push(new Date(previousTs + 1));
-      y.push(null);
-    }
-    const value = readValue(point);
-    x.push(new Date(point.ts));
-    y.push(value == null || !Number.isFinite(value) ? null : value);
-    previousTs = point.ts;
-  }
-
-  return { x, y };
 }
 
 function detectorThresholdMv(detector: Detector): number | null {

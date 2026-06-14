@@ -120,6 +120,24 @@ surfaces a designed **Backend not configured** state through `getDataProviderCon
 The corrections pipeline (mandatory order): **raw → dead-time → barometric (local β) → thermal**.
 See [`DATA-MODEL.md`](DATA-MODEL.md) and the scientific foundation.
 
+The agent acquisition core delivered in spec 0013 is pure TypeScript under `apps/agent/src/` and is
+covered by Vitest without requiring Tauri or Rust in CI:
+
+- `parsers/` detects and normalizes the four documented serial wire formats (CosmicWatch/MuNRa,
+  JSON, key-value, CSV), including v5's `COSMIC`+digit split for concatenated lines.
+- `aggregate.ts` folds one minute of raw readings into a `MinuteRecord`, converts pressure Pa to hPa,
+  averages rate/environment fields rather than summing them, preserves amplitude min/max fields, and
+  validates the boundary with `MinuteRecordSchema`.
+- `local-store.ts` defines the local persistence port plus a tested in-memory implementation. The
+  future SQLite store uses the same interface.
+- `sync-queue.ts` persists locally before upload, queues while offline, flushes through
+  `DataProvider.pushMinuteRecord`, and is idempotent on `(detectorId, ts)`.
+
+The `apps/agent/src-tauri/` serial bridge is intentionally thin at this stage: it enumerates ports,
+opens a selected port, and emits serial lines to the TypeScript parser path. Full Tauri
+build/packaging and real serial runs are not CI gates for spec 0013; they are verified manually with
+the physical detector.
+
 The station detail dashboard (spec 0018) reads detector minute records only through
 `DataProvider.getMinuteRecords`, then delegates its corrected-rate series, local beta, robust
 baseline, Poisson uncertainty, and anomaly flags to `@munhub/physics`. The web layer renders those

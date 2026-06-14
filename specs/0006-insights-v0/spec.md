@@ -2,8 +2,8 @@
 
 - **Status:** spec ready for implementation
 - **Responsible:** Adjutant (spec) → Sonnet (implementation, after 0005 and FirebaseProvider merge)
-- **Depends on:** 0003 (shared contracts), 0004 (DataProvider interface), 0005 (physics package);
-  FirebaseProvider implementation (spec TBD — the data must be reachable first)
+- **Depends on:** 0003 (shared contracts), 0004 (DataProvider interface), 0005 (physics package),
+  0007 (FirebaseProvider — the data is now reachable through a concrete provider)
 - **Phase:** F3 · **Epic:** EPIC-5 (Insights/ML) · **Source:** audit WP-09
 - **Proposed in:** `docs/audit/2026-06-12-STATE-OF-PROJECT.md` §6
 

@@ -85,7 +85,26 @@ UI labels and tooltips take their exact wording from
 
 ## 7. Backends
 
-- **Phase A — Firebase Realtime Database:** `/users`, `/institutions`, `/stations/{id}/detectors/{id}/…`,
-  `/external_events`. Deny-by-default rules.
+- **Phase A — Firebase Realtime Database (munhub-1), via `FirebaseProvider` (spec 0007):**
+
+  ```
+  /users/{uid}
+  /institutions/{id}
+  /stations/{id}                         → ownerUid, visibility, shares/{uid}, …
+    └─ detectors/{detId}
+         ├─ sessions/{sid}               (session metadata only)
+         ├─ minutes/{ts}                 (MinuteRecord; ts = zero-padded epoch-ms key, ordered)
+         ├─ realtime/{ts}                (RealtimeRecord; capped sliding window)
+         └─ latest                       (denormalized most-recent MinuteRecord)
+  /detector_index/{detId}                → stationId   (O(1) detector→station resolution)
+  ```
+
+  Two reconciliations the provider pins versus the earlier sketch: (1) the queryable **minute
+  series is stored directly under the detector** (`…/detectors/{detId}/minutes/{ts}`), not under
+  `sessions/{sid}`, so range queries by `(detectorId, ts)` need no cross-session scan — `sessions`
+  keeps run metadata only; (2) **`/detector_index`** denormalizes detector→station so the by-id
+  interface methods resolve in one read. Deny-by-default rules live in
+  `infra/firebase/database.rules.json` (the legacy v5 ruleset at the repo root `database.rules.json`
+  is separate and untouched). Stored field names are the camelCase schema keys.
 - **Phase B — Postgres + TimescaleDB:** hypertables for `minute_records` / `realtime_records`,
   continuous aggregates for long-range charts, row-level security mirroring Phase A rules.

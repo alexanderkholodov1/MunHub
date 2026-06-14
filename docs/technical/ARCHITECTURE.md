@@ -85,6 +85,14 @@ The app consumes it without knowing the backend. **This same interface is the en
 migration tool** — `exportAll` streams `DataChunk`s out of one provider and `importAll` ingests them
 into another — which is how the v5 → v6 and Phase A → Phase B migrations work.
 
+The first concrete implementation is **`FirebaseProvider`** (spec 0007), over the munhub-1 Realtime
+Database. A single factory serves two SDK targets behind the same interface — the firebase modular
+**client** SDK (web) and **`firebase-admin`** (agent/tooling/server) — and the backend SDK is
+imported **only** here, never by `web`, `agent`, `api`, or `ai`. It uses incremental realtime
+listeners (no full-node re-download), validates every boundary with the `@munhub/shared` zod
+schemas, and is tested against the Firebase Emulator Suite (`pnpm --filter @munhub/data-provider
+test:emulator`); the default `pnpm test` needs no emulator.
+
 ## 4. Data flow
 
 ```

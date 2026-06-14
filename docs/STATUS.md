@@ -4,9 +4,10 @@
 > Source of truth for "where are we" across the agent fleet. The system that produces these
 > numbers is the AFLEK kit (pinned in `FLEET-VERSION`).
 
-_Last updated: 2026-06-14 (MVP path merged through the dashboard: #42–#46; **agent core #47** in CI
-— closing the detector→agent→provider→dashboard slice. Fleet runs Cursor (impl) + Gemini (review,
-D35) under a live detached monitor; the D35 gate caught a critical ec-rate physics bug pre-merge.)_
+_Last updated: 2026-06-14 (MVP code path merged: #42–#47 — detector→agent→provider→dashboard.
+**Public landing + city-aggregated detector map #48** in CI (F3 begins). Fleet runs Cursor (impl)
++ Gemini (D35) under a live detached monitor; D35 has already caught a physics bug and verified D20
+location privacy pre-merge.)_
 
 ## Phase progress
 | Phase | Scope | Status |
@@ -35,7 +36,8 @@ D35) under a live detached monitor; the D35 gate caught a critical ec-rate physi
 | `specs/0009-auth` | Firebase Auth behind DataProvider + auth UI | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #44 |
 | `specs/0011-station-detector` | Create Station + Detector management | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #45 |
 | `specs/0018-station-dashboard` | corrected rate + spectrum + insights (impl 0006) | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #46 |
-| `specs/0013-agent-core` | serial parsing + per-minute aggregation + offline sync queue | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #47 |
+| `specs/0013-agent-core` | serial parsing + per-minute aggregation + offline sync queue | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #47 |
+| `specs/0024-public-landing-map` | public landing: city-aggregated detector map + live demo | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #48 |
 
 > ⚠️ **Numbering note:** the `specs/NNNN-*` folders are canonical. The backlog renumbering
 > (WP-03) is in PR #29 (old S-number → NNNN mapping table at the bottom of

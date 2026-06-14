@@ -44,6 +44,7 @@ export function PublicLiveDemo({
       setLoading(false);
       return;
     }
+    const activeDetector = detector;
 
     let active = true;
     let unsubscribe: (() => void) | null = null;
@@ -53,7 +54,7 @@ export function PublicLiveDemo({
       const provider = await getDataProvider();
       const toTs = Date.now();
       const fromTs = toTs - DEMO_WINDOW_MS;
-      const minuteRecords = await provider.getMinuteRecords(detector.detectorId, { fromTs, toTs });
+      const minuteRecords = await provider.getMinuteRecords(activeDetector.detectorId, { fromTs, toTs });
       if (!active) return;
       setRecords(minuteRecords);
       lastRefresh = Date.now();
@@ -66,7 +67,7 @@ export function PublicLiveDemo({
       .then(async (provider) => {
         await loadRecords();
         if (!active) return;
-        unsubscribe = provider.subscribeRealtime(detector.detectorId, () => {
+        unsubscribe = provider.subscribeRealtime(activeDetector.detectorId, () => {
           if (Date.now() - lastRefresh < REALTIME_REFRESH_THROTTLE_MS) return;
           void loadRecords().catch((err: unknown) => {
             if (!active) return;

@@ -9,8 +9,6 @@ import type {
 } from "maplibre-gl";
 import type { CityDetectorAggregate } from "./city-aggregation";
 
-type MapLibreModule = typeof import("maplibre-gl");
-
 export function CityDetectorMapCanvas({
   cities,
   selectedCityKey,
@@ -32,7 +30,7 @@ export function CityDetectorMapCanvas({
     if (containerRef.current == null || mapRef.current != null) return;
     let cancelled = false;
 
-    void import("maplibre-gl").then((maplibregl) => {
+    void loadMapLibre().then((maplibregl) => {
       if (cancelled || containerRef.current == null) return;
       moduleRef.current = maplibregl;
 
@@ -47,7 +45,7 @@ export function CityDetectorMapCanvas({
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
       map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
       mapRef.current = map;
-      map.once("load", () => {
+      void map.once("load", () => {
         if (!cancelled) setMapReady(true);
       });
     });
@@ -98,6 +96,7 @@ export function CityDetectorMapCanvas({
 
     if (cities.length === 1) {
       const city = cities[0];
+      if (city == null) return;
       map.easeTo({
         center: [city.centroid.longitude, city.centroid.latitude],
         zoom: 5,
@@ -277,3 +276,9 @@ interface CityCentroidLike {
   readonly latitude: number;
   readonly longitude: number;
 }
+
+async function loadMapLibre() {
+  return import("maplibre-gl");
+}
+
+type MapLibreModule = Awaited<ReturnType<typeof loadMapLibre>>;

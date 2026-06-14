@@ -8,8 +8,8 @@ import type { CityDetectorAggregate } from "./city-aggregation";
 
 const CityDetectorMapCanvas = dynamic(
   async () => {
-    const module = await import("./CityDetectorMapCanvas");
-    return module.CityDetectorMapCanvas;
+    const importedMap = await import("./CityDetectorMapCanvas");
+    return importedMap.CityDetectorMapCanvas;
   },
   {
     ssr: false,

@@ -66,7 +66,9 @@ import { deserializeUser } from "./firebase-serializer.js";
 // Type-only imports — erased at compile time, so they never pull the admin SDK
 // into the client bundle. Runtime values come from dynamic import() below.
 import type { App, ServiceAccount } from "firebase-admin/app";
+import type * as FirebaseAdminApp from "firebase-admin/app";
 import type { Reference, DataSnapshot, Query } from "firebase-admin/database";
+import type * as FirebaseAdminDatabase from "firebase-admin/database";
 
 // ── RTDB page size for exportAll (avoids loading entire dataset in memory) ────
 const EXPORT_PAGE_SIZE = 500;
@@ -530,9 +532,9 @@ async function buildAdminAdapter(
   // bundle never pulls in the admin SDK. Types come from the top-level
   // `import type` (erased at compile time — no runtime SDK pull).
   const { getApps, initializeApp, cert, applicationDefault } =
-    await runtimeImport<typeof import("firebase-admin/app")>("firebase-admin/app");
+    await runtimeImport<typeof FirebaseAdminApp>("firebase-admin/app");
   const { getDatabase } =
-    await runtimeImport<typeof import("firebase-admin/database")>("firebase-admin/database");
+    await runtimeImport<typeof FirebaseAdminDatabase>("firebase-admin/database");
 
   // Against the emulator (emulators:exec sets FIREBASE_DATABASE_EMULATOR_HOST),
   // the admin SDK needs no real credential: initialize with just the databaseURL.

@@ -42,9 +42,9 @@ import type {
   ExportOptions,
   DataChunk,
   ImportReport,
-  AuthProviderError,
-  type AuthErrorCode,
+  AuthErrorCode,
 } from "./types.js";
+import { AuthProviderError } from "./types.js";
 import { Paths, padTs } from "./firebase-paths.js";
 import {
   serializeUser,

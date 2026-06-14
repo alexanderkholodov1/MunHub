@@ -1,5 +1,11 @@
 # MunHub Lab v6.0 — Design Language: "Observatory Dark"
 
+> **Implementation status:** token foundation and primitive set LANDED in `packages/ui` (spec 0008).
+> The full token set (CSS custom properties + Tailwind v4 `@theme`) lives in
+> [`packages/ui/src/styles/tokens.css`](../../packages/ui/src/styles/tokens.css).
+> Primitives exported from [`packages/ui/src/index.ts`](../../packages/ui/src/index.ts):
+> `ThemeProvider`, `Button`, `Card`, `Stat`.
+
 > The visual contract for the whole platform. Every UI spec, every component, every screen — and
 > every agent/tool (v0, Cursor, Copilot, Claude) — obeys this document, exactly as code obeys the
 > contracts in `packages/shared` and science obeys `docs/research/THEORETICAL-FOUNDATION.md`.

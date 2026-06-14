@@ -7,6 +7,33 @@
 
 ---
 
+## v6 agent implementation status (spec 0013)
+
+The TypeScript acquisition core in `apps/agent/src/parsers/` now implements the four documented
+wire formats with the v5 priority order:
+
+1. JSON lines starting with `{`.
+2. CosmicWatch/MuNRa tab-or-space lines with the `COSMIC` marker or at least three leading numeric
+   columns.
+3. Key-value lines containing `TRG <number>`.
+4. CSV lines in the documented `trg,sipm,temp,pressure,deadtime,coincident,timestamp` order.
+
+Malformed, partial, header, or unrecognized lines are skipped with a warning and never defaulted
+into a record. The v5 `COSMIC`+digit concatenation split is preserved before parsing. The normalized
+raw reading carries agent time, trigger/rate value, SiPM mV, temperature C, pressure Pa, dead-time
+percent, and coincidence fields as available. Per-minute aggregation converts pressure Pa to the v6
+canonical hPa field and validates the resulting `MinuteRecord` with `MinuteRecordSchema`.
+
+Data-integrity invariant for v6 ingestion: per-minute fields are time-averages, never sums. `sm`,
+`tp`, `pr`, `dt`, `ec`, and `cc` are averaged over the minute window; `sn` and `sx` keep the
+documented amplitude min/max semantics. No parsed event is filtered during aggregation. The Tauri
+serial bridge under `apps/agent/src-tauri/` is a thin scaffold for port enumeration and line events;
+full Tauri packaging and real serial acquisition are out of CI and must be verified manually with the
+physical detector by checking port enumeration, live line streaming, parsed readings, local-first
+minute persistence, and reconnect flush.
+
+---
+
 ## 0. Investigación: ¿qué detector es realmente? (CosmicWatch v3X-derivado)
 
 **Conclusión:** SÍ es un CosmicWatch (Dennis tiene razón: logo en el LCD, diseño base). Pero

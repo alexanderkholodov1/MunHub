@@ -299,6 +299,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function runtimeImport<TModule>(specifier: string): Promise<TModule> {
+  const importer = new Function("specifier", "return import(specifier)") as (
+    value: string,
+  ) => Promise<unknown>;
+  return (await importer(specifier)) as TModule;
+}
+
 // ── Client SDK adapter ────────────────────────────────────────────────────────
 
 async function buildClientAdapter(
@@ -523,8 +530,9 @@ async function buildAdminAdapter(
   // bundle never pulls in the admin SDK. Types come from the top-level
   // `import type` (erased at compile time — no runtime SDK pull).
   const { getApps, initializeApp, cert, applicationDefault } =
-    await import("firebase-admin/app");
-  const { getDatabase } = await import("firebase-admin/database");
+    await runtimeImport<typeof import("firebase-admin/app")>("firebase-admin/app");
+  const { getDatabase } =
+    await runtimeImport<typeof import("firebase-admin/database")>("firebase-admin/database");
 
   // Against the emulator (emulators:exec sets FIREBASE_DATABASE_EMULATOR_HOST),
   // the admin SDK needs no real credential: initialize with just the databaseURL.

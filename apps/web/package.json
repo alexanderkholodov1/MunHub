@@ -13,10 +13,12 @@
     "clean": "rm -rf .next out"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
     "@types/node": "^22.15.29",
+    "@types/plotly.js": "^3.0.10",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.3.7",
-    "@eslint/eslintrc": "^3.3.5",
+    "@types/react-plotly.js": "^2.6.4",
     "eslint": "^9.28.0",
     "eslint-config-next": "^15.2.9",
     "jsdom": "^29.1.1",
@@ -28,12 +30,14 @@
     "@munhub/physics": "workspace:*",
     "@munhub/shared": "workspace:*",
     "@munhub/ui": "workspace:*",
+    "@tailwindcss/postcss": "^4.3.1",
     "geist": "^1.7.2",
     "lucide-react": "^0.511.0",
     "next": "^15.2.9",
+    "plotly.js-dist-min": "^3.6.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "tailwindcss": "^4.3.1",
-    "@tailwindcss/postcss": "^4.3.1"
+    "react-plotly.js": "^3.0.0",
+    "tailwindcss": "^4.3.1"
   }
 }

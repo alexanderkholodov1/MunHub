@@ -18,24 +18,39 @@ function loginRedirect(pathname: string): string {
 }
 
 export function AuthGate({ mode, children }: AuthGateProps): React.ReactElement {
-  const { user, loading } = useAuth();
+  const { user, loading, backendStatus, backendMessage } = useAuth();
   const router = useRouter();
   const pathname = usePathname() ?? "/";
 
   useEffect(() => {
     if (loading) return;
+    if (backendStatus === "not-configured") return;
     if (mode === "protected" && user == null) {
       router.replace(loginRedirect(pathname));
     }
     if (mode === "guest" && user != null) {
       router.replace("/dashboard");
     }
-  }, [loading, mode, pathname, router, user]);
+  }, [backendStatus, loading, mode, pathname, router, user]);
 
   if (loading) {
     return (
       <div style={{ maxWidth: "520px", margin: "0 auto", padding: "var(--space-12) var(--space-6)" }}>
         <Card title="Checking session" loading />
+      </div>
+    );
+  }
+
+  if (backendStatus === "not-configured") {
+    return (
+      <div style={{ maxWidth: "640px", margin: "0 auto", padding: "var(--space-12) var(--space-6)" }}>
+        <Card
+          title="Backend not configured"
+          error={
+            backendMessage ??
+            "Set the NEXT_PUBLIC_FIREBASE_* variables documented in .env.example to connect the MunHub data provider."
+          }
+        />
       </div>
     );
   }

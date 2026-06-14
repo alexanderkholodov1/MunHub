@@ -37,4 +37,16 @@ export type { RobustBaseline } from "./statistics.js";
 export { buildAmplitudeHistogram, estimateMpv } from "./spectrum.js";
 export type { AmplitudeHistogram, HistogramOptions } from "./spectrum.js";
 
+export {
+  DEFAULT_BETA_MIN_POINTS,
+  buildCorrectedRateInsights,
+} from "./insights.js";
+export type {
+  AnomalyFlag,
+  BetaReadout,
+  CorrectedRateInsights,
+  CorrectedRateInsightsOptions,
+  CorrectedRatePoint,
+} from "./insights.js";
+
 export { rateToFlux } from "./flux.js";

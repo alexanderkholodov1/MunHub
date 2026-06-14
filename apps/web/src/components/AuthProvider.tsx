@@ -10,7 +10,11 @@ import React, {
 } from "react";
 import type { Language, User } from "@munhub/shared";
 import type { Unsubscribe } from "@munhub/data-provider";
-import { getDataProvider } from "../lib/data-provider";
+import {
+  getDataProvider,
+  getDataProviderConfigState,
+  isDataProviderConfigurationError,
+} from "../lib/data-provider";
 import { authErrorToMessage } from "../lib/auth-errors";
 
 interface RegisterProfile {
@@ -22,6 +26,8 @@ interface AuthContextValue {
   user: User | null;
   loading: boolean;
   error: string | null;
+  backendStatus: "checking" | "ready" | "not-configured";
+  backendMessage: string | null;
   signIn(email: string, password: string): Promise<User>;
   register(email: string, password: string, profile: RegisterProfile): Promise<User>;
   signOut(): Promise<void>;
@@ -38,14 +44,29 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] =
+    useState<AuthContextValue["backendStatus"]>("checking");
+  const [backendMessage, setBackendMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     let unsubscribe: Unsubscribe | null = null;
+    const configState = getDataProviderConfigState();
+    if (configState.status !== "ready") {
+      setBackendStatus("not-configured");
+      setBackendMessage(configState.message);
+      setError(configState.message);
+      setLoading(false);
+      return () => {
+        active = false;
+      };
+    }
 
     void getDataProvider()
       .then((provider) => {
         if (!active) return;
+        setBackendStatus("ready");
+        setBackendMessage(null);
         unsubscribe = provider.onAuthStateChanged((nextUser) => {
           if (!active) return;
           setUser(nextUser);
@@ -55,6 +76,10 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       })
       .catch((err: unknown) => {
         if (!active) return;
+        if (isDataProviderConfigurationError(err)) {
+          setBackendStatus("not-configured");
+          setBackendMessage(err.message);
+        }
         setError(authErrorToMessage(err));
         setLoading(false);
       });
@@ -69,12 +94,16 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
   const signIn = useCallback(async (email: string, password: string): Promise<User> => {
     setError(null);
-    const provider = await getDataProvider();
     try {
+      const provider = await getDataProvider();
       const signedIn = await provider.signIn(email, password);
       setUser(signedIn);
       return signedIn;
     } catch (err) {
+      if (isDataProviderConfigurationError(err)) {
+        setBackendStatus("not-configured");
+        setBackendMessage(err.message);
+      }
       const message = authErrorToMessage(err);
       setError(message);
       throw err;
@@ -84,12 +113,16 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
   const register = useCallback(
     async (email: string, password: string, profile: RegisterProfile): Promise<User> => {
       setError(null);
-      const provider = await getDataProvider();
       try {
+        const provider = await getDataProvider();
         const registered = await provider.register(email, password, profile);
         setUser(registered);
         return registered;
       } catch (err) {
+        if (isDataProviderConfigurationError(err)) {
+          setBackendStatus("not-configured");
+          setBackendMessage(err.message);
+        }
         const message = authErrorToMessage(err);
         setError(message);
         throw err;
@@ -100,11 +133,15 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
   const signOut = useCallback(async (): Promise<void> => {
     setError(null);
-    const provider = await getDataProvider();
     try {
+      const provider = await getDataProvider();
       await provider.signOut();
       setUser(null);
     } catch (err) {
+      if (isDataProviderConfigurationError(err)) {
+        setBackendStatus("not-configured");
+        setBackendMessage(err.message);
+      }
       const message = authErrorToMessage(err);
       setError(message);
       throw err;
@@ -113,10 +150,14 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
 
   const sendPasswordReset = useCallback(async (email: string): Promise<void> => {
     setError(null);
-    const provider = await getDataProvider();
     try {
+      const provider = await getDataProvider();
       await provider.sendPasswordReset(email);
     } catch (err) {
+      if (isDataProviderConfigurationError(err)) {
+        setBackendStatus("not-configured");
+        setBackendMessage(err.message);
+      }
       const message = authErrorToMessage(err);
       setError(message);
       throw err;
@@ -128,12 +169,14 @@ export function AuthProvider({ children }: AuthProviderProps): React.ReactElemen
       user,
       loading,
       error,
+      backendStatus,
+      backendMessage,
       signIn,
       register,
       signOut,
       sendPasswordReset,
     }),
-    [error, loading, register, sendPasswordReset, signIn, signOut, user],
+    [backendMessage, backendStatus, error, loading, register, sendPasswordReset, signIn, signOut, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

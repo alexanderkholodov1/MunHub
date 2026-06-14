@@ -28,11 +28,12 @@ _Last updated: 2026-06-14 (F1-W4…W6 merged: FirebaseProvider #42, web/ui #43, 
 | `specs/0003-shared-contracts` | Shared types + zod contracts | Claude | ✅ merged | PR #24 |
 | `specs/0004-data-provider-interface` | DataProvider interface | Claude | ✅ merged | PR #25 |
 | `specs/0005-physics` | dead-time, β regression, spectrum, Poisson stats | Adjutant (spec + implementation) | ✅ merged | PR #31 |
-| `specs/0006-insights-v0` | per-station corrected rate + statistical baseline | Adjutant (spec) | 📋 spec merged (impl after 0007) | PR #34 |
+| `specs/0006-insights-v0` | per-station corrected rate + statistical baseline | Adjutant (spec) | ✅ implemented in 0018 | PR #46 |
 | `specs/0007-firebase-provider` | concrete FirebaseProvider over munhub-1 | Adjutant (spec) + Sonnet (impl) | ✅ merged | PR #42 |
 | `specs/0008-web-ui-skeleton` | web shell + Observatory Dark UI foundation | Adjutant (spec) + Sonnet/Cursor (impl) | ✅ merged | PR #43 |
 | `specs/0009-auth` | Firebase Auth behind DataProvider + auth UI | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #44 |
-| `specs/0011-station-detector` | Create Station + Detector management | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #45 |
+| `specs/0011-station-detector` | Create Station + Detector management | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #45 |
+| `specs/0018-station-dashboard` | corrected rate + spectrum + insights (impl 0006) | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #46 |
 
 > ⚠️ **Numbering note:** the `specs/NNNN-*` folders are canonical. The backlog renumbering
 > (WP-03) is in PR #29 (old S-number → NNNN mapping table at the bottom of

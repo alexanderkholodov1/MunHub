@@ -1,6 +1,6 @@
 # 0006 — Insights v0 (per-station corrected rate + statistical baseline)
 
-- **Status:** spec ready for implementation
+- **Status:** implemented by `specs/0018-station-dashboard`
 - **Responsible:** Adjutant (spec) → Sonnet (implementation, after 0005 and FirebaseProvider merge)
 - **Depends on:** 0003 (shared contracts), 0004 (DataProvider interface), 0005 (physics package),
   0007 (FirebaseProvider — the data is now reachable through a concrete provider)
@@ -88,26 +88,26 @@ language. Charts via Plotly (D15).
 
 ## Acceptance criteria
 
-- [ ] CA1: the Insights tab appears on a station dashboard with ≥ 1440 records; shows
+- [x] CA1: the Insights tab appears on a station dashboard with ≥ 1440 records; shows
   "collecting data" state for < 1440; hides for < 1440 total records in the DB.
-- [ ] CA2: the corrected rate chart shows `ecDt` and `ecCorr` with correct labels and units;
+- [x] CA2: the corrected rate chart shows `ecDt` and `ecCorr` with correct labels and units;
   raw `ec` is NOT displayed as the primary series.
-- [ ] CA3: the β readout shows the fitted value and r²; toggling a different pressure range
+- [x] CA3: the β readout shows the fitted value and r²; toggling a different pressure range
   updates the chart.
-- [ ] CA4: anomaly flags appear at the correct minutes for a synthetic test series where known
+- [x] CA4: anomaly flags appear at the correct minutes for a synthetic test series where known
   deviations exceed 3σ.
-- [ ] CA5: `@munhub/physics` functions are called; no correction logic is duplicated inline.
-- [ ] CA6: `pnpm build && pnpm lint && pnpm typecheck` green; no "muon" in the new code.
-- [ ] CA7: Observatory Dark design tokens used throughout; Geist Mono for all numeric readouts.
+- [x] CA5: `@munhub/physics` functions are called; no correction logic is duplicated inline.
+- [x] CA6: `pnpm build && pnpm lint && pnpm typecheck` green; no "muon" in the new code.
+- [x] CA7: Observatory Dark design tokens used throughout; Geist Mono for all numeric readouts.
 
 ## Tasks
 
-- [ ] T1: route/page scaffold for the Insights tab (`apps/web`).
-- [ ] T2: data-loading hook — `useInsightsData(stationId, windowDays)`.
-- [ ] T3: corrections pipeline hook — `useInsightsMetrics(records, detector)`.
-- [ ] T4: corrected-rate + baseline chart component (Plotly).
-- [ ] T5: anomaly flag overlay + disclaimer.
-- [ ] T6: β readout component.
-- [ ] T7: empty/loading/error states.
-- [ ] T8: lint, typecheck, build green.
-- [ ] T9: docs matrix — architecture note, STATUS row, changelog fragment.
+- [x] T1: route/page scaffold for the Insights tab (`apps/web`).
+- [x] T2: data-loading hook — `useInsightsData(stationId, windowDays)`.
+- [x] T3: corrections pipeline hook — `useInsightsMetrics(records, detector)`.
+- [x] T4: corrected-rate + baseline chart component (Plotly).
+- [x] T5: anomaly flag overlay + disclaimer.
+- [x] T6: β readout component.
+- [x] T7: empty/loading/error states.
+- [x] T8: lint, typecheck, build green.
+- [x] T9: docs matrix — architecture note, STATUS row, changelog fragment.

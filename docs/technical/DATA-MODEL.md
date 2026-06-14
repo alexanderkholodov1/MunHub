@@ -35,6 +35,24 @@ Data (sessions, minute records, realtime) hangs off the **detector**, because ca
 per-device. For the 99% case (one detector per station) the UI presents this transparently; the
 station view aggregates its detectors.
 
+## 2.1 User profile created by auth
+
+Spec 0009 adds account creation behind `DataProvider.register`. The provider first creates the
+Firebase Auth account, then writes `/users/{uid}` with the canonical shared `User` shape:
+
+| Field | Source |
+|---|---|
+| `uid` | Firebase Auth user id |
+| `email` | registration email |
+| `username` | provider-derived stable username seed from email + uid |
+| `displayName` | registration form |
+| `role` | `"user"` by default |
+| `institutionId` | `null` for independent users until membership flows land |
+| `language` | selected registration language (`en`, `es`, `pt-BR`) |
+| `emailVerified` | Firebase Auth email verification state |
+| `mlTrainingOptOut`, `directoryOptIn` | `false` by default |
+| `createdAt` | provider write time in epoch milliseconds |
+
 ## 3. Minute record (the scientific core)
 
 Stored indefinitely. **All values are averages, never sums** — a data-integrity requirement.
@@ -88,7 +106,7 @@ UI labels and tooltips take their exact wording from
 - **Phase A — Firebase Realtime Database (munhub-1), via `FirebaseProvider` (spec 0007):**
 
   ```
-  /users/{uid}
+  /users/{uid}                         → email, username, displayName, role, language, …
   /institutions/{id}
   /stations/{id}                         → ownerUid, visibility, shares/{uid}, …
     └─ detectors/{detId}

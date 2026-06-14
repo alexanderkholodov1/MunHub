@@ -1,6 +1,6 @@
 # 0009 — Authentication (Firebase Auth behind DataProvider) + auth UI
 
-- **Status:** ready for implementation
+- **Status:** implemented
 - **Responsible:** Adjutant (spec) → Cursor (implementation, Claude model) → Gemini (cross-provider review, D35) → Adjutant (final review + PR)
 - **Depends on:** 0007 (FirebaseProvider — client SDK + `/users` access), 0008 (`@munhub/ui` primitives + web shell), 0003 (shared `User`/`Language` schemas). Stacks on PRs #42 + #43; rebase onto `main` once they merge.
 - **Phase:** F1 · **Epic:** EPIC-3 · **Backlog:** 0009. First step of the MVP "an authenticated user creates a station+detector".

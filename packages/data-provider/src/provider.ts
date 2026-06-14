@@ -8,6 +8,7 @@
  */
 import type {
   User,
+  Language,
   Institution,
   Station,
   Detector,
@@ -29,6 +30,20 @@ export interface DataProvider {
   // ── Auth & tenancy ──────────────────────────────────────────────────────
   /** The currently authenticated user, or null if signed out. */
   getCurrentUser(): Promise<User | null>;
+  /** Create an auth account and its `/users/{uid}` profile record. */
+  register(
+    email: string,
+    password: string,
+    profile: { displayName: string; language: Language },
+  ): Promise<User>;
+  /** Sign in with email/password and return the matching `/users/{uid}` record. */
+  signIn(email: string, password: string): Promise<User>;
+  /** Clear the current interactive auth session. */
+  signOut(): Promise<void>;
+  /** Send a password-reset email through the active auth backend. */
+  sendPasswordReset(email: string): Promise<void>;
+  /** Observe initial session restore plus login/logout changes. */
+  onAuthStateChanged(cb: (user: User | null) => void): Unsubscribe;
 
   // ── Institutions ────────────────────────────────────────────────────────
   upsertInstitution(institution: Institution): Promise<void>;

@@ -1,0 +1,60 @@
+"use client";
+
+import React, { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Card } from "@munhub/ui";
+import { useAuth } from "./AuthProvider";
+
+type AuthGateMode = "protected" | "guest";
+
+interface AuthGateProps {
+  mode: AuthGateMode;
+  children: React.ReactNode;
+}
+
+function loginRedirect(pathname: string): string {
+  const next = pathname.startsWith("/") && !pathname.startsWith("//") ? pathname : "/dashboard";
+  return `/login?next=${encodeURIComponent(next)}`;
+}
+
+export function AuthGate({ mode, children }: AuthGateProps): React.ReactElement {
+  const { user, loading } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname() ?? "/";
+
+  useEffect(() => {
+    if (loading) return;
+    if (mode === "protected" && user == null) {
+      router.replace(loginRedirect(pathname));
+    }
+    if (mode === "guest" && user != null) {
+      router.replace("/dashboard");
+    }
+  }, [loading, mode, pathname, router, user]);
+
+  if (loading) {
+    return (
+      <div style={{ maxWidth: "520px", margin: "0 auto", padding: "var(--space-12) var(--space-6)" }}>
+        <Card title="Checking session" loading />
+      </div>
+    );
+  }
+
+  if (mode === "protected" && user == null) {
+    return (
+      <div style={{ maxWidth: "520px", margin: "0 auto", padding: "var(--space-12) var(--space-6)" }}>
+        <Card title="Redirecting to sign in" loading />
+      </div>
+    );
+  }
+
+  if (mode === "guest" && user != null) {
+    return (
+      <div style={{ maxWidth: "520px", margin: "0 auto", padding: "var(--space-12) var(--space-6)" }}>
+        <Card title="Opening your dashboard" loading />
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}

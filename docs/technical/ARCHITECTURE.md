@@ -90,12 +90,15 @@ migration tool** — `exportAll` streams `DataChunk`s out of one provider and `i
 into another — which is how the v5 → v6 and Phase A → Phase B migrations work.
 
 The first concrete implementation is **`FirebaseProvider`** (spec 0007), over the munhub-1 Realtime
-Database. A single factory serves two SDK targets behind the same interface — the firebase modular
-**client** SDK (web) and **`firebase-admin`** (agent/tooling/server) — and the backend SDK is
-imported **only** here, never by `web`, `agent`, `api`, or `ai`. It uses incremental realtime
-listeners (no full-node re-download), validates every boundary with the `@munhub/shared` zod
-schemas, and is tested against the Firebase Emulator Suite (`pnpm --filter @munhub/data-provider
-test:emulator`); the default `pnpm test` needs no emulator.
+Database and Firebase Auth (spec 0009). A single factory serves two SDK targets behind the same
+interface — the firebase modular **client** SDK (web) and **`firebase-admin`** (agent/tooling/server)
+— and backend SDKs are imported **only** here, never by `web`, `agent`, `api`, or `ai`. The client
+target owns interactive auth (`register`, `signIn`, `signOut`, password reset, session observer)
+and persists browser sessions; the admin target has no interactive session and returns the stable
+`auth/unsupported` provider error for auth methods. It uses incremental realtime listeners (no
+full-node re-download), validates every boundary with the `@munhub/shared` zod schemas, maps backend
+auth failures to stable provider codes, and is tested against the Firebase Emulator Suite (`pnpm
+--filter @munhub/data-provider test:emulator`); the default `pnpm test` needs no emulator.
 
 ## 4. Data flow
 
@@ -106,6 +109,10 @@ test:emulator`); the default `pnpm test` needs no emulator.
            → DataProvider.subscribeRealtime / getMinuteRecords
            → web dashboard (corrections applied via packages/physics, charts via Plotly)
 ```
+
+Authentication follows the same dependency rule: `apps/web` consumes `DataProvider` through its
+`useAuth()` context and never imports `firebase/*`. Registration creates the Firebase Auth account
+and the canonical `/users/{uid}` profile in one provider flow before the dashboard is opened.
 
 The corrections pipeline (mandatory order): **raw → dead-time → barometric (local β) → thermal**.
 See [`DATA-MODEL.md`](DATA-MODEL.md) and the scientific foundation.

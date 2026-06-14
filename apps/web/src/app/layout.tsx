@@ -10,6 +10,7 @@ import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { ThemeProvider } from "@munhub/ui";
+import { AuthProvider } from "../components/AuthProvider";
 import { SiteHeader } from "../components/SiteHeader";
 import "./globals.css";
 
@@ -34,8 +35,10 @@ export default function RootLayout({ children }: RootLayoutProps) {
     >
       <body>
         <ThemeProvider defaultTheme="dark">
-          <SiteHeader />
-          <main>{children}</main>
+          <AuthProvider>
+            <SiteHeader />
+            <main>{children}</main>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

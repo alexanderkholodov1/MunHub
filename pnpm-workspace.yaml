@@ -4,3 +4,7 @@ packages:
   - "packages/*"
 allowBuilds:
   esbuild: true
+  # sharp: Next.js image optimization (optional, unused in static export; skip to avoid native build)
+  sharp: false
+  # unrs-resolver: Rust-based module resolver used by tailwindcss v4 / next; must build
+  unrs-resolver: true

@@ -715,23 +715,26 @@ export async function createFirebaseProvider(
     // We resolve the stationId asynchronously; events that arrive before resolution are
     // delivered after it resolves. Events that arrive after unsubscribe() are dropped.
     resolveStationId(detectorId)
-      .then((stationId) => {
+      .then(async (stationId) => {
         if (detached || stationId == null) return;
 
-        const realtimeRef = adapter
-          .ref(Paths.realtime(stationId, detectorId))
-          .limitToLast(1);
+        const base = adapter.ref(Paths.realtime(stationId, detectorId));
 
-        let isFirst = true;
-        offFn = realtimeRef.on("child_added", (snap) => {
-          // Skip the first snapshot emitted for the existing tail record (limitToLast(1))
-          // so we only deliver new events. After the first "catch-up" event we allow all.
-          if (isFirst) {
-            isFirst = false;
-            return;
-          }
+        // Baseline = the newest existing key at subscription time (null if the node is empty).
+        // We then deliver only events with a strictly greater key, so a late subscriber neither
+        // re-downloads history nor — on an empty node — drops its first real event. Keys are
+        // zero-padded epoch-ms, so lexical comparison equals chronological order.
+        let baselineKey: string | null = null;
+        const tail = await base.limitToLast(1).get();
+        tail.forEach((c) => {
+          baselineKey = c.key;
+        });
+        if (detached) return;
+
+        offFn = base.limitToLast(1).on("child_added", (snap) => {
           if (detached) return;
           if (snap.key == null) return;
+          if (baselineKey != null && snap.key <= baselineKey) return; // catch-up / older
           const r = deserializeRealtimeRecord(snap.key, snap.val());
           if (r != null) callback(r);
         });
@@ -761,9 +764,12 @@ export async function createFirebaseProvider(
       .ref(Paths.realtime(stationId, detectorId))
       .child(key)
       .set(serializeRealtimeRecord(record));
-    // Best-effort cap: prune oldest records if over cap.
-    // This is a fire-and-forget; cap enforcement is a best-effort operation (spec §4).
-    void pruneRealtimeCap(stationId, detectorId);
+    // Best-effort cap (spec §4: hard pruning is a separate ops concern). The prune does a
+    // full-node scan, so it is kept OFF the hot path — running it on every push would dominate
+    // latency near the cap. Throttled to ~1 in 64 pushes; a bounded prune is a follow-up.
+    if (Math.floor(Math.random() * 64) === 0) {
+      void pruneRealtimeCap(stationId, detectorId);
+    }
   }
 
   async function pruneRealtimeCap(

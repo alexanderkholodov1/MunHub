@@ -47,6 +47,14 @@ describeEmu("database security rules", () => {
         visibility: "private",
         shares: { editorUser: "editor" },
       });
+      // For the detector_index hijack test: a station the attacker owns, plus an existing
+      // index entry pointing a detector at the victim's (owner1's) station.
+      await db.ref("stations/attacker_station").set({
+        name: "Attacker",
+        ownerUid: "attacker",
+        visibility: "private",
+      });
+      await db.ref("detector_index/d_victim").set("owned_station");
     });
   });
 
@@ -81,5 +89,17 @@ describeEmu("database security rules", () => {
     await assertFails(
       db.ref(MINUTE).set({ ts: 1_700_000_000_001, ec: 10, cc: 0, sm: 5, sx: 9, sn: 2, tp: 21, pr: 1013, dt: 1 }),
     );
+  });
+
+  it("denies hijacking a detector_index entry to a station the writer does not own", async () => {
+    // The attacker owns attacker_station but not the current target (owned_station),
+    // so re-pointing the victim's detector must fail.
+    const db = testEnv.authenticatedContext("attacker").database();
+    await assertFails(db.ref("detector_index/d_victim").set("attacker_station"));
+  });
+
+  it("lets a station owner index a detector to their own station", async () => {
+    const db = testEnv.authenticatedContext("owner1").database();
+    await assertSucceeds(db.ref("detector_index/d_new").set("owned_station"));
   });
 });

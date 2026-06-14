@@ -64,9 +64,13 @@ flowchart TB
 packages/shared          TypeScript types, zod schemas, constants, i18n keys, pure utilities
 packages/physics         Pure science: dead-time & barometric correction, flux, Landau spectrum
 packages/data-provider   DataProvider interface + FirebaseProvider (Phase A) + SupabaseProvider (Phase B)
-packages/ui              Design system (Tailwind + shadcn/ui + Plotly) — "Observatory Dark"
+packages/ui              Observatory Dark design system — token foundation LANDED (spec 0008):
+                           CSS custom properties (dark/light), Tailwind v4 @theme, ThemeProvider,
+                           Button, Card, Stat primitives; Geist Sans + Mono; Lucide icons.
 
-apps/web (Next.js)       Public landing, dashboards (station/admin), external-correlation pages
+apps/web (Next.js)       Public landing, dashboards (station/admin), external-correlation pages.
+                           Shell LANDED (spec 0008): App Router, output:"export" → out/ (Firebase
+                           Hosting static, Phase A), Observatory Dark wired, / + /dashboard routes.
 apps/agent (Tauri)       Cross-platform serial reading + local SQLite + offline sync queue
 
 services/api             (Phase B) backend / edge functions: ingest, aggregations, jobs
@@ -115,10 +119,13 @@ See [`DATA-MODEL.md`](DATA-MODEL.md) and the scientific foundation.
 
 ## 6. Deployment phases
 
-- **Phase A (now):** Next.js **static export** on Firebase Hosting (free tier; blocks rather than
-  charges on overage), data via Firebase (Realtime DB, Auth, Storage). Fully self-sufficient.
+- **Phase A (now):** Next.js **static export** (`output: "export"`, `next build` → `out/`) on
+  Firebase Hosting (free tier; blocks rather than charges on overage), data via Firebase (Realtime
+  DB, Auth, Storage). Fully self-sufficient. The web shell in `apps/web` already builds to a
+  static export; SSR-only APIs (cookies, headers, dynamic routes) are not used in Phase A.
 - **Phase B (optional upgrade):** self-hosted Supabase + TimescaleDB (e.g., on a Red Clara server),
-  full SSR. Reached by swapping the provider implementation — the app does not change.
+  full SSR. Reached by removing `output: "export"` and swapping the provider implementation — the
+  app does not change.
 
 ## 7. Quality gates (defense-in-depth)
 

@@ -2,7 +2,7 @@
   "name": "@munhub/ui",
   "version": "0.1.0",
   "private": true,
-  "description": "Design system: Tailwind + shadcn/ui components, Plotly chart wrappers",
+  "description": "Design system: Observatory Dark tokens, Tailwind v4, shadcn/ui re-tokenized primitives",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -11,7 +11,8 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./styles": "./src/styles/tokens.css"
   },
   "scripts": {
     "build": "tsc",
@@ -21,14 +22,21 @@
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@types/react": "^18.3.23",
+    "@types/react-dom": "^18.3.7",
     "jsdom": "^29.1.1",
     "typescript": "*",
     "vitest": "*"
   },
   "dependencies": {
-    "@munhub/shared": "workspace:*"
+    "@munhub/shared": "workspace:*",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.511.0",
+    "tailwind-merge": "^3.6.0"
   },
   "peerDependencies": {
-    "react": ">=18.0.0"
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
   }
 }

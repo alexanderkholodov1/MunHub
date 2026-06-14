@@ -34,6 +34,36 @@ export type Unsubscribe = () => void;
 /** Invoked for each realtime event as it arrives. */
 export type RealtimeCallback = (record: RealtimeRecord) => void;
 
+/** Stable auth error codes exposed by DataProvider implementations. */
+export type AuthErrorCode =
+  | "auth/email-already-in-use"
+  | "auth/invalid-credential"
+  | "auth/invalid-email"
+  | "auth/network-request-failed"
+  | "auth/operation-not-allowed"
+  | "auth/persistence-unavailable"
+  | "auth/requires-recent-login"
+  | "auth/too-many-requests"
+  | "auth/unsupported"
+  | "auth/user-disabled"
+  | "auth/user-record-not-found"
+  | "auth/weak-password"
+  | "auth/internal";
+
+/**
+ * Error type for authentication failures crossing the DataProvider boundary.
+ * Backend-specific error objects never leave their provider package.
+ */
+export class AuthProviderError extends Error {
+  readonly code: AuthErrorCode;
+
+  constructor(code: AuthErrorCode, message: string) {
+    super(message);
+    this.name = "AuthProviderError";
+    this.code = code;
+  }
+}
+
 /** Options controlling a streaming export (used by the admin migration tool, S07). */
 export interface ExportOptions {
   /** Limit to specific detectors; omit for everything visible to the caller. */

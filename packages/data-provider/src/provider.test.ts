@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { DataProvider } from "./provider.js";
 import type { DataChunk } from "./types.js";
+import { AuthProviderError } from "./types.js";
 
 /**
  * A trivial in-memory mock typed as `DataProvider`. If the interface is internally inconsistent or
@@ -9,6 +10,27 @@ import type { DataChunk } from "./types.js";
 function createMockProvider(): DataProvider {
   return {
     getCurrentUser: async () => null,
+    register: async (email, _password, profile) => ({
+      uid: "mock-user",
+      email,
+      username: "mock-user",
+      displayName: profile.displayName,
+      role: "user",
+      institutionId: null,
+      language: profile.language,
+      emailVerified: false,
+      mlTrainingOptOut: false,
+      directoryOptIn: false,
+    }),
+    signIn: async () => {
+      throw new AuthProviderError("auth/invalid-credential", "Invalid credentials.");
+    },
+    signOut: async () => undefined,
+    sendPasswordReset: async () => undefined,
+    onAuthStateChanged: (cb) => {
+      cb(null);
+      return () => undefined;
+    },
     upsertInstitution: async () => undefined,
     getInstitution: async () => null,
     listStations: async () => [],
@@ -43,6 +65,19 @@ describe("DataProvider contract", () => {
     const provider = createMockProvider();
     expect(await provider.getCurrentUser()).toBeNull();
     expect(await provider.listStations()).toEqual([]);
+  });
+
+  it("exposes auth methods with stable provider errors", async () => {
+    const provider = createMockProvider();
+    const user = await provider.register("test@example.org", "password", {
+      displayName: "Test User",
+      language: "en",
+    });
+    expect(user.role).toBe("user");
+
+    await expect(provider.signIn("test@example.org", "bad-password")).rejects.toMatchObject({
+      code: "auth/invalid-credential",
+    });
   });
 
   it("supports the streaming export/import round trip shape", async () => {

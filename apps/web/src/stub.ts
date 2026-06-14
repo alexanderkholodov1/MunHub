@@ -1,8 +1,7 @@
 /**
- * apps/web — MunHub Lab web app stub.
- *
- * Next.js app structure, routing, and pages land in S09 (web app scaffold).
- * This file only exists to give the TypeScript compiler a source root to validate.
+ * apps/web — replaced by Next.js App Router in spec 0008.
+ * This file is kept to avoid breaking any existing references;
+ * it can be removed in a later cleanup pass.
  */
 
-export const WEB_STUB = "web-app-stub-v6" as const;
+// No longer needed — Next.js app structure in src/app/

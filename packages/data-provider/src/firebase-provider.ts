@@ -16,6 +16,7 @@
 
 import type {
   User,
+  Language,
   Institution,
   Station,
   Detector,
@@ -24,6 +25,7 @@ import type {
   RealtimeRecord,
 } from "@munhub/shared";
 import {
+  UserSchema,
   InstitutionSchema,
   StationSchema,
   DetectorSchema,
@@ -40,9 +42,12 @@ import type {
   ExportOptions,
   DataChunk,
   ImportReport,
+  AuthErrorCode,
 } from "./types.js";
+import { AuthProviderError } from "./types.js";
 import { Paths, padTs } from "./firebase-paths.js";
 import {
+  serializeUser,
   serializeInstitution,
   deserializeInstitution,
   serializeStation,
@@ -61,13 +66,21 @@ import { deserializeUser } from "./firebase-serializer.js";
 // Type-only imports — erased at compile time, so they never pull the admin SDK
 // into the client bundle. Runtime values come from dynamic import() below.
 import type { App, ServiceAccount } from "firebase-admin/app";
+import type * as FirebaseAdminApp from "firebase-admin/app";
 import type { Reference, DataSnapshot, Query } from "firebase-admin/database";
+import type * as FirebaseAdminDatabase from "firebase-admin/database";
 
 // ── RTDB page size for exportAll (avoids loading entire dataset in memory) ────
 const EXPORT_PAGE_SIZE = 500;
 
 // ── Realtime window (cap old records on push, per spec §4) ────────────────────
 const REALTIME_CAP = 5000;
+
+const AUTH_STATE_USER_READ_ATTEMPTS = 10;
+const AUTH_STATE_USER_READ_DELAY_MS = 50;
+
+const connectedDatabaseEmulators = new WeakSet<object>();
+const connectedAuthEmulators = new WeakSet<object>();
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -136,9 +149,26 @@ interface RtdbSnapshot {
   forEach(cb: (child: RtdbSnapshot) => boolean | void): void;
 }
 
-/** Auth interface for the client target only. */
-interface RtdbAuth {
-  currentUser: { uid: string } | null;
+interface AuthProfileInput {
+  displayName: string;
+  language: Language;
+}
+
+interface AuthUserSnapshot {
+  uid: string;
+  email: string;
+  emailVerified: boolean;
+}
+
+/** Interactive auth interface for the client target only. */
+interface AuthAdapter {
+  currentUserUid(): string | null;
+  register(email: string, password: string): Promise<AuthUserSnapshot>;
+  signIn(email: string, password: string): Promise<AuthUserSnapshot>;
+  signOut(): Promise<void>;
+  sendPasswordReset(email: string): Promise<void>;
+  deleteCurrentUser(): Promise<void>;
+  onAuthStateChanged(cb: (user: AuthUserSnapshot | null) => void): Unsubscribe;
 }
 
 // ── Adapter interfaces (one per SDK target) ───────────────────────────────────
@@ -147,17 +177,156 @@ interface RtdbAdapter {
   ref(path: string): RtdbRef;
 }
 
+function isBrowserRuntime(): boolean {
+  return typeof globalThis === "object" && "document" in globalThis;
+}
+
+function parseEmulatorHost(value: string | undefined): { host: string; port: number } | null {
+  if (value == null || value.trim() === "") return null;
+  try {
+    const parsed = new URL(`http://${value}`);
+    const port = Number(parsed.port);
+    if (!Number.isInteger(port) || port <= 0) return null;
+    return { host: parsed.hostname, port };
+  } catch {
+    return null;
+  }
+}
+
+function authErrorMessage(code: AuthErrorCode): string {
+  switch (code) {
+    case "auth/email-already-in-use":
+      return "An account already exists for this email address.";
+    case "auth/invalid-credential":
+      return "The email or password is incorrect.";
+    case "auth/invalid-email":
+      return "Enter a valid email address.";
+    case "auth/network-request-failed":
+      return "The auth service could not be reached. Check your connection and try again.";
+    case "auth/operation-not-allowed":
+      return "This authentication operation is not enabled.";
+    case "auth/persistence-unavailable":
+      return "The browser could not persist the auth session.";
+    case "auth/requires-recent-login":
+      return "Please sign in again before continuing.";
+    case "auth/too-many-requests":
+      return "Too many attempts. Wait a moment and try again.";
+    case "auth/unsupported":
+      return "Interactive authentication is not supported by this provider target.";
+    case "auth/user-disabled":
+      return "This account has been disabled.";
+    case "auth/user-record-not-found":
+      return "The authenticated account is missing its MunHub user profile.";
+    case "auth/weak-password":
+      return "Choose a stronger password.";
+    case "auth/internal":
+      return "Authentication failed. Try again or contact support.";
+  }
+}
+
+function normalizeAuthCode(rawCode: string | null): AuthErrorCode {
+  switch (rawCode) {
+    case "auth/email-already-in-use":
+    case "auth/invalid-email":
+    case "auth/network-request-failed":
+    case "auth/operation-not-allowed":
+    case "auth/requires-recent-login":
+    case "auth/too-many-requests":
+    case "auth/user-disabled":
+    case "auth/weak-password":
+      return rawCode;
+    case "auth/user-not-found":
+    case "auth/wrong-password":
+    case "auth/invalid-login-credentials":
+    case "auth/invalid-password":
+    case "auth/invalid-credential":
+      return "auth/invalid-credential";
+    case "auth/popup-blocked":
+    case "auth/popup-closed-by-user":
+    case "auth/cancelled-popup-request":
+      return "auth/operation-not-allowed";
+    default:
+      return "auth/internal";
+  }
+}
+
+function authCodeFromError(err: unknown): string | null {
+  if (err == null || typeof err !== "object" || !("code" in err)) return null;
+  const code = (err as { code?: unknown }).code;
+  return typeof code === "string" ? code : null;
+}
+
+function toAuthProviderError(err: unknown): AuthProviderError {
+  if (err instanceof AuthProviderError) return err;
+  const code = normalizeAuthCode(authCodeFromError(err));
+  return new AuthProviderError(code, authErrorMessage(code));
+}
+
+function unsupportedAuthError(): AuthProviderError {
+  return new AuthProviderError("auth/unsupported", authErrorMessage("auth/unsupported"));
+}
+
+function authUserFromFirebaseUser(rawUser: {
+  uid: string;
+  email: string | null;
+  emailVerified: boolean;
+}): AuthUserSnapshot {
+  if (rawUser.email == null) {
+    throw new AuthProviderError("auth/internal", authErrorMessage("auth/internal"));
+  }
+  return {
+    uid: rawUser.uid,
+    email: rawUser.email,
+    emailVerified: rawUser.emailVerified,
+  };
+}
+
+function usernameFromEmail(email: string, uid: string): string {
+  const localPart = email.split("@")[0] ?? "user";
+  const base = localPart
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const safeBase = base.length >= 3 ? base : "user";
+  const safeUid = uid
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "")
+    .slice(0, 8);
+  const suffix = safeUid.length > 0 ? `-${safeUid}` : "";
+  const maxBaseLength = Math.max(3, 30 - suffix.length);
+  return `${safeBase.slice(0, maxBaseLength)}${suffix}`;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runtimeImport<TModule>(specifier: string): Promise<TModule> {
+  return (await import(/* webpackIgnore: true */ specifier)) as TModule;
+}
+
 // ── Client SDK adapter ────────────────────────────────────────────────────────
 
 async function buildClientAdapter(
   config: FirebaseClientConfig,
-): Promise<{ adapter: RtdbAdapter; auth: RtdbAuth }> {
+): Promise<{ adapter: RtdbAdapter; auth: AuthAdapter }> {
   // Dynamic import so the admin bundle never pulls in the client SDK.
   const { initializeApp, getApps, getApp } = await import("firebase/app");
   const { getDatabase, ref, get, set, update, push, onChildAdded, onValue, off, query,
     orderByKey, orderByChild, equalTo, startAt, endAt, limitToLast,
-    runTransaction } = await import("firebase/database");
-  const { getAuth } = await import("firebase/auth");
+    runTransaction, connectDatabaseEmulator } = await import("firebase/database");
+  const {
+    getAuth,
+    setPersistence,
+    browserLocalPersistence,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut: firebaseSignOut,
+    sendPasswordResetEmail,
+    onAuthStateChanged: onFirebaseAuthStateChanged,
+    deleteUser,
+    connectAuthEmulator,
+  } = await import("firebase/auth");
 
   // Build the options object omitting undefined optional keys — required under
   // exactOptionalPropertyTypes, where `storageBucket: undefined` is not a string.
@@ -178,6 +347,30 @@ async function buildClientAdapter(
 
   const db = getDatabase(app);
   const firebaseAuth = getAuth(app);
+  const databaseEmulator = parseEmulatorHost(process.env["FIREBASE_DATABASE_EMULATOR_HOST"]);
+  if (databaseEmulator != null && !connectedDatabaseEmulators.has(db)) {
+    connectDatabaseEmulator(db, databaseEmulator.host, databaseEmulator.port);
+    connectedDatabaseEmulators.add(db);
+  }
+
+  const authEmulator = parseEmulatorHost(process.env["FIREBASE_AUTH_EMULATOR_HOST"]);
+  if (authEmulator != null && !connectedAuthEmulators.has(firebaseAuth)) {
+    connectAuthEmulator(firebaseAuth, `http://${authEmulator.host}:${authEmulator.port}`, {
+      disableWarnings: true,
+    });
+    connectedAuthEmulators.add(firebaseAuth);
+  }
+
+  if (isBrowserRuntime()) {
+    try {
+      await setPersistence(firebaseAuth, browserLocalPersistence);
+    } catch {
+      throw new AuthProviderError(
+        "auth/persistence-unavailable",
+        authErrorMessage("auth/persistence-unavailable"),
+      );
+    }
+  }
 
   function wrapRef(rawRef: ReturnType<typeof ref>): RtdbRef {
     // Build a wrapped ref that matches our internal interface.
@@ -274,9 +467,53 @@ async function buildClientAdapter(
     },
   };
 
-  const auth: RtdbAuth = {
-    get currentUser() {
-      return firebaseAuth.currentUser;
+  const auth: AuthAdapter = {
+    currentUserUid() {
+      return firebaseAuth.currentUser?.uid ?? null;
+    },
+    async register(email, password) {
+      try {
+        const credential = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+        return authUserFromFirebaseUser(credential.user);
+      } catch (err) {
+        throw toAuthProviderError(err);
+      }
+    },
+    async signIn(email, password) {
+      try {
+        const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+        return authUserFromFirebaseUser(credential.user);
+      } catch (err) {
+        throw toAuthProviderError(err);
+      }
+    },
+    async signOut() {
+      try {
+        await firebaseSignOut(firebaseAuth);
+      } catch (err) {
+        throw toAuthProviderError(err);
+      }
+    },
+    async sendPasswordReset(email) {
+      try {
+        await sendPasswordResetEmail(firebaseAuth, email);
+      } catch (err) {
+        throw toAuthProviderError(err);
+      }
+    },
+    async deleteCurrentUser() {
+      const current = firebaseAuth.currentUser;
+      if (current == null) return;
+      try {
+        await deleteUser(current);
+      } catch (err) {
+        throw toAuthProviderError(err);
+      }
+    },
+    onAuthStateChanged(cb) {
+      return onFirebaseAuthStateChanged(firebaseAuth, (user) => {
+        cb(user == null ? null : authUserFromFirebaseUser(user));
+      });
     },
   };
 
@@ -292,8 +529,9 @@ async function buildAdminAdapter(
   // bundle never pulls in the admin SDK. Types come from the top-level
   // `import type` (erased at compile time — no runtime SDK pull).
   const { getApps, initializeApp, cert, applicationDefault } =
-    await import("firebase-admin/app");
-  const { getDatabase } = await import("firebase-admin/database");
+    await runtimeImport<typeof FirebaseAdminApp>("firebase-admin/app");
+  const { getDatabase } =
+    await runtimeImport<typeof FirebaseAdminDatabase>("firebase-admin/database");
 
   // Against the emulator (emulators:exec sets FIREBASE_DATABASE_EMULATOR_HOST),
   // the admin SDK needs no real credential: initialize with just the databaseURL.
@@ -438,7 +676,7 @@ export async function createFirebaseProvider(
   config: FirebaseProviderConfig,
 ): Promise<DataProvider> {
   let adapter: RtdbAdapter;
-  let auth: RtdbAuth | null = null;
+  let auth: AuthAdapter | null = null;
   let adminUid: string | null = null;
 
   if (config.target === "client") {
@@ -472,17 +710,116 @@ export async function createFirebaseProvider(
 
   // ── Auth ─────────────────────────────────────────────────────────────────
 
+  function requireAuthAdapter(): AuthAdapter {
+    if (auth == null) throw unsupportedAuthError();
+    return auth;
+  }
+
+  async function readUserRecord(uid: string): Promise<User | null> {
+    const snap = await adapter.ref(Paths.user(uid)).get();
+    return deserializeUser(uid, snap.val());
+  }
+
+  async function requireUserRecord(uid: string): Promise<User> {
+    const user = await readUserRecord(uid);
+    if (user == null) {
+      throw new AuthProviderError(
+        "auth/user-record-not-found",
+        authErrorMessage("auth/user-record-not-found"),
+      );
+    }
+    return user;
+  }
+
+  async function readUserRecordWithRetry(uid: string): Promise<User | null> {
+    for (let attempt = 0; attempt < AUTH_STATE_USER_READ_ATTEMPTS; attempt++) {
+      const user = await readUserRecord(uid);
+      if (user != null) return user;
+      await sleep(AUTH_STATE_USER_READ_DELAY_MS);
+    }
+    return null;
+  }
+
+  function buildRegisteredUser(authUser: AuthUserSnapshot, profile: AuthProfileInput): User {
+    return UserSchema.parse({
+      uid: authUser.uid,
+      email: authUser.email,
+      username: usernameFromEmail(authUser.email, authUser.uid),
+      displayName: profile.displayName,
+      role: "user",
+      institutionId: null,
+      language: profile.language,
+      emailVerified: authUser.emailVerified,
+      mlTrainingOptOut: false,
+      directoryOptIn: false,
+      createdAt: Date.now(),
+    });
+  }
+
   async function getCurrentUser(): Promise<User | null> {
     if (config.target === "admin") {
       if (adminUid == null) return null;
-      const snap = await adapter.ref(Paths.user(adminUid)).get();
-      return deserializeUser(adminUid, snap.val());
+      return readUserRecord(adminUid);
     }
     // Client target
-    const uid = auth?.currentUser?.uid ?? null;
+    const uid = auth?.currentUserUid() ?? null;
     if (uid == null) return null;
-    const snap = await adapter.ref(Paths.user(uid)).get();
-    return deserializeUser(uid, snap.val());
+    return readUserRecord(uid);
+  }
+
+  async function register(
+    email: string,
+    password: string,
+    profile: AuthProfileInput,
+  ): Promise<User> {
+    const authAdapter = requireAuthAdapter();
+    let createdAuthUser = false;
+    try {
+      const authUser = await authAdapter.register(email, password);
+      createdAuthUser = true;
+      const user = buildRegisteredUser(authUser, profile);
+      await adapter.ref(Paths.user(user.uid)).set(serializeUser(user));
+      return user;
+    } catch (err) {
+      if (createdAuthUser) {
+        try {
+          await authAdapter.deleteCurrentUser();
+        } catch (rollbackErr) {
+          warn("register rollback failed after user profile write error", rollbackErr);
+        }
+      }
+      throw toAuthProviderError(err);
+    }
+  }
+
+  async function signIn(email: string, password: string): Promise<User> {
+    const authAdapter = requireAuthAdapter();
+    const authUser = await authAdapter.signIn(email, password);
+    return requireUserRecord(authUser.uid);
+  }
+
+  async function signOut(): Promise<void> {
+    await requireAuthAdapter().signOut();
+  }
+
+  async function sendPasswordReset(email: string): Promise<void> {
+    await requireAuthAdapter().sendPasswordReset(email);
+  }
+
+  function onAuthStateChanged(cb: (user: User | null) => void): Unsubscribe {
+    const authAdapter = requireAuthAdapter();
+    return authAdapter.onAuthStateChanged((authUser) => {
+      if (authUser == null) {
+        cb(null);
+        return;
+      }
+      void readUserRecordWithRetry(authUser.uid)
+        .then((user) => cb(user))
+        .catch((err: unknown) => {
+          warn("onAuthStateChanged user resolution failed", err);
+          cb(null);
+        });
+    });
   }
 
   // ── Institutions ──────────────────────────────────────────────────────────
@@ -1086,6 +1423,11 @@ export async function createFirebaseProvider(
 
   return {
     getCurrentUser,
+    register,
+    signIn,
+    signOut,
+    sendPasswordReset,
+    onAuthStateChanged,
     upsertInstitution,
     getInstitution,
     listStations,

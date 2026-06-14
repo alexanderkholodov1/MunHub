@@ -64,9 +64,13 @@ flowchart TB
 packages/shared          TypeScript types, zod schemas, constants, i18n keys, pure utilities
 packages/physics         Pure science: dead-time & barometric correction, flux, Landau spectrum
 packages/data-provider   DataProvider interface + FirebaseProvider (Phase A) + SupabaseProvider (Phase B)
-packages/ui              Design system (Tailwind + shadcn/ui + Plotly) — "Observatory Dark"
+packages/ui              Observatory Dark design system — token foundation LANDED (spec 0008):
+                           CSS custom properties (dark/light), Tailwind v4 @theme, ThemeProvider,
+                           Button, Card, Stat primitives; Geist Sans + Mono; Lucide icons.
 
-apps/web (Next.js)       Public landing, dashboards (station/admin), external-correlation pages
+apps/web (Next.js)       Public landing, dashboards (station/admin), external-correlation pages.
+                           Shell LANDED (spec 0008): App Router, output:"export" → out/ (Firebase
+                           Hosting static, Phase A), Observatory Dark wired, / + /dashboard routes.
 apps/agent (Tauri)       Cross-platform serial reading + local SQLite + offline sync queue
 
 services/api             (Phase B) backend / edge functions: ingest, aggregations, jobs
@@ -86,12 +90,15 @@ migration tool** — `exportAll` streams `DataChunk`s out of one provider and `i
 into another — which is how the v5 → v6 and Phase A → Phase B migrations work.
 
 The first concrete implementation is **`FirebaseProvider`** (spec 0007), over the munhub-1 Realtime
-Database. A single factory serves two SDK targets behind the same interface — the firebase modular
-**client** SDK (web) and **`firebase-admin`** (agent/tooling/server) — and the backend SDK is
-imported **only** here, never by `web`, `agent`, `api`, or `ai`. It uses incremental realtime
-listeners (no full-node re-download), validates every boundary with the `@munhub/shared` zod
-schemas, and is tested against the Firebase Emulator Suite (`pnpm --filter @munhub/data-provider
-test:emulator`); the default `pnpm test` needs no emulator.
+Database and Firebase Auth (spec 0009). A single factory serves two SDK targets behind the same
+interface — the firebase modular **client** SDK (web) and **`firebase-admin`** (agent/tooling/server)
+— and backend SDKs are imported **only** here, never by `web`, `agent`, `api`, or `ai`. The client
+target owns interactive auth (`register`, `signIn`, `signOut`, password reset, session observer)
+and persists browser sessions; the admin target has no interactive session and returns the stable
+`auth/unsupported` provider error for auth methods. It uses incremental realtime listeners (no
+full-node re-download), validates every boundary with the `@munhub/shared` zod schemas, maps backend
+auth failures to stable provider codes, and is tested against the Firebase Emulator Suite (`pnpm
+--filter @munhub/data-provider test:emulator`); the default `pnpm test` needs no emulator.
 
 ## 4. Data flow
 
@@ -102,6 +109,10 @@ test:emulator`); the default `pnpm test` needs no emulator.
            → DataProvider.subscribeRealtime / getMinuteRecords
            → web dashboard (corrections applied via packages/physics, charts via Plotly)
 ```
+
+Authentication follows the same dependency rule: `apps/web` consumes `DataProvider` through its
+`useAuth()` context and never imports `firebase/*`. Registration creates the Firebase Auth account
+and the canonical `/users/{uid}` profile in one provider flow before the dashboard is opened.
 
 The corrections pipeline (mandatory order): **raw → dead-time → barometric (local β) → thermal**.
 See [`DATA-MODEL.md`](DATA-MODEL.md) and the scientific foundation.
@@ -115,10 +126,13 @@ See [`DATA-MODEL.md`](DATA-MODEL.md) and the scientific foundation.
 
 ## 6. Deployment phases
 
-- **Phase A (now):** Next.js **static export** on Firebase Hosting (free tier; blocks rather than
-  charges on overage), data via Firebase (Realtime DB, Auth, Storage). Fully self-sufficient.
+- **Phase A (now):** Next.js **static export** (`output: "export"`, `next build` → `out/`) on
+  Firebase Hosting (free tier; blocks rather than charges on overage), data via Firebase (Realtime
+  DB, Auth, Storage). Fully self-sufficient. The web shell in `apps/web` already builds to a
+  static export; SSR-only APIs (cookies, headers, dynamic routes) are not used in Phase A.
 - **Phase B (optional upgrade):** self-hosted Supabase + TimescaleDB (e.g., on a Red Clara server),
-  full SSR. Reached by swapping the provider implementation — the app does not change.
+  full SSR. Reached by removing `output: "export"` and swapping the provider implementation — the
+  app does not change.
 
 ## 7. Quality gates (defense-in-depth)
 

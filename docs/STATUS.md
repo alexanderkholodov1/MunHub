@@ -4,14 +4,14 @@
 > Source of truth for "where are we" across the agent fleet. The system that produces these
 > numbers is the AFLEK kit (pinned in `FLEET-VERSION`).
 
-_Last updated: 2026-06-13 (wave F1-W4: **FirebaseProvider — first concrete DataProvider** over
-munhub-1, in PR for review; AFLEK selftest/preflight self-healing shipped to the kit)_
+_Last updated: 2026-06-14 (waves F1-W4…W6: FirebaseProvider #42, web/ui skeleton #43, and
+**auth #44** — all review-clean; fleet now runs Cursor + Vercel + Gemini under a live monitor)_
 
 ## Phase progress
 | Phase | Scope | Status |
 |---|---|---|
 | **F0** | Safety net: CI, branch protection, fleet infra | ✅ done (PR #19 merged) |
-| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (scaffold ✅; contracts ✅ #24; DataProvider interface ✅ #25; physics ✅ #31; **FirebaseProvider in review**; web/agent skeleton next) |
+| **F1** | Foundations: scaffold, contracts, physics, web/agent skeleton | 🟡 in progress (scaffold ✅; contracts ✅; interface ✅; physics ✅; FirebaseProvider #42, web/ui skeleton #43, **auth #44** all review-clean; agent skeleton next) |
 | **Design** | Design Language "Observatory Dark" (D36) → feeds all UI specs | ✅ merged (PR #20); landing design session pending |
 | **Docs** | README v6, technical docs, standards, fleet charter | ✅ merged (PRs #21–#23) |
 | **Audit** | Project audit + English agent entry points + reconstruction work packages | ✅ merged (PR #26; see `docs/audit/2026-06-12-STATE-OF-PROJECT.md`) |
@@ -29,7 +29,9 @@ munhub-1, in PR for review; AFLEK selftest/preflight self-healing shipped to the
 | `specs/0004-data-provider-interface` | DataProvider interface | Claude | ✅ merged | PR #25 |
 | `specs/0005-physics` | dead-time, β regression, spectrum, Poisson stats | Adjutant (spec + implementation) | ✅ merged | PR #31 |
 | `specs/0006-insights-v0` | per-station corrected rate + statistical baseline | Adjutant (spec) | 📋 spec merged (impl after 0007) | PR #34 |
-| `specs/0007-firebase-provider` | concrete FirebaseProvider over munhub-1 | Adjutant (spec) + Sonnet (impl) | 🔍 in review | this PR |
+| `specs/0007-firebase-provider` | concrete FirebaseProvider over munhub-1 | Adjutant (spec) + Sonnet (impl) | ✅ review-clean | PR #42 |
+| `specs/0008-web-ui-skeleton` | web shell + Observatory Dark UI foundation | Adjutant (spec) + Sonnet/Cursor (impl) | ✅ review-clean | PR #43 |
+| `specs/0009-auth` | Firebase Auth behind DataProvider + auth UI | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #44 |
 
 > ⚠️ **Numbering note:** the `specs/NNNN-*` folders are canonical. The backlog renumbering
 > (WP-03) is in PR #29 (old S-number → NNNN mapping table at the bottom of

@@ -7,6 +7,7 @@
  *
  * Covers spec 0007 acceptance criteria 2 (CRUD + index + minutes + idempotent latest),
  * 3 (incremental realtime), and 4 (streaming export/import round trip + quarantine).
+ * Also covers spec 0009 auth flows against the Firebase Auth emulator.
  */
 import { describe, it, expect, beforeAll } from "vitest";
 import type {
@@ -23,10 +24,22 @@ import type { DataChunk } from "./types.js";
 
 const emulatorOn = Boolean(process.env["FIREBASE_DATABASE_EMULATOR_HOST"]);
 const describeEmu = emulatorOn ? describe : describe.skip;
+const databaseURL = "https://demo-munhub-default-rtdb.firebaseio.com";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────────
 let seq = 0;
 const uid = (p: string) => `${p}_${Date.now()}_${seq++}`;
+const authEmail = () => `${uid("auth")}@example.org`;
+const authPassword = "CorrectHorse123!";
+
+async function waitFor(predicate: () => boolean, label: string): Promise<void> {
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Timed out waiting for ${label}`);
+}
 
 function makeStation(id: string, ownerUid: string): Station {
   return {
@@ -81,7 +94,7 @@ describeEmu("FirebaseProvider (emulator)", () => {
   beforeAll(async () => {
     provider = await createFirebaseProvider({
       target: "admin",
-      databaseURL: "https://demo-munhub-default-rtdb.firebaseio.com",
+      databaseURL,
     });
   });
 
@@ -228,5 +241,121 @@ describeEmu("FirebaseProvider (emulator)", () => {
     const report2 = await provider.importAll(withBad());
     expect(report2.quarantined).toBeGreaterThanOrEqual(1);
     expect(report2.imported).toBe(0);
+  });
+
+  it("register creates a Firebase Auth user and /users record (S0009 AC2)", async () => {
+    const authProvider = await createFirebaseProvider({
+      target: "client",
+      apiKey: "demo-key",
+      authDomain: "demo-munhub.firebaseapp.com",
+      databaseURL,
+      projectId: "demo-munhub",
+    });
+    const email = authEmail();
+
+    const user = await authProvider.register(email, authPassword, {
+      displayName: "Quito Researcher",
+      language: "es",
+    });
+
+    expect(user.email).toBe(email);
+    expect(user.role).toBe("user");
+    expect(user.language).toBe("es");
+    expect(user.displayName).toBe("Quito Researcher");
+
+    const reader = await createFirebaseProvider({
+      target: "admin",
+      databaseURL,
+      uid: user.uid,
+    });
+    expect(await reader.getCurrentUser()).toMatchObject({
+      uid: user.uid,
+      email,
+      role: "user",
+      language: "es",
+    });
+
+    await authProvider.signOut();
+    expect((await authProvider.signIn(email, authPassword)).uid).toBe(user.uid);
+  });
+
+  it("signIn returns the user profile and maps wrong passwords (S0009 AC2)", async () => {
+    const authProvider = await createFirebaseProvider({
+      target: "client",
+      apiKey: "demo-key",
+      authDomain: "demo-munhub.firebaseapp.com",
+      databaseURL,
+      projectId: "demo-munhub",
+    });
+    const email = authEmail();
+    const created = await authProvider.register(email, authPassword, {
+      displayName: "Password Test User",
+      language: "en",
+    });
+
+    await authProvider.signOut();
+    await expect(authProvider.signIn(email, "wrong-password")).rejects.toMatchObject({
+      code: "auth/invalid-credential",
+    });
+
+    const signedIn = await authProvider.signIn(email, authPassword);
+    expect(signedIn.uid).toBe(created.uid);
+    expect(signedIn.displayName).toBe("Password Test User");
+  });
+
+  it("onAuthStateChanged fires on login/logout and signOut clears the session (S0009 AC2)", async () => {
+    const authProvider = await createFirebaseProvider({
+      target: "client",
+      apiKey: "demo-key",
+      authDomain: "demo-munhub.firebaseapp.com",
+      databaseURL,
+      projectId: "demo-munhub",
+    });
+    const email = authEmail();
+    const created = await authProvider.register(email, authPassword, {
+      displayName: "Listener Test User",
+      language: "pt-BR",
+    });
+    await authProvider.signOut();
+    expect(await authProvider.getCurrentUser()).toBeNull();
+
+    const states: Array<string | null> = [];
+    const unsubscribe = authProvider.onAuthStateChanged((user) => {
+      states.push(user?.uid ?? null);
+    });
+
+    await waitFor(() => states.includes(null), "initial signed-out auth state");
+    await authProvider.signIn(email, authPassword);
+    await waitFor(() => states.includes(created.uid), "signed-in auth state");
+
+    expect((await authProvider.getCurrentUser())?.uid).toBe(created.uid);
+    await authProvider.signOut();
+    await waitFor(
+      () => states.filter((state) => state === null).length >= 2,
+      "signed-out auth state",
+    );
+    expect(await authProvider.getCurrentUser()).toBeNull();
+
+    expect(() => {
+      unsubscribe();
+      unsubscribe();
+    }).not.toThrow();
+  });
+
+  it("admin target rejects interactive auth methods as unsupported (S0009)", async () => {
+    await expect(
+      provider.register("admin-auth@example.org", authPassword, {
+        displayName: "Admin Auth",
+        language: "en",
+      }),
+    ).rejects.toMatchObject({ code: "auth/unsupported" });
+    await expect(provider.signIn("admin-auth@example.org", authPassword)).rejects.toMatchObject({
+      code: "auth/unsupported",
+    });
+    await expect(provider.signOut()).rejects.toMatchObject({ code: "auth/unsupported" });
+    await expect(provider.sendPasswordReset("admin-auth@example.org")).rejects.toMatchObject({
+      code: "auth/unsupported",
+    });
+    expect(() => provider.onAuthStateChanged(() => undefined)).toThrowError(/not supported/i);
   });
 });

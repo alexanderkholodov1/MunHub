@@ -11,10 +11,12 @@ export type {
   StationFilter,
   Unsubscribe,
   RealtimeCallback,
+  AuthErrorCode,
   ExportOptions,
   DataChunk,
   ImportReport,
 } from "./types.js";
+export { AuthProviderError } from "./types.js";
 
 // ── Phase A: concrete FirebaseProvider over the munhub-1 Realtime Database ──────────────────────
 export { createFirebaseProvider } from "./firebase-provider.js";

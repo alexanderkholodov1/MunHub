@@ -61,7 +61,7 @@ export default function StationsPage(): React.ReactElement {
       <Card
         title="Your station profiles"
         loading={loading}
-        error={error ?? undefined}
+        {...(error != null ? { error } : {})}
         empty={!loading && error == null && stations.length === 0}
         emptyMessage="No stations yet. Create your first station profile to register a detector."
       >

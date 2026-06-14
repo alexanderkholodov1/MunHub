@@ -11,7 +11,6 @@ import type {
   Visibility,
 } from "@munhub/shared";
 import { DetectorSchema, StationSchema } from "@munhub/shared";
-import type { z } from "zod";
 import { AlertTriangle, RotateCcw, Wand2 } from "lucide-react";
 import { Button, Card } from "@munhub/ui";
 import { getDataProvider } from "../../lib/data-provider";
@@ -55,6 +54,15 @@ type DetectorField =
   | "triggerAdcMin";
 
 type FieldErrors<TField extends string> = Partial<Record<TField, string>>;
+
+interface SchemaIssue {
+  path: PropertyKey[];
+  message: string;
+}
+
+interface SchemaError {
+  issues: SchemaIssue[];
+}
 
 interface StationFormValues {
   name: string;
@@ -185,7 +193,7 @@ function stationFieldFromPath(path: PropertyKey[]): StationField | null {
   return STATION_FIELDS.includes(key as StationField) ? (key as StationField) : null;
 }
 
-function detectorFieldFromIssue(issue: z.ZodIssue): DetectorField | null {
+function detectorFieldFromIssue(issue: SchemaIssue): DetectorField | null {
   const [first, second, third] = issue.path;
   if (first === "calibration") {
     if (second === "adcToMv" && third === 0) return "adcSlope";
@@ -197,7 +205,7 @@ function detectorFieldFromIssue(issue: z.ZodIssue): DetectorField | null {
   return DETECTOR_FIELDS.includes(first as DetectorField) ? (first as DetectorField) : null;
 }
 
-function stationErrorsFromZod(error: z.ZodError<Station>): FieldErrors<StationField> {
+function stationErrorsFromZod(error: SchemaError): FieldErrors<StationField> {
   const errors: FieldErrors<StationField> = {};
   for (const issue of error.issues) {
     const field = stationFieldFromPath(issue.path);
@@ -208,7 +216,7 @@ function stationErrorsFromZod(error: z.ZodError<Station>): FieldErrors<StationFi
   return errors;
 }
 
-function detectorErrorsFromZod(error: z.ZodError<Detector>): FieldErrors<DetectorField> {
+function detectorErrorsFromZod(error: SchemaError): FieldErrors<DetectorField> {
   const errors: FieldErrors<DetectorField> = {};
   for (const issue of error.issues) {
     const field = detectorFieldFromIssue(issue);
@@ -852,9 +860,9 @@ function Field({
 }: {
   label: string;
   children: React.ReactNode;
-  error?: string;
-  help?: string;
-  optional?: boolean;
+  error?: string | undefined;
+  help?: string | undefined;
+  optional?: boolean | undefined;
 }): React.ReactElement {
   return (
     <label className="block">

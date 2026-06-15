@@ -3,8 +3,33 @@
  * because calibration is per-device.
  */
 import { z } from "zod";
-import { IdSchema } from "./primitives.js";
+import { IdSchema, EpochMsSchema } from "./primitives.js";
 import { HardwareVersionSchema, DetectorStatusSchema } from "./enums.js";
+
+const NonNegative = z.number().nonnegative();
+
+export const NoiseCalibrationMethodSchema = z.enum(["auto-sigma", "manual"]);
+export type NoiseCalibrationMethod = z.infer<typeof NoiseCalibrationMethodSchema>;
+
+export const NoiseCalibrationSchema = z
+  .object({
+    thresholdMv: NonNegative,
+    method: NoiseCalibrationMethodSchema,
+    calibratedAt: EpochMsSchema,
+  })
+  .strict();
+export type NoiseCalibration = z.infer<typeof NoiseCalibrationSchema>;
+
+export const NoiseCalibrationHistorySchema = z
+  .array(NoiseCalibrationSchema)
+  .refine(
+    (history) =>
+      history.every((entry, index) => index === 0 || entry.calibratedAt >= history[index - 1]!.calibratedAt),
+    {
+      message: "noise calibration history must be ordered by calibratedAt",
+    },
+  );
+export type NoiseCalibrationHistory = z.infer<typeof NoiseCalibrationHistorySchema>;
 
 /**
  * Calibration — sensible defaults by hardware, with optional advanced overrides (D23).
@@ -15,6 +40,8 @@ export const CalibrationSchema = z
     adcToMv: z.tuple([z.number(), z.number()]).optional(),
     saturationMv: z.number().positive().optional(),
     triggerAdcMin: z.number().int().nonnegative().optional(),
+    noiseCalibration: NoiseCalibrationSchema.optional(),
+    noiseCalibrationHistory: NoiseCalibrationHistorySchema.optional(),
   })
   .strict();
 export type Calibration = z.infer<typeof CalibrationSchema>;

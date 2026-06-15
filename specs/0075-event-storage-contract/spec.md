@@ -1,6 +1,6 @@
 # 0075 — Event & storage data contract (`@munhub/shared` schemas)
 
-- **Status:** ready for implementation
+- **Status:** implemented
 - **Responsible:** Adjutant (spec + ADR-003) → Cursor (impl) → cross-provider review (D35; Gemini or
   supervisor fallback if Gemini quota is out) → Adjutant (verify + macro + PR)
 - **Depends on:** 0003 (shared schema patterns), 0005 (`@munhub/physics` histogram/MPV types).

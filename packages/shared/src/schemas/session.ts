@@ -1,6 +1,7 @@
 /** Session — one continuous data-taking run of a detector. */
 import { z } from "zod";
 import { IdSchema, EpochMsSchema } from "./primitives.js";
+import { StorageTierConfigSchema } from "./storage.js";
 
 export const SessionSchema = z
   .object({
@@ -11,6 +12,12 @@ export const SessionSchema = z
     endedAt: EpochMsSchema.nullable().default(null),
     /** Hash of the source log file, used for upload de-duplication. */
     sourceFileHash: z.string().optional(),
+    /** Homogeneous retention tier active for this session. */
+    storageTier: StorageTierConfigSchema.optional(),
+    agentVersion: z.string().min(1).optional(),
+    /** trueTime - machineTime, measured by the agent. */
+    clockOffsetMs: z.number().optional(),
+    calibrationRef: z.string().min(1).optional(),
   })
   .strict()
   .refine((s) => s.endedAt === null || s.endedAt >= s.startedAt, {

@@ -57,7 +57,9 @@ import {
   serializeSession,
   deserializeSession,
   serializeMinuteRecord,
+  serializeLatestMinuteRecord,
   deserializeMinuteRecord,
+  deserializeLatestMinuteRecord,
   serializeRealtimeRecord,
   deserializeRealtimeRecord,
   warn,
@@ -74,13 +76,15 @@ import type * as FirebaseAdminDatabase from "firebase-admin/database";
 const EXPORT_PAGE_SIZE = 500;
 
 // ── Realtime window (cap old records on push, per spec §4) ────────────────────
-const REALTIME_CAP = 5000;
+export const REALTIME_CAP = 5000;
+const REALTIME_PRUNE_BATCH_SIZE = 256;
 
 const AUTH_STATE_USER_READ_ATTEMPTS = 10;
 const AUTH_STATE_USER_READ_DELAY_MS = 50;
 
 const connectedDatabaseEmulators = new WeakSet<object>();
 const connectedAuthEmulators = new WeakSet<object>();
+const realtimeRecordCounts = new Map<string, number>();
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -133,6 +137,7 @@ interface RtdbRef {
     errorCallback?: (err: Error) => void,
   ): () => void;
   off(event?: string, callback?: (snap: RtdbSnapshot) => void): void;
+  limitToFirst(n: number): RtdbQuery;
   limitToLast(n: number): RtdbQuery;
   child(path: string): RtdbRef;
 }
@@ -301,6 +306,18 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function snapshotKeys(snap: RtdbSnapshot): string[] {
+  const keys: string[] = [];
+  snap.forEach((child) => {
+    if (child.key != null) keys.push(child.key);
+  });
+  return keys;
+}
+
+function realtimeRecordCountKey(stationId: string, detectorId: string): string {
+  return `${stationId}/${detectorId}`;
+}
+
 async function runtimeImport<TModule>(specifier: string): Promise<TModule> {
   return (await import(/* webpackIgnore: true */ specifier)) as TModule;
 }
@@ -312,9 +329,27 @@ async function buildClientAdapter(
 ): Promise<{ adapter: RtdbAdapter; auth: AuthAdapter }> {
   // Dynamic import so the admin bundle never pulls in the client SDK.
   const { initializeApp, getApps, getApp } = await import("firebase/app");
-  const { getDatabase, ref, get, set, update, push, onChildAdded, onValue, off, query,
-    orderByKey, orderByChild, equalTo, startAt, endAt, limitToLast,
-    runTransaction, connectDatabaseEmulator } = await import("firebase/database");
+  const {
+    getDatabase,
+    ref,
+    get,
+    set,
+    update,
+    push,
+    onChildAdded,
+    onValue,
+    off,
+    query,
+    orderByKey,
+    orderByChild,
+    equalTo,
+    startAt,
+    endAt,
+    limitToFirst,
+    limitToLast,
+    runTransaction,
+    connectDatabaseEmulator,
+  } = await import("firebase/database");
   const {
     getAuth,
     setPersistence,
@@ -398,6 +433,9 @@ async function buildClientAdapter(
       equalTo(value) {
         return wrapQuery(query(rawRef, equalTo(value as string | number | boolean | null)));
       },
+      limitToFirst(n) {
+        return wrapQuery(query(rawRef, limitToFirst(n)));
+      },
       limitToLast(n) {
         return wrapQuery(query(rawRef, limitToLast(n)));
       },
@@ -444,6 +482,9 @@ async function buildClientAdapter(
       },
       equalTo(value) {
         return wrapQuery(query(q, equalTo(value as string | number | boolean | null)));
+      },
+      limitToFirst(n) {
+        return wrapQuery(query(q, limitToFirst(n)));
       },
       limitToLast(n) {
         return wrapQuery(query(q, limitToLast(n)));
@@ -582,6 +623,9 @@ async function buildAdminAdapter(
       equalTo(value) {
         return wrapAdminQuery(rawRef.equalTo(value as string | number | boolean | null));
       },
+      limitToFirst(n) {
+        return wrapAdminQuery(rawRef.limitToFirst(n));
+      },
       limitToLast(n) {
         return wrapAdminQuery(rawRef.limitToLast(n));
       },
@@ -626,6 +670,9 @@ async function buildAdminAdapter(
       },
       equalTo(value) {
         return wrapAdminQuery(q.equalTo(value as string | number | boolean | null));
+      },
+      limitToFirst(n) {
+        return wrapAdminQuery(q.limitToFirst(n));
       },
       limitToLast(n) {
         return wrapAdminQuery(q.limitToLast(n));
@@ -1000,13 +1047,14 @@ export async function createFirebaseProvider(
     const latestPath = Paths.latest(stationId, detectorId);
 
     const serialized = serializeMinuteRecord(record);
+    const serializedLatest = serializeLatestMinuteRecord(record);
 
     // Write the minute record (idempotent: same ts → same key → overwrites identically).
     await adapter.ref(minutePath).set(serialized);
 
     // Update `latest` only if this record's ts ≥ current latest ts (FR3).
     await adapter.ref(latestPath).transaction((current: unknown) => {
-      if (current == null) return serialized;
+      if (current == null) return serializedLatest;
       const currentTs = (current as Record<string, unknown>)["ts"];
       if (typeof currentTs === "number" && currentTs > record.ts) {
         return current; // keep existing
@@ -1015,7 +1063,7 @@ export async function createFirebaseProvider(
       const currentKey =
         typeof currentTs === "number" ? padTs(currentTs) : null;
       if (currentKey != null && currentKey > key) return current;
-      return serialized;
+      return serializedLatest;
     });
   }
 
@@ -1024,15 +1072,7 @@ export async function createFirebaseProvider(
     if (stationId == null) return null;
     const snap = await adapter.ref(Paths.latest(stationId, detectorId)).get();
     if (!snap.exists()) return null;
-    const raw = snap.val();
-    if (raw == null || typeof raw !== "object") return null;
-    const rawObj = raw as Record<string, unknown>;
-    const result = MinuteRecordSchema.safeParse(rawObj);
-    if (!result.success) {
-      warn(`latest(${detectorId}) parse failed`, result.error.message);
-      return null;
-    }
-    return result.data;
+    return deserializeLatestMinuteRecord(snap.val());
   }
 
   // ── Realtime ──────────────────────────────────────────────────────────────
@@ -1097,38 +1137,79 @@ export async function createFirebaseProvider(
     RealtimeRecordSchema.parse(record);
     const stationId = await requireStationId(detectorId);
     const key = padTs(record.ts);
-    await adapter
-      .ref(Paths.realtime(stationId, detectorId))
-      .child(key)
-      .set(serializeRealtimeRecord(record));
-    // Best-effort cap (spec §4: hard pruning is a separate ops concern). The prune does a
-    // full-node scan, so it is kept OFF the hot path — running it on every push would dominate
-    // latency near the cap. Throttled to ~1 in 64 pushes; a bounded prune is a follow-up.
-    if (Math.floor(Math.random() * 64) === 0) {
-      void pruneRealtimeCap(stationId, detectorId);
+    const realtimePath = Paths.realtime(stationId, detectorId);
+    const realtimeRef = adapter.ref(realtimePath);
+    const recordRef = realtimeRef.child(key);
+    const existed = (await recordRef.get()).exists();
+
+    await recordRef.set(serializeRealtimeRecord(record));
+
+    const countKey = realtimeRecordCountKey(stationId, detectorId);
+    const cachedCount = realtimeRecordCounts.get(countKey);
+    if (cachedCount != null) {
+      const nextCount = existed ? cachedCount : cachedCount + 1;
+      realtimeRecordCounts.set(countKey, nextCount);
+      if (nextCount <= REALTIME_CAP) return;
+    } else if (existed) {
+      await pruneRealtimeCap(stationId, detectorId);
+      return;
     }
+
+    await pruneRealtimeCap(stationId, detectorId);
   }
 
+  /**
+   * Realtime retention guarantee: after provider writes, `realtime/{ts}` is bounded to the
+   * newest `REALTIME_CAP` records. Pruning keeps the newest keys and deletes older keys via
+   * ordered, bounded queries (`limitToLast(REALTIME_CAP)` + oldest-key batches), avoiding a
+   * full-node scan on the hot path.
+   */
   async function pruneRealtimeCap(
     stationId: string,
     detectorId: string,
   ): Promise<void> {
+    const countKey = realtimeRecordCountKey(stationId, detectorId);
     try {
-      const ref = adapter.ref(Paths.realtime(stationId, detectorId));
-      const snap = await ref.get();
-      const keys: string[] = [];
-      snap.forEach((child) => {
-        if (child.key != null) keys.push(child.key);
-      });
-      if (keys.length <= REALTIME_CAP) return;
-      const toDelete = keys.slice(0, keys.length - REALTIME_CAP);
-      const updates: Record<string, null> = {};
-      for (const k of toDelete) {
-        updates[`${Paths.realtime(stationId, detectorId)}/${k}`] = null;
+      const realtimePath = Paths.realtime(stationId, detectorId);
+      const ref = adapter.ref(realtimePath);
+      const retainedKeys = snapshotKeys(
+        await ref.orderByKey().limitToLast(REALTIME_CAP).get(),
+      );
+
+      if (retainedKeys.length < REALTIME_CAP) {
+        realtimeRecordCounts.set(countKey, retainedKeys.length);
+        return;
       }
-      await adapter.ref("/").update(updates as Record<string, unknown>);
+
+      const oldestRetainedKey = retainedKeys[0];
+      if (oldestRetainedKey == null) {
+        realtimeRecordCounts.set(countKey, 0);
+        return;
+      }
+
+      while (true) {
+        const oldestKeys = snapshotKeys(
+          await ref
+            .orderByKey()
+            .limitToFirst(REALTIME_PRUNE_BATCH_SIZE)
+            .get(),
+        );
+        const toDelete = oldestKeys.filter((oldestKey) => oldestKey < oldestRetainedKey);
+        if (toDelete.length === 0) break;
+
+        const updates: Record<string, null> = {};
+        for (const deleteKey of toDelete) {
+          updates[`${realtimePath}/${deleteKey}`] = null;
+        }
+        await adapter.ref("/").update(updates as Record<string, unknown>);
+
+        if (toDelete.length < REALTIME_PRUNE_BATCH_SIZE) break;
+      }
+
+      realtimeRecordCounts.set(countKey, REALTIME_CAP);
     } catch (err) {
-      warn("pruneRealtimeCap failed (non-critical)", err);
+      realtimeRecordCounts.delete(countKey);
+      throw err;
     }
   }
 

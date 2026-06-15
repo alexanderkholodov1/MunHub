@@ -62,7 +62,8 @@ flowchart TB
 
 ```
 packages/shared          TypeScript types, zod schemas, constants, i18n keys, pure utilities
-packages/physics         Pure science: dead-time & barometric correction, flux, Landau spectrum
+packages/physics         Pure science: dead-time & barometric correction, flux, Landau spectrum,
+                           noise-threshold calibration, EventSummary construction
 packages/data-provider   DataProvider interface + FirebaseProvider (Phase A) + SupabaseProvider (Phase B)
 packages/ui              Observatory Dark design system — token foundation LANDED (spec 0008):
                            CSS custom properties (dark/light), Tailwind v4 @theme, ThemeProvider,
@@ -103,7 +104,8 @@ auth failures to stable provider codes, and is tested against the Firebase Emula
 ## 4. Data flow
 
 ```
-[detector] → agent (read serial → validate → per-minute average → SQLite backup → sync queue)
+[detector] → agent (read serial → validate → per-minute average + event science
+                    → SQLite backup → sync queue)
            → DataProvider.pushMinuteRecord / pushRealtimeRecord
            → Firebase Realtime Database (munhub-1)
            → DataProvider.subscribeRealtime / getMinuteRecords
@@ -128,10 +130,24 @@ covered by Vitest without requiring Tauri or Rust in CI:
 - `aggregate.ts` folds one minute of raw readings into a `MinuteRecord`, converts pressure Pa to hPa,
   averages rate/environment fields rather than summing them, preserves amplitude min/max fields, and
   validates the boundary with `MinuteRecordSchema`.
+- `clock.ts` measures `trueTime - machineTime` through an injectable time-source port, records the
+  offset for session provenance, and raises a local skew warning when the configured threshold is
+  exceeded.
+- `event-science-pipeline.ts` keeps the per-detector noise threshold calibrated locally, classifies
+  serial triggers against that documented threshold, appends `noiseCalibrationHistory`, emits
+  interval `EventSummary` records, and collects above-noise `SignalRecord`s only when the detector's
+  `StorageTierConfig.individualSignals` axis is enabled. Complete-raw capture is bounded locally by
+  `completeRaw.autoStopMinutes`.
 - `local-store.ts` defines the local persistence port plus a tested in-memory implementation. The
   future SQLite store uses the same interface.
 - `sync-queue.ts` persists locally before upload, queues while offline, flushes through
   `DataProvider.pushMinuteRecord`, and is idempotent on `(detectorId, ts)`.
+
+The threshold is a reproducible detection threshold for the sub-threshold SiPM dark-count/noise lobe
+described in the scientific foundation, not arbitrary event filtering: each summary records the
+threshold plus total and above-threshold counts, and the calibration history records the active
+threshold version. This milestone computes those records locally only; cloud blob/document retention
+is owned by later provider milestones.
 
 The `apps/agent/src-tauri/` serial bridge is intentionally thin at this stage: it enumerates ports,
 opens a selected port, and emits serial lines to the TypeScript parser path. Full Tauri

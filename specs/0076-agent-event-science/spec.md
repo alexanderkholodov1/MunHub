@@ -1,6 +1,6 @@
 # 0076 — Agent event science: noise auto-calibration + EventSummary + NTP clock sync
 
-- **Status:** ready for implementation
+- **Status:** implemented
 - **Responsible:** Adjutant (spec) → Cursor (impl) → independent review (Cursor review-only / Gemini
   when quota returns) → Adjutant (verify + macro + PR)
 - **Depends on:** 0075 (`StorageTierConfig`, `SignalRecord`, `EventSummary`, `NoiseCalibration`),

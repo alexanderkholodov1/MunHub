@@ -37,6 +37,13 @@ export type { RobustBaseline } from "./statistics.js";
 export { buildAmplitudeHistogram, estimateMpv } from "./spectrum.js";
 export type { AmplitudeHistogram, HistogramOptions } from "./spectrum.js";
 
+export { buildEventSummary, calibrateNoiseThreshold } from "./event-science.js";
+export type {
+  BuildEventSummaryParams,
+  NoiseThresholdCalibration,
+  NoiseThresholdCalibrationOptions,
+} from "./event-science.js";
+
 export {
   DEFAULT_BETA_MIN_POINTS,
   buildCorrectedRateInsights,

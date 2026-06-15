@@ -4,6 +4,8 @@
 > The authoritative, validated definitions live in **`packages/shared`** as Zod schemas with
 > inferred TypeScript types (implemented in spec S03) — schemas are the single source of truth, so
 > runtime validation and compile-time types can never drift.
+> Event retention, signal storage, and quota contracts follow
+> [`ADR-003`](./adr/003-data-storage-and-event-model.md).
 
 ## 1. Vocabulary (the two-level model)
 
@@ -93,12 +95,41 @@ raw observables because it has no timestamp child key; it still omits all derive
 > Reconciled from v5: canonical dead-time is `dt` (not `d`); pressure in hPa; `cc` = coincidences,
 > never "muons" (see scientific note below).
 
-## 4. Realtime record
+## 4. Event and storage retention model
 
-Per-event: `ts`, `sipm_mv`, `temp`, `deadtime`, … Short retention (8-minute sliding window; capped
-at 5000 records in Firebase). Powers the 1m/5m chart views; auto-expires. `FirebaseProvider`
-enforces the cap after writes by retaining the newest 5000 zero-padded timestamp keys and pruning
-older keys with bounded ordered queries, so `realtime/{ts}` does not grow without bound.
+[`ADR-003`](./adr/003-data-storage-and-event-model.md) replaces the legacy unbounded per-event
+database nodes with explicit, per-detector retention axes:
+
+| Axis | Contract field | Meaning |
+|---|---|---|
+| Minute summaries | `storageTier.minuteSummaries` | Retains the slim per-minute scientific series. Defaults to on. |
+| Individual signals | `storageTier.individualSignals` | Retains compressed blob intervals of above-noise `SignalRecord` entries: `ts`, `sipmMv`, optional ADC channels, coincidence flag, dead time, temperature, and pressure. |
+| Realtime live | `storageTier.realtimeMode` | `none`, `local-only`, or `cloud-volatile`; cloud-volatile data is short-lived operational live-view data, not indefinite science storage. |
+| Complete raw | `storageTier.completeRaw` | Optional bounded capture of every console line, including sub-threshold noise, with `autoStopMinutes` for heavy recordings. |
+
+The recommended tier is minute summaries on, individual signals on, realtime `local-only`, and
+complete raw off. The shared contract rejects a configuration with all retention and realtime axes
+disabled.
+
+`EventSummary` is the compact interval science product produced at the edge, independent of raw
+retention: detector/session ids, interval start/end, signal and threshold/tail/coincidence counts,
+the active noise threshold, optional MPV, and an amplitude histogram. The default summary interval is
+one hour (`3_600_000` ms).
+
+Noise calibration is versioned on detector calibration metadata through the active
+`noiseCalibration` (`thresholdMv`, `method`, `calibratedAt`) plus optional ordered
+`noiseCalibrationHistory`. Session provenance stores the homogeneous storage tier plus optional
+agent version, clock offset (`trueTime - machineTime`), and calibration reference.
+
+Storage quota contracts are pure limits: `detectorMaxBytes`, `accountMaxBytes`, and the default
+detector quota of `100 * 1024 * 1024` bytes. Provisioning, admission control, and placement are
+later provider/admin responsibilities.
+
+**Realtime record (cloud-volatile live view).** Per-event: `ts`, `sipm_mv`, `temp`, `deadtime`, …
+Short retention (8-minute sliding window; capped at 5000 records in Firebase). Powers the 1m/5m
+chart views; auto-expires. `FirebaseProvider` enforces the cap after writes by retaining the newest
+5000 zero-padded timestamp keys and pruning older keys with bounded ordered queries, so
+`realtime/{ts}` does not grow without bound (spec 0074).
 
 ## 5. Required metadata (highlights)
 

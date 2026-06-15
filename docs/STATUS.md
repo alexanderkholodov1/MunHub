@@ -37,7 +37,9 @@ location privacy pre-merge.)_
 | `specs/0011-station-detector` | Create Station + Detector management | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #45 |
 | `specs/0018-station-dashboard` | corrected rate + spectrum + insights (impl 0006) | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #46 |
 | `specs/0013-agent-core` | serial parsing + per-minute aggregation + offline sync queue | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #47 |
-| `specs/0024-public-landing-map` | public landing: city-aggregated detector map + live demo | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #48 |
+| `specs/0024-public-landing-map` | public landing: city-aggregated detector map + live demo | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #48 |
+| `specs/0074-record-slimming` | storage record slimming + realtime cap (federation M1) | Adjutant (spec) + Cursor (impl) | ✅ CI-green | PR #49 |
+| `specs/0075-event-storage-contract` | event & storage data contract (ADR-003) | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #50 |
 
 > ⚠️ **Numbering note:** the `specs/NNNN-*` folders are canonical. The backlog renumbering
 > (WP-03) is in PR #29 (old S-number → NNNN mapping table at the bottom of

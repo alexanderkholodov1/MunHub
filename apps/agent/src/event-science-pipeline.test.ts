@@ -171,4 +171,31 @@ describe("AgentEventSciencePipeline", () => {
     expect(output.completeRawReadings).toEqual([]);
     expect(output.completeRawStopped).toBe(true);
   });
+
+  it("anchors completeRaw.autoStopMinutes to the first raw reading by default", () => {
+    const pipeline = new AgentEventSciencePipeline({
+      detectorId: "det_1",
+      sessionId: "sess_1",
+      storageTier: storageTier({
+        completeRaw: {
+          enabled: true,
+          autoStopMinutes: 1,
+        },
+      }),
+      initialNoiseCalibration: calibration(10, BASE_TS),
+    });
+
+    expect(pipeline.processReading(reading(10_000, 30)).completeRawReadings).toHaveLength(1);
+    expect(pipeline.processReading(reading(69_999, 30)).completeRawReadings).toHaveLength(1);
+
+    const stoppedOutput = pipeline.processReading(reading(70_000, 30));
+
+    expect(stoppedOutput.completeRawReadings).toEqual([]);
+    expect(stoppedOutput.completeRawStopped).toBe(true);
+
+    const afterStoppedOutput = pipeline.processReading(reading(90_000, 30));
+
+    expect(afterStoppedOutput.completeRawReadings).toEqual([]);
+    expect(afterStoppedOutput.completeRawStopped).toBe(false);
+  });
 });

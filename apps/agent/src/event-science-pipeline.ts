@@ -117,7 +117,7 @@ export class AgentEventSciencePipeline {
   private readonly summaryBinCount: number | undefined;
   private readonly summaryEnabled: boolean;
   private readonly rawAutoStopMs: number | null;
-  private readonly completeRawStartedAtTs: number | null;
+  private completeRawStartedAtTs: number | null;
 
   private noiseCalibration: NoiseCalibration | null;
   private readonly noiseCalibrationHistory: NoiseCalibration[];
@@ -211,9 +211,10 @@ export class AgentEventSciencePipeline {
       return emptyOutput();
     }
 
-    const startedAtTs = this.completeRawStartedAtTs ?? reading.timestamp;
-    if (this.rawAutoStopMs !== null && reading.timestamp - startedAtTs >= this.rawAutoStopMs) {
+    this.completeRawStartedAtTs ??= reading.timestamp;
+    if (this.rawAutoStopMs !== null && reading.timestamp - this.completeRawStartedAtTs >= this.rawAutoStopMs) {
       this.completeRawStopped = true;
+      this.completeRawStartedAtTs = null;
       return {
         ...emptyOutput(),
         completeRawStopped: true,

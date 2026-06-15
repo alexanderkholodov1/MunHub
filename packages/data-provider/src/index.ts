@@ -19,9 +19,19 @@ export type {
 export { AuthProviderError } from "./types.js";
 
 // ── Phase A: concrete FirebaseProvider over the munhub-1 Realtime Database ──────────────────────
-export { createFirebaseProvider } from "./firebase-provider.js";
+export { createFirebaseProvider, REALTIME_CAP } from "./firebase-provider.js";
 export type {
   FirebaseProviderConfig,
   FirebaseClientConfig,
   FirebaseAdminConfig,
 } from "./firebase-provider.js";
+
+export {
+  CANONICAL_SLIM_MINUTE_RECORD_FIELDS,
+  CANONICAL_SLIM_MINUTE_RECORD_RULES,
+  toCanonicalSlimMinuteRecord,
+} from "./slim-minute-record.js";
+export type {
+  CanonicalSlimMinuteRecord,
+  CanonicalSlimMinuteRecordField,
+} from "./slim-minute-record.js";

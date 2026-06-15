@@ -75,6 +75,23 @@ Stored indefinitely. **All values are averages, never sums** — a data-integrit
 
 **Corrections pipeline (mandatory order):** raw → dead-time → barometric (local β) → thermal.
 
+### 3.1 Firebase slim storage format
+
+The public `MinuteRecord` shape is schema-validated with `ts` plus the raw observables above and
+optional derived fields. Firebase RTDB stores the long-lived minute series in a slimmer canonical
+form at `minutes/{ts}`:
+
+- the RTDB child key is the zero-padded epoch-ms `ts`;
+- the stored value contains only `ec`, `cc`, `sm`, `sx`, `sn`, `tp`, `pr`, `dt`;
+- `ts`, `ts_iso`, and other legacy extras are not stored in the value;
+- derived fields (`ecDt`, `ecCorr`, `flux`) are never stored and are recomputed from the raw record
+  via `@munhub/physics` when needed.
+
+The reusable definition lives in `@munhub/data-provider` as
+`CANONICAL_SLIM_MINUTE_RECORD_FIELDS` and `CANONICAL_SLIM_MINUTE_RECORD_RULES`, so migration tooling
+and provider writes use the same field set. The denormalized `latest` node stores `ts` plus the same
+raw observables because it has no timestamp child key; it still omits all derived fields.
+
 > Reconciled from v5: canonical dead-time is `dt` (not `d`); pressure in hPa; `cc` = coincidences,
 > never "muons" (see scientific note below).
 
@@ -107,6 +124,12 @@ agent version, clock offset (`trueTime - machineTime`), and calibration referenc
 Storage quota contracts are pure limits: `detectorMaxBytes`, `accountMaxBytes`, and the default
 detector quota of `100 * 1024 * 1024` bytes. Provisioning, admission control, and placement are
 later provider/admin responsibilities.
+
+**Realtime record (cloud-volatile live view).** Per-event: `ts`, `sipm_mv`, `temp`, `deadtime`, …
+Short retention (8-minute sliding window; capped at 5000 records in Firebase). Powers the 1m/5m
+chart views; auto-expires. `FirebaseProvider` enforces the cap after writes by retaining the newest
+5000 zero-padded timestamp keys and pruning older keys with bounded ordered queries, so
+`realtime/{ts}` does not grow without bound (spec 0074).
 
 ## 5. Required metadata (highlights)
 

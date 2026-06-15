@@ -10,15 +10,20 @@
  * Also covers spec 0009 auth flows against the Firebase Auth emulator.
  */
 import { describe, it, expect, beforeAll } from "vitest";
-import type {
-  Institution,
-  Station,
-  Detector,
-  Session,
-  MinuteRecord,
-  RealtimeRecord,
+import { getApps } from "firebase-admin/app";
+import { getDatabase } from "firebase-admin/database";
+import {
+  MinuteRecordSchema,
+  type Institution,
+  type Station,
+  type Detector,
+  type Session,
+  type MinuteRecord,
+  type RealtimeRecord,
 } from "@munhub/shared";
-import { createFirebaseProvider } from "./firebase-provider.js";
+import { createFirebaseProvider, REALTIME_CAP } from "./firebase-provider.js";
+import { Paths, padTs } from "./firebase-paths.js";
+import { CANONICAL_SLIM_MINUTE_RECORD_FIELDS } from "./slim-minute-record.js";
 import type { DataProvider } from "./provider.js";
 import type { DataChunk } from "./types.js";
 
@@ -86,6 +91,19 @@ function makeMinute(ts: number, ec: number): MinuteRecord {
     pr: 1013,
     dt: 1.2,
   };
+}
+
+function adminDatabase() {
+  const app = getApps().find((candidate) => candidate.name === "munhub-admin");
+  if (app == null) {
+    throw new Error("Firebase admin app is not initialized");
+  }
+  return getDatabase(app);
+}
+
+function snapshotChildKeys(raw: unknown): string[] {
+  if (raw == null || typeof raw !== "object") return [];
+  return Object.keys(raw as Record<string, unknown>).sort();
 }
 
 describeEmu("FirebaseProvider (emulator)", () => {
@@ -169,6 +187,53 @@ describeEmu("FirebaseProvider (emulator)", () => {
     expect((await provider.getLatest(did))?.ec).toBe(99);
   });
 
+  it("stores minute records in the canonical slim format (S0074)", async () => {
+    const sid = uid("st");
+    const did = uid("det");
+    await provider.upsertStation(makeStation(sid, "owner1"));
+    await provider.upsertDetector(makeDetector(did, sid));
+
+    const ts = 1_700_100_000_000;
+    const record: MinuteRecord = {
+      ...makeMinute(ts, 42),
+      ecDt: 43,
+      ecCorr: 41,
+      flux: 1.7,
+    };
+    await provider.pushMinuteRecord(did, record);
+
+    const rawMinute = (
+      await adminDatabase().ref(Paths.minute(sid, did, ts)).get()
+    ).val();
+    expect(rawMinute).toEqual({
+      ec: 42,
+      cc: 0,
+      sm: 5,
+      sx: 9,
+      sn: 2,
+      tp: 21,
+      pr: 1013,
+      dt: 1.2,
+    });
+    expect(snapshotChildKeys(rawMinute)).toEqual(
+      [...CANONICAL_SLIM_MINUTE_RECORD_FIELDS].sort(),
+    );
+
+    const rawLatest = (
+      await adminDatabase().ref(Paths.latest(sid, did)).get()
+    ).val();
+    expect(rawLatest).toMatchObject({ ts });
+    expect(rawLatest).not.toHaveProperty("ecDt");
+    expect(rawLatest).not.toHaveProperty("ecCorr");
+    expect(rawLatest).not.toHaveProperty("flux");
+
+    const [readBack] = await provider.getMinuteRecords(did, {
+      fromTs: ts,
+      toTs: ts,
+    });
+    expect(MinuteRecordSchema.parse(readBack)).toEqual(makeMinute(ts, 42));
+  });
+
   it("delivers only realtime events appended after subscription (AC3)", async () => {
     const sid = uid("st");
     const did = uid("det");
@@ -201,6 +266,31 @@ describeEmu("FirebaseProvider (emulator)", () => {
     await provider.pushRealtimeRecord(did, rt(4_000));
     await new Promise((r) => setTimeout(r, 250));
     expect(received).not.toContain(4_000);
+  });
+
+  it("keeps realtime storage capped to the newest records (S0074)", async () => {
+    const sid = uid("st");
+    const did = uid("det");
+    await provider.upsertStation(makeStation(sid, "owner1"));
+    await provider.upsertDetector(makeDetector(did, sid));
+
+    const baseTs = 1_700_200_000_000;
+    const pushCount = REALTIME_CAP + 5;
+    for (let i = 0; i < pushCount; i++) {
+      await provider.pushRealtimeRecord(did, {
+        ts: baseTs + i,
+        sipmMv: 30 + i,
+      });
+    }
+
+    const rawRealtime = (
+      await adminDatabase().ref(Paths.realtime(sid, did)).get()
+    ).val();
+    const keys = snapshotChildKeys(rawRealtime);
+    expect(keys.length).toBeLessThanOrEqual(REALTIME_CAP);
+    expect(keys.length).toBe(REALTIME_CAP);
+    expect(keys[0]).toBe(padTs(baseTs + pushCount - REALTIME_CAP));
+    expect(keys[keys.length - 1]).toBe(padTs(baseTs + pushCount - 1));
   });
 
   it("round-trips a dataset through exportAll → importAll and quarantines invalid chunks (AC4)", async () => {

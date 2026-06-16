@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
+import type { EventSummary, SignalRecord } from "@munhub/shared";
+import { EventSummarySchema, SignalRecordSchema } from "@munhub/shared";
 import type { DataProvider } from "./provider.js";
-import type { DataChunk } from "./types.js";
+import type { DataChunk, SignalBlobRef } from "./types.js";
 import { AuthProviderError } from "./types.js";
 
 /**
@@ -8,6 +10,13 @@ import { AuthProviderError } from "./types.js";
  * misaligned with `@munhub/shared`, this file fails to compile — that is the point of the test.
  */
 function createMockProvider(): DataProvider {
+  const summaries = new Map<string, EventSummary>();
+  const signalBlobs = new Map<string, SignalRecord[]>();
+  const summaryKey = (summary: EventSummary) =>
+    `${summary.detectorId}/${summary.intervalStartTs}`;
+  const blobKey = (ref: SignalBlobRef) =>
+    `${ref.detectorId}/${ref.sessionId}/${ref.intervalStartTs}`;
+
   return {
     getCurrentUser: async () => null,
     register: async (email, _password, profile) => ({
@@ -45,6 +54,43 @@ function createMockProvider(): DataProvider {
     getMinuteRecords: async () => [],
     pushMinuteRecord: async () => undefined,
     getLatest: async () => null,
+    putEventSummary: async (summary) => {
+      const parsed = EventSummarySchema.parse(summary);
+      summaries.set(summaryKey(parsed), parsed);
+    },
+    getEventSummaries: async (detectorId, range) =>
+      [...summaries.values()]
+        .filter(
+          (summary) =>
+            summary.detectorId === detectorId &&
+            summary.intervalStartTs >= range.fromTs &&
+            summary.intervalStartTs <= range.toTs,
+        )
+        .sort((a, b) => a.intervalStartTs - b.intervalStartTs),
+    putSignalBlob: async (ref, signals) => {
+      signalBlobs.set(
+        blobKey(ref),
+        signals.map((signal) => SignalRecordSchema.parse(signal)),
+      );
+    },
+    listSignalBlobs: async (detectorId, range) =>
+      [...signalBlobs.keys()]
+        .map((key): SignalBlobRef => {
+          const [keyDetectorId, sessionId, intervalStartTs] = key.split("/");
+          return {
+            detectorId: keyDetectorId ?? "",
+            sessionId: sessionId ?? "",
+            intervalStartTs: Number(intervalStartTs),
+          };
+        })
+        .filter(
+          (ref) =>
+            ref.detectorId === detectorId &&
+            ref.intervalStartTs >= range.fromTs &&
+            ref.intervalStartTs <= range.toTs,
+        )
+        .sort((a, b) => a.intervalStartTs - b.intervalStartTs),
+    getSignalBlob: async (ref) => signalBlobs.get(blobKey(ref)) ?? [],
     subscribeRealtime: () => () => undefined,
     pushRealtimeRecord: async () => undefined,
     exportAll: async function* () {
@@ -91,6 +137,58 @@ describe("DataProvider contract", () => {
     const out: DataChunk[] = [];
     for await (const chunk of provider.exportAll()) out.push(chunk);
     expect(out).toEqual([]);
+  });
+
+  it("supports EventSummary and signal blob storage shapes", async () => {
+    const provider = createMockProvider();
+    const summary: EventSummary = {
+      detectorId: "det_1",
+      sessionId: "sess_1",
+      intervalStartTs: 1_700_000_000_000,
+      intervalEndTs: 1_700_003_600_000,
+      signalCount: 2,
+      aboveThresholdCount: 2,
+      tailCount: 1,
+      coincidenceCount: 0,
+      noiseThresholdMv: 12,
+      mpvMv: 42,
+      histogram: {
+        binWidthMv: 5,
+        minMv: 0,
+        counts: [0, 2],
+      },
+    };
+    await provider.putEventSummary(summary);
+    expect(
+      await provider.getEventSummaries("det_1", {
+        fromTs: summary.intervalStartTs,
+        toTs: summary.intervalStartTs,
+      }),
+    ).toEqual([summary]);
+
+    const signal: SignalRecord = {
+      ts: summary.intervalStartTs + 1_000,
+      sipmMv: 42,
+      adc1: 120,
+      adc2: 121,
+      coincident: false,
+      deadtimeUs: 400,
+      tempC: 20,
+      pressureHpa: 1013,
+    };
+    const ref: SignalBlobRef = {
+      detectorId: "det_1",
+      sessionId: "sess_1",
+      intervalStartTs: summary.intervalStartTs,
+    };
+    await provider.putSignalBlob(ref, [signal]);
+    expect(
+      await provider.listSignalBlobs("det_1", {
+        fromTs: summary.intervalStartTs,
+        toTs: summary.intervalStartTs,
+      }),
+    ).toEqual([ref]);
+    expect(await provider.getSignalBlob(ref)).toEqual([signal]);
   });
 
   it("returns an idempotent unsubscribe from a realtime subscription", () => {

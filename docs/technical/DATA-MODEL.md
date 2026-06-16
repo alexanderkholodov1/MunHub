@@ -31,6 +31,8 @@ Station     1 ─ N Detector     (usually 1; ≥2 enables a coincidence telescop
 Detector    1 ─ N Session
 Detector    1 ─ N MinuteRecord (time series, indefinite retention)
 Detector    1 ─ N RealtimeRecord (short window, expires)
+Detector    1 ─ N EventSummary (compact interval science)
+Detector    1 ─ N SignalBlob (compressed above-noise signal batches)
 ```
 
 Data (sessions, minute records, realtime) hangs off the **detector**, because calibration is
@@ -114,7 +116,17 @@ disabled.
 `EventSummary` is the compact interval science product produced at the edge, independent of raw
 retention: detector/session ids, interval start/end, signal and threshold/tail/coincidence counts,
 the active noise threshold, optional MPV, and an amplitude histogram. The default summary interval is
-one hour (`3_600_000` ms).
+one hour (`3_600_000` ms). Firebase Phase A stores each summary as a slim RTDB node at
+`/stations/{stationId}/detectors/{detectorId}/eventSummaries/{paddedIntervalStartTs}`. The padded
+key carries `intervalStartTs`, the detector path carries `detectorId`, and the stored value contains
+only the remaining schema fields (`sessionId`, `intervalEndTs`, counts, threshold, optional `mpvMv`,
+and `histogram`).
+
+Individual above-noise `SignalRecord` entries are not stored as database children. The provider writes
+one gzip-compressed NDJSON object per detector/session/interval at
+`signals/{detectorId}/{sessionId}/{paddedIntervalStartTs}.ndjson.gz` in Firebase Cloud Storage. Each
+line is a schema-valid `SignalRecord`; reads gunzip the object and validate each line independently,
+quarantining corrupt lines by skipping them rather than coercing scientific values.
 
 Noise calibration is versioned on detector calibration metadata through the active
 `noiseCalibration` (`thresholdMv`, `method`, `calibratedAt`) plus optional ordered
@@ -178,7 +190,8 @@ UI labels and tooltips take their exact wording from
 
 ## 7. Backends
 
-- **Phase A — Firebase Realtime Database (munhub-1), via `FirebaseProvider` (spec 0007):**
+- **Phase A — Firebase Realtime Database + Cloud Storage (munhub-1), via `FirebaseProvider` (spec
+  0007 + 0077):**
 
   ```
   /users/{uid}                         → email, username, displayName, role, language, …
@@ -188,8 +201,12 @@ UI labels and tooltips take their exact wording from
          ├─ sessions/{sid}               (session metadata only)
          ├─ minutes/{ts}                 (MinuteRecord; ts = zero-padded epoch-ms key, ordered)
          ├─ realtime/{ts}                (RealtimeRecord; capped sliding window)
+         ├─ eventSummaries/{ts}          (EventSummary; slim value, ordered by interval start)
          └─ latest                       (denormalized most-recent MinuteRecord)
   /detector_index/{detId}                → stationId   (O(1) detector→station resolution)
+
+  Cloud Storage objects:
+  signals/{detId}/{sessionId}/{ts}.ndjson.gz
   ```
 
   Two reconciliations the provider pins versus the earlier sketch: (1) the queryable **minute

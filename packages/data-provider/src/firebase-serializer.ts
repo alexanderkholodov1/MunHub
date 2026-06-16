@@ -18,6 +18,7 @@ import type {
   Session,
   MinuteRecord,
   RealtimeRecord,
+  EventSummary,
 } from "@munhub/shared";
 import {
   UserSchema,
@@ -27,6 +28,7 @@ import {
   SessionSchema,
   MinuteRecordSchema,
   RealtimeRecordSchema,
+  EventSummarySchema,
 } from "@munhub/shared";
 import { padTs, unpadTs } from "./firebase-paths.js";
 import {
@@ -243,6 +245,31 @@ export function deserializeLatestMinuteRecord(raw: unknown): MinuteRecord | null
   });
   if (!result.success) {
     warn("latest MinuteRecord parse failed", result.error.message);
+    return null;
+  }
+  return result.data;
+}
+
+// ── EventSummary ───────────────────────────────────────────────────────────────
+
+/** Store detectorId and intervalStartTs in the path/key, not redundantly in the value. */
+export function serializeEventSummary(summary: EventSummary): Record<string, unknown> {
+  return omit(summary, "detectorId", "intervalStartTs");
+}
+
+export function deserializeEventSummary(
+  detectorId: string,
+  key: string,
+  raw: unknown,
+): EventSummary | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const result = EventSummarySchema.safeParse({
+    ...(raw as object),
+    detectorId,
+    intervalStartTs: unpadTs(key),
+  });
+  if (!result.success) {
+    warn(`EventSummary(key=${key}) parse failed`, result.error.message);
     return null;
   }
   return result.data;

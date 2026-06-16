@@ -8,6 +8,7 @@
 export type { DataProvider } from "./provider.js";
 export type {
   TimeRange,
+  SignalBlobRef,
   StationFilter,
   Unsubscribe,
   RealtimeCallback,

@@ -1,6 +1,6 @@
 # 0077 — Blob storage for signals + EventSummary persistence (provider)
 
-- **Status:** ready for implementation
+- **Status:** implemented
 - **Responsible:** Adjutant (spec) → Cursor (impl) → independent review (Gemini — re-probe first; Cursor review-only if down) → Adjutant (verify + macro + PR)
 - **Depends on:** 0075 (`SignalRecord`, `EventSummary`), 0007 (FirebaseProvider), 0076 (the agent produces them). Branches from `main`.
 - **Phase:** F2/F3 · **Epic:** EPIC-2/9 · **Source:** ADR-003 §6 (raw as compressed blobs; the real 1 GB fix).

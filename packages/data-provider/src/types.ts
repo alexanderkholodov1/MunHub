@@ -18,6 +18,13 @@ export interface TimeRange {
   toTs: number;
 }
 
+/** Deterministic object-storage pointer for one compressed signal interval. */
+export interface SignalBlobRef {
+  detectorId: string;
+  sessionId: string;
+  intervalStartTs: number;
+}
+
 /** Optional filter for listing stations (e.g. the public map, an institution view). */
 export interface StationFilter {
   visibility?: Visibility;

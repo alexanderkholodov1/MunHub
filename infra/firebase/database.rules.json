@@ -31,6 +31,9 @@
             "realtime": {
               ".write": "auth != null && (root.child('stations').child($sid).child('ownerUid').val() === auth.uid || root.child('stations').child($sid).child('shares').child(auth.uid).val() === 'editor' || auth.token.admin === true)"
             },
+            "eventSummaries": {
+              ".write": "auth != null && (root.child('stations').child($sid).child('ownerUid').val() === auth.uid || root.child('stations').child($sid).child('shares').child(auth.uid).val() === 'editor' || auth.token.admin === true)"
+            },
             "latest": {
               ".write": "auth != null && (root.child('stations').child($sid).child('ownerUid').val() === auth.uid || root.child('stations').child($sid).child('shares').child(auth.uid).val() === 'editor' || auth.token.admin === true)"
             }

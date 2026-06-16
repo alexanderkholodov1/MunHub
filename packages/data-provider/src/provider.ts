@@ -15,9 +15,12 @@ import type {
   Session,
   MinuteRecord,
   RealtimeRecord,
+  EventSummary,
+  SignalRecord,
 } from "@munhub/shared";
 import type {
   TimeRange,
+  SignalBlobRef,
   StationFilter,
   Unsubscribe,
   RealtimeCallback,
@@ -71,6 +74,18 @@ export interface DataProvider {
   pushMinuteRecord(detectorId: string, record: MinuteRecord): Promise<void>;
   /** The most recent minute record for a detector, or null if none. */
   getLatest(detectorId: string): Promise<MinuteRecord | null>;
+
+  // ── Event science storage (per detector) ───────────────────────────────────
+  /** Persist one compact interval summary keyed by its interval start. */
+  putEventSummary(summary: EventSummary): Promise<void>;
+  /** Event summaries within a time range, ordered by interval start. */
+  getEventSummaries(detectorId: string, range: TimeRange): Promise<EventSummary[]>;
+  /** Persist above-noise signals as one gzip-compressed NDJSON object. */
+  putSignalBlob(ref: SignalBlobRef, signals: SignalRecord[]): Promise<void>;
+  /** List compressed signal objects within a time range, ordered by interval start. */
+  listSignalBlobs(detectorId: string, range: TimeRange): Promise<SignalBlobRef[]>;
+  /** Download, gunzip, and validate one signal blob; corrupt lines are skipped. */
+  getSignalBlob(ref: SignalBlobRef): Promise<SignalRecord[]>;
 
   // ── Realtime (short-lived window) ──────────────────────────────────────────
   /** Subscribe to incoming realtime events; call the returned function to stop. */

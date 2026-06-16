@@ -10,8 +10,10 @@
  * Also covers spec 0009 auth flows against the Firebase Auth emulator.
  */
 import { describe, it, expect, beforeAll } from "vitest";
+import { gzipSync } from "node:zlib";
 import { getApps } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
+import { getStorage } from "firebase-admin/storage";
 import {
   MinuteRecordSchema,
   type Institution,
@@ -20,16 +22,19 @@ import {
   type Session,
   type MinuteRecord,
   type RealtimeRecord,
+  type EventSummary,
+  type SignalRecord,
 } from "@munhub/shared";
 import { createFirebaseProvider, REALTIME_CAP } from "./firebase-provider.js";
-import { Paths, padTs } from "./firebase-paths.js";
+import { Paths, padTs, signalBlobObjectPath } from "./firebase-paths.js";
 import { CANONICAL_SLIM_MINUTE_RECORD_FIELDS } from "./slim-minute-record.js";
 import type { DataProvider } from "./provider.js";
-import type { DataChunk } from "./types.js";
+import type { DataChunk, SignalBlobRef } from "./types.js";
 
 const emulatorOn = Boolean(process.env["FIREBASE_DATABASE_EMULATOR_HOST"]);
 const describeEmu = emulatorOn ? describe : describe.skip;
 const databaseURL = "https://demo-munhub-default-rtdb.firebaseio.com";
+const storageBucket = "demo-munhub.appspot.com";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────────
 let seq = 0;
@@ -93,12 +98,57 @@ function makeMinute(ts: number, ec: number): MinuteRecord {
   };
 }
 
+function makeEventSummary(
+  detectorId: string,
+  sessionId: string,
+  intervalStartTs: number,
+): EventSummary {
+  return {
+    detectorId,
+    sessionId,
+    intervalStartTs,
+    intervalEndTs: intervalStartTs + 3_600_000,
+    signalCount: 3,
+    aboveThresholdCount: 2,
+    tailCount: 1,
+    coincidenceCount: 1,
+    noiseThresholdMv: 12.5,
+    mpvMv: 84.2,
+    histogram: {
+      binWidthMv: 5,
+      minMv: 0,
+      counts: [0, 2, 1],
+    },
+  };
+}
+
+function makeSignal(ts: number, sipmMv: number, coincident = false): SignalRecord {
+  return {
+    ts,
+    sipmMv,
+    adc1: 120,
+    adc2: 121,
+    coincident,
+    deadtimeUs: 400,
+    tempC: 20.5,
+    pressureHpa: 1013.2,
+  };
+}
+
 function adminDatabase() {
   const app = getApps().find((candidate) => candidate.name === "munhub-admin");
   if (app == null) {
     throw new Error("Firebase admin app is not initialized");
   }
   return getDatabase(app);
+}
+
+function adminBucket() {
+  const app = getApps().find((candidate) => candidate.name === "munhub-admin");
+  if (app == null) {
+    throw new Error("Firebase admin app is not initialized");
+  }
+  return getStorage(app).bucket(storageBucket);
 }
 
 function snapshotChildKeys(raw: unknown): string[] {
@@ -113,6 +163,7 @@ describeEmu("FirebaseProvider (emulator)", () => {
     provider = await createFirebaseProvider({
       target: "admin",
       databaseURL,
+      storageBucket,
     });
   });
 
@@ -232,6 +283,106 @@ describeEmu("FirebaseProvider (emulator)", () => {
       toTs: ts,
     });
     expect(MinuteRecordSchema.parse(readBack)).toEqual(makeMinute(ts, 42));
+  });
+
+  it("round-trips slim EventSummary nodes in interval order (S0077 FR1)", async () => {
+    const sid = uid("st");
+    const did = uid("det");
+    const sessionId = uid("sess");
+    await provider.upsertStation(makeStation(sid, "owner1"));
+    await provider.upsertDetector(makeDetector(did, sid));
+
+    const t0 = 1_700_300_000_000;
+    const first = makeEventSummary(did, sessionId, t0);
+    const second = makeEventSummary(did, sessionId, t0 + 3_600_000);
+    const outside = makeEventSummary(did, sessionId, t0 + 7_200_000);
+    await provider.putEventSummary(second);
+    await provider.putEventSummary(outside);
+    await provider.putEventSummary(first);
+
+    const got = await provider.getEventSummaries(did, {
+      fromTs: t0,
+      toTs: t0 + 3_600_000,
+    });
+    expect(got.map((summary) => summary.intervalStartTs)).toEqual([
+      t0,
+      t0 + 3_600_000,
+    ]);
+    expect(got).toEqual([first, second]);
+
+    const rawSummary = (
+      await adminDatabase().ref(Paths.eventSummary(sid, did, t0)).get()
+    ).val();
+    expect(rawSummary).toMatchObject({
+      sessionId,
+      intervalEndTs: t0 + 3_600_000,
+      signalCount: 3,
+      histogram: first.histogram,
+    });
+    expect(rawSummary).not.toHaveProperty("detectorId");
+    expect(rawSummary).not.toHaveProperty("intervalStartTs");
+  });
+
+  it("round-trips gzip NDJSON signal blobs and lists in-range refs (S0077 FR2)", async () => {
+    const sid = uid("st");
+    const did = uid("det");
+    const sessionId = uid("sess");
+    await provider.upsertStation(makeStation(sid, "owner1"));
+    await provider.upsertDetector(makeDetector(did, sid));
+
+    const intervalStartTs = 1_700_400_000_000;
+    const ref: SignalBlobRef = { detectorId: did, sessionId, intervalStartTs };
+    const outsideRef: SignalBlobRef = {
+      detectorId: did,
+      sessionId,
+      intervalStartTs: intervalStartTs + 3_600_000,
+    };
+    const signals = [
+      makeSignal(intervalStartTs + 1_000, 42),
+      makeSignal(intervalStartTs + 2_000, 84, true),
+    ];
+    await provider.putSignalBlob(outsideRef, [makeSignal(outsideRef.intervalStartTs + 1_000, 21)]);
+    await provider.putSignalBlob(ref, signals);
+
+    const listed = await provider.listSignalBlobs(did, {
+      fromTs: intervalStartTs,
+      toTs: intervalStartTs,
+    });
+    expect(listed).toEqual([ref]);
+    expect(await provider.getSignalBlob(ref)).toEqual(signals);
+
+    const [storedBytes] = await adminBucket().file(signalBlobObjectPath(ref)).download();
+    expect([...storedBytes.subarray(0, 2)]).toEqual([0x1f, 0x8b]);
+  });
+
+  it("skips corrupt signal blob lines without coercion (S0077 FR2)", async () => {
+    const sid = uid("st");
+    const did = uid("det");
+    const sessionId = uid("sess");
+    await provider.upsertStation(makeStation(sid, "owner1"));
+    await provider.upsertDetector(makeDetector(did, sid));
+
+    const intervalStartTs = 1_700_500_000_000;
+    const ref: SignalBlobRef = { detectorId: did, sessionId, intervalStartTs };
+    const valid = makeSignal(intervalStartTs + 1_000, 42);
+    const schemaInvalid = {
+      ...makeSignal(intervalStartTs + 2_000, 99),
+      sipmMv: "99",
+    };
+    const ndjson = [
+      JSON.stringify(valid),
+      "{not-json",
+      JSON.stringify(schemaInvalid),
+    ].join("\n");
+    await adminBucket()
+      .file(signalBlobObjectPath(ref))
+      .save(gzipSync(Buffer.from(ndjson, "utf8")), {
+        metadata: {
+          contentType: "application/x-ndjson",
+        },
+      });
+
+    expect(await provider.getSignalBlob(ref)).toEqual([valid]);
   });
 
   it("delivers only realtime events appended after subscription (AC3)", async () => {

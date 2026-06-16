@@ -2,8 +2,8 @@
  * FirebaseProvider — the Phase A concrete DataProvider over munhub-1 Firebase Realtime Database.
  *
  * Supports two SDK targets (FR1):
- *   - "client": uses `firebase/database` + `firebase/auth` (browser / web app).
- *   - "admin":  uses `firebase-admin` (Tauri agent / migration tooling / server).
+ *   - "client": uses `firebase/database` + `firebase/auth` + `firebase/storage`.
+ *   - "admin":  uses `firebase-admin` (RTDB/Auth) + `firebase-admin/storage`.
  *
  * Both share all serialization / validation logic; only the RTDB ref + auth handles differ.
  *
@@ -23,6 +23,8 @@ import type {
   Session,
   MinuteRecord,
   RealtimeRecord,
+  EventSummary,
+  SignalRecord,
 } from "@munhub/shared";
 import {
   UserSchema,
@@ -32,6 +34,8 @@ import {
   SessionSchema,
   MinuteRecordSchema,
   RealtimeRecordSchema,
+  EventSummarySchema,
+  SignalRecordSchema,
 } from "@munhub/shared";
 import type { DataProvider } from "./provider.js";
 import type {
@@ -43,9 +47,10 @@ import type {
   DataChunk,
   ImportReport,
   AuthErrorCode,
+  SignalBlobRef,
 } from "./types.js";
 import { AuthProviderError } from "./types.js";
-import { Paths, padTs } from "./firebase-paths.js";
+import { Paths, padTs, signalBlobObjectPath } from "./firebase-paths.js";
 import {
   serializeUser,
   serializeInstitution,
@@ -60,6 +65,8 @@ import {
   serializeLatestMinuteRecord,
   deserializeMinuteRecord,
   deserializeLatestMinuteRecord,
+  serializeEventSummary,
+  deserializeEventSummary,
   serializeRealtimeRecord,
   deserializeRealtimeRecord,
   warn,
@@ -71,6 +78,8 @@ import type { App, ServiceAccount } from "firebase-admin/app";
 import type * as FirebaseAdminApp from "firebase-admin/app";
 import type { Reference, DataSnapshot, Query } from "firebase-admin/database";
 import type * as FirebaseAdminDatabase from "firebase-admin/database";
+import type * as FirebaseAdminStorage from "firebase-admin/storage";
+import type * as NodeZlib from "node:zlib";
 
 // ── RTDB page size for exportAll (avoids loading entire dataset in memory) ────
 const EXPORT_PAGE_SIZE = 500;
@@ -84,6 +93,7 @@ const AUTH_STATE_USER_READ_DELAY_MS = 50;
 
 const connectedDatabaseEmulators = new WeakSet<object>();
 const connectedAuthEmulators = new WeakSet<object>();
+const connectedStorageEmulators = new WeakSet<object>();
 const realtimeRecordCounts = new Map<string, number>();
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -102,6 +112,7 @@ export interface FirebaseClientConfig {
 export interface FirebaseAdminConfig {
   target: "admin";
   databaseURL: string;
+  storageBucket?: string;
   /** Service-account JSON as a string (from env — never the private/ file). */
   serviceAccount?: string;
   /**
@@ -180,6 +191,12 @@ interface AuthAdapter {
 
 interface RtdbAdapter {
   ref(path: string): RtdbRef;
+}
+
+interface BlobStorageAdapter {
+  upload(path: string, bytes: Uint8Array): Promise<void>;
+  download(path: string): Promise<Uint8Array | null>;
+  list(prefix: string): Promise<string[]>;
 }
 
 function isBrowserRuntime(): boolean {
@@ -322,11 +339,154 @@ async function runtimeImport<TModule>(specifier: string): Promise<TModule> {
   return (await import(/* webpackIgnore: true */ specifier)) as TModule;
 }
 
+const SIGNAL_BLOB_CONTENT_TYPE = "application/x-ndjson";
+
+interface TextCodecGlobal {
+  TextEncoder?: new () => { encode(input: string): Uint8Array };
+  TextDecoder?: new (label?: string) => { decode(input: Uint8Array): string };
+}
+
+interface WebCompressionGlobal extends TextCodecGlobal {
+  Blob?: new (parts: Array<string | Uint8Array>) => {
+    stream(): { pipeThrough(transform: unknown): unknown };
+  };
+  Response?: new (body: unknown) => { arrayBuffer(): Promise<ArrayBuffer> };
+  CompressionStream?: new (format: "gzip") => unknown;
+  DecompressionStream?: new (format: "gzip") => unknown;
+}
+
+function textCodecs(): Required<TextCodecGlobal> {
+  const codecGlobal = globalThis as unknown as TextCodecGlobal;
+  if (codecGlobal.TextEncoder == null || codecGlobal.TextDecoder == null) {
+    throw new Error("UTF-8 TextEncoder/TextDecoder are not available in this runtime.");
+  }
+  return {
+    TextEncoder: codecGlobal.TextEncoder,
+    TextDecoder: codecGlobal.TextDecoder,
+  };
+}
+
+function encodeUtf8(text: string): Uint8Array {
+  const { TextEncoder } = textCodecs();
+  return new TextEncoder().encode(text);
+}
+
+function decodeUtf8(bytes: Uint8Array): string {
+  const { TextDecoder } = textCodecs();
+  return new TextDecoder("utf-8").decode(bytes);
+}
+
+function signalBlobPrefix(detectorId: string): string {
+  return `signals/${detectorId}/`;
+}
+
+function assertSafeStorageSegment(label: string, value: string): void {
+  if (value.trim() === "" || value.includes("/")) {
+    throw new Error(`Invalid signal blob ${label}: ${value}`);
+  }
+}
+
+function assertSignalBlobRef(ref: SignalBlobRef): void {
+  assertSafeStorageSegment("detectorId", ref.detectorId);
+  assertSafeStorageSegment("sessionId", ref.sessionId);
+  if (!Number.isSafeInteger(ref.intervalStartTs) || ref.intervalStartTs < 0) {
+    throw new Error(`Invalid signal blob intervalStartTs: ${ref.intervalStartTs}`);
+  }
+}
+
+function parseSignalBlobObjectPath(path: string): SignalBlobRef | null {
+  const parts = path.split("/");
+  if (parts.length !== 4 || parts[0] !== "signals") return null;
+  const detectorId = parts[1];
+  const sessionId = parts[2];
+  const fileName = parts[3];
+  if (detectorId == null || sessionId == null || fileName == null) return null;
+  const suffix = ".ndjson.gz";
+  if (!fileName.endsWith(suffix)) return null;
+  const key = fileName.slice(0, -suffix.length);
+  if (!/^\d+$/u.test(key)) return null;
+  const intervalStartTs = Number.parseInt(key, 10);
+  if (!Number.isSafeInteger(intervalStartTs)) return null;
+  return { detectorId, sessionId, intervalStartTs };
+}
+
+function serializeSignalRecordsAsNdjson(signals: SignalRecord[]): Uint8Array {
+  const validated = signals.map((signal) => SignalRecordSchema.parse(signal));
+  const lines = validated.map((signal) => JSON.stringify(signal)).join("\n");
+  return encodeUtf8(lines);
+}
+
+function parseSignalRecordsFromNdjson(bytes: Uint8Array, path: string): SignalRecord[] {
+  const text = decodeUtf8(bytes);
+  if (text.length === 0) return [];
+
+  const records: SignalRecord[] = [];
+  const lines = text.split(/\r?\n/u);
+  for (const [index, line] of lines.entries()) {
+    if (line.trim() === "") continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line);
+    } catch (err) {
+      warn(`Signal blob ${path} line ${index + 1} is not valid JSON; quarantined`, err);
+      continue;
+    }
+
+    const result = SignalRecordSchema.safeParse(parsed);
+    if (!result.success) {
+      warn(`Signal blob ${path} line ${index + 1} failed schema validation; quarantined`, result.error.message);
+      continue;
+    }
+    records.push(result.data);
+  }
+  return records;
+}
+
+async function gzipBytes(target: FirebaseProviderConfig["target"], bytes: Uint8Array): Promise<Uint8Array> {
+  if (target === "admin") {
+    const { gzipSync } = await runtimeImport<typeof NodeZlib>("node:zlib");
+    return new Uint8Array(gzipSync(bytes));
+  }
+
+  const webGlobal = globalThis as unknown as WebCompressionGlobal;
+  if (
+    webGlobal.Blob == null ||
+    webGlobal.Response == null ||
+    webGlobal.CompressionStream == null
+  ) {
+    throw new Error("CompressionStream is not available in this runtime.");
+  }
+  const compressedStream = new webGlobal.Blob([bytes])
+    .stream()
+    .pipeThrough(new webGlobal.CompressionStream("gzip"));
+  return new Uint8Array(await new webGlobal.Response(compressedStream).arrayBuffer());
+}
+
+async function gunzipBytes(target: FirebaseProviderConfig["target"], bytes: Uint8Array): Promise<Uint8Array> {
+  if (target === "admin") {
+    const { gunzipSync } = await runtimeImport<typeof NodeZlib>("node:zlib");
+    return new Uint8Array(gunzipSync(bytes));
+  }
+
+  const webGlobal = globalThis as unknown as WebCompressionGlobal;
+  if (
+    webGlobal.Blob == null ||
+    webGlobal.Response == null ||
+    webGlobal.DecompressionStream == null
+  ) {
+    throw new Error("DecompressionStream is not available in this runtime.");
+  }
+  const decompressedStream = new webGlobal.Blob([bytes])
+    .stream()
+    .pipeThrough(new webGlobal.DecompressionStream("gzip"));
+  return new Uint8Array(await new webGlobal.Response(decompressedStream).arrayBuffer());
+}
+
 // ── Client SDK adapter ────────────────────────────────────────────────────────
 
 async function buildClientAdapter(
   config: FirebaseClientConfig,
-): Promise<{ adapter: RtdbAdapter; auth: AuthAdapter }> {
+): Promise<{ adapter: RtdbAdapter; storage: BlobStorageAdapter; auth: AuthAdapter }> {
   // Dynamic import so the admin bundle never pulls in the client SDK.
   const { initializeApp, getApps, getApp } = await import("firebase/app");
   const {
@@ -362,6 +522,14 @@ async function buildClientAdapter(
     deleteUser,
     connectAuthEmulator,
   } = await import("firebase/auth");
+  const {
+    getStorage,
+    ref: storageRef,
+    uploadBytes,
+    getBytes,
+    listAll,
+    connectStorageEmulator,
+  } = await import("firebase/storage");
 
   // Build the options object omitting undefined optional keys — required under
   // exactOptionalPropertyTypes, where `storageBucket: undefined` is not a string.
@@ -381,6 +549,7 @@ async function buildClientAdapter(
       : getApp("munhub-client");
 
   const db = getDatabase(app);
+  const storageInstance = getStorage(app);
   const firebaseAuth = getAuth(app);
   const databaseEmulator = parseEmulatorHost(process.env["FIREBASE_DATABASE_EMULATOR_HOST"]);
   if (databaseEmulator != null && !connectedDatabaseEmulators.has(db)) {
@@ -394,6 +563,12 @@ async function buildClientAdapter(
       disableWarnings: true,
     });
     connectedAuthEmulators.add(firebaseAuth);
+  }
+
+  const storageEmulator = parseEmulatorHost(process.env["FIREBASE_STORAGE_EMULATOR_HOST"]);
+  if (storageEmulator != null && !connectedStorageEmulators.has(storageInstance)) {
+    connectStorageEmulator(storageInstance, storageEmulator.host, storageEmulator.port);
+    connectedStorageEmulators.add(storageInstance);
   }
 
   if (isBrowserRuntime()) {
@@ -508,6 +683,36 @@ async function buildClientAdapter(
     },
   };
 
+  async function listStoragePaths(prefix: string): Promise<string[]> {
+    const result = await listAll(storageRef(storageInstance, prefix));
+    const itemPaths = result.items.map((item) => item.fullPath);
+    const nestedPaths = await Promise.all(
+      result.prefixes.map((childPrefix) => listStoragePaths(childPrefix.fullPath)),
+    );
+    return [...itemPaths, ...nestedPaths.flat()];
+  }
+
+  const storage: BlobStorageAdapter = {
+    async upload(path, bytes) {
+      await uploadBytes(storageRef(storageInstance, path), bytes, {
+        contentType: SIGNAL_BLOB_CONTENT_TYPE,
+      });
+    },
+    async download(path) {
+      try {
+        const data = await getBytes(storageRef(storageInstance, path));
+        return new Uint8Array(data);
+      } catch (err) {
+        const code = authCodeFromError(err);
+        if (code === "storage/object-not-found") return null;
+        throw err;
+      }
+    },
+    list(prefix) {
+      return listStoragePaths(prefix);
+    },
+  };
+
   const auth: AuthAdapter = {
     currentUserUid() {
       return firebaseAuth.currentUser?.uid ?? null;
@@ -558,14 +763,14 @@ async function buildClientAdapter(
     },
   };
 
-  return { adapter, auth };
+  return { adapter, storage, auth };
 }
 
 // ── Admin SDK adapter ─────────────────────────────────────────────────────────
 
 async function buildAdminAdapter(
   config: FirebaseAdminConfig,
-): Promise<{ adapter: RtdbAdapter }> {
+): Promise<{ adapter: RtdbAdapter; storage: BlobStorageAdapter }> {
   // Modular firebase-admin entry points (v12+). Dynamic import so the client
   // bundle never pulls in the admin SDK. Types come from the top-level
   // `import type` (erased at compile time — no runtime SDK pull).
@@ -573,27 +778,40 @@ async function buildAdminAdapter(
     await runtimeImport<typeof FirebaseAdminApp>("firebase-admin/app");
   const { getDatabase } =
     await runtimeImport<typeof FirebaseAdminDatabase>("firebase-admin/database");
+  const { getStorage } =
+    await runtimeImport<typeof FirebaseAdminStorage>("firebase-admin/storage");
 
   // Against the emulator (emulators:exec sets FIREBASE_DATABASE_EMULATOR_HOST),
   // the admin SDK needs no real credential: initialize with just the databaseURL.
   const usingEmulator = Boolean(process.env["FIREBASE_DATABASE_EMULATOR_HOST"]);
+  if (
+    process.env["STORAGE_EMULATOR_HOST"] == null &&
+    process.env["FIREBASE_STORAGE_EMULATOR_HOST"] != null
+  ) {
+    process.env["STORAGE_EMULATOR_HOST"] = `http://${process.env["FIREBASE_STORAGE_EMULATOR_HOST"]}`;
+  }
 
   const existing = getApps().find((a: App) => a.name === "munhub-admin");
+  const appOptions = {
+    databaseURL: config.databaseURL,
+    ...(config.storageBucket != null ? { storageBucket: config.storageBucket } : {}),
+    ...(!usingEmulator || config.serviceAccount != null
+      ? {
+          credential: config.serviceAccount
+            ? cert(JSON.parse(config.serviceAccount) as ServiceAccount)
+            : applicationDefault(),
+        }
+      : {}),
+  };
   const app: App =
     existing ??
-    initializeApp(
-      usingEmulator && !config.serviceAccount
-        ? { databaseURL: config.databaseURL }
-        : {
-            credential: config.serviceAccount
-              ? cert(JSON.parse(config.serviceAccount) as ServiceAccount)
-              : applicationDefault(),
-            databaseURL: config.databaseURL,
-          },
-      "munhub-admin",
-    );
+    initializeApp(appOptions, "munhub-admin");
 
   const db = getDatabase(app);
+  const bucket =
+    config.storageBucket != null
+      ? getStorage(app).bucket(config.storageBucket)
+      : getStorage(app).bucket();
 
   function wrapAdminRef(rawRef: Reference): RtdbRef {
     const wrapped: RtdbRef = {
@@ -707,7 +925,28 @@ async function buildAdminAdapter(
     },
   };
 
-  return { adapter };
+  const storage: BlobStorageAdapter = {
+    async upload(path, bytes) {
+      await bucket.file(path).save(Buffer.from(bytes), {
+        metadata: {
+          contentType: SIGNAL_BLOB_CONTENT_TYPE,
+        },
+      });
+    },
+    async download(path) {
+      const file = bucket.file(path);
+      const [exists] = await file.exists();
+      if (!exists) return null;
+      const [data] = await file.download();
+      return new Uint8Array(data);
+    },
+    async list(prefix) {
+      const [files] = await bucket.getFiles({ prefix });
+      return files.map((file) => file.name);
+    },
+  };
+
+  return { adapter, storage };
 }
 
 // ── Main factory ──────────────────────────────────────────────────────────────
@@ -723,16 +962,19 @@ export async function createFirebaseProvider(
   config: FirebaseProviderConfig,
 ): Promise<DataProvider> {
   let adapter: RtdbAdapter;
+  let storage: BlobStorageAdapter;
   let auth: AuthAdapter | null = null;
   let adminUid: string | null = null;
 
   if (config.target === "client") {
     const result = await buildClientAdapter(config);
     adapter = result.adapter;
+    storage = result.storage;
     auth = result.auth;
   } else {
     const result = await buildAdminAdapter(config);
     adapter = result.adapter;
+    storage = result.storage;
     adminUid = config.uid ?? null;
   }
 
@@ -1073,6 +1315,82 @@ export async function createFirebaseProvider(
     const snap = await adapter.ref(Paths.latest(stationId, detectorId)).get();
     if (!snap.exists()) return null;
     return deserializeLatestMinuteRecord(snap.val());
+  }
+
+  // ── Event science storage ──────────────────────────────────────────────────
+
+  async function putEventSummary(summary: EventSummary): Promise<void> {
+    EventSummarySchema.parse(summary);
+    const stationId = await requireStationId(summary.detectorId);
+    await adapter
+      .ref(Paths.eventSummary(stationId, summary.detectorId, summary.intervalStartTs))
+      .set(serializeEventSummary(summary));
+  }
+
+  async function getEventSummaries(
+    detectorId: string,
+    range: TimeRange,
+  ): Promise<EventSummary[]> {
+    const stationId = await requireStationId(detectorId);
+    const fromKey = padTs(range.fromTs);
+    const toKey = padTs(range.toTs);
+    const snap = await adapter
+      .ref(Paths.eventSummaries(stationId, detectorId))
+      .orderByKey()
+      .startAt(fromKey)
+      .endAt(toKey)
+      .get();
+
+    const summaries: EventSummary[] = [];
+    snap.forEach((child) => {
+      if (child.key == null) return;
+      const summary = deserializeEventSummary(detectorId, child.key, child.val());
+      if (summary != null) summaries.push(summary);
+    });
+    return summaries;
+  }
+
+  async function putSignalBlob(
+    ref: SignalBlobRef,
+    signals: SignalRecord[],
+  ): Promise<void> {
+    assertSignalBlobRef(ref);
+    const path = signalBlobObjectPath(ref);
+    const ndjson = serializeSignalRecordsAsNdjson(signals);
+    const compressed = await gzipBytes(config.target, ndjson);
+    await storage.upload(path, compressed);
+  }
+
+  async function listSignalBlobs(
+    detectorId: string,
+    range: TimeRange,
+  ): Promise<SignalBlobRef[]> {
+    assertSafeStorageSegment("detectorId", detectorId);
+    const paths = await storage.list(signalBlobPrefix(detectorId));
+    return paths
+      .map((path) => parseSignalBlobObjectPath(path))
+      .filter((ref): ref is SignalBlobRef => ref != null)
+      .filter(
+        (ref) =>
+          ref.detectorId === detectorId &&
+          ref.intervalStartTs >= range.fromTs &&
+          ref.intervalStartTs <= range.toTs,
+      )
+      .sort((a, b) => {
+        if (a.intervalStartTs !== b.intervalStartTs) {
+          return a.intervalStartTs - b.intervalStartTs;
+        }
+        return a.sessionId.localeCompare(b.sessionId);
+      });
+  }
+
+  async function getSignalBlob(ref: SignalBlobRef): Promise<SignalRecord[]> {
+    assertSignalBlobRef(ref);
+    const path = signalBlobObjectPath(ref);
+    const compressed = await storage.download(path);
+    if (compressed == null) return [];
+    const ndjson = await gunzipBytes(config.target, compressed);
+    return parseSignalRecordsFromNdjson(ndjson, path);
   }
 
   // ── Realtime ──────────────────────────────────────────────────────────────
@@ -1523,6 +1841,11 @@ export async function createFirebaseProvider(
     getMinuteRecords,
     pushMinuteRecord,
     getLatest,
+    putEventSummary,
+    getEventSummaries,
+    putSignalBlob,
+    listSignalBlobs,
+    getSignalBlob,
     subscribeRealtime,
     pushRealtimeRecord,
     exportAll,

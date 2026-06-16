@@ -39,8 +39,9 @@ location privacy pre-merge.)_
 | `specs/0013-agent-core` | serial parsing + per-minute aggregation + offline sync queue | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #47 |
 | `specs/0024-public-landing-map` | public landing: city-aggregated detector map + live demo | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #48 |
 | `specs/0074-record-slimming` | storage record slimming + realtime cap (federation M1) | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #49 |
-| `specs/0075-event-storage-contract` | event & storage data contract (ADR-003) | Adjutant (spec) + Cursor (impl) | ✅ review-clean | PR #50 |
-| `specs/0076-agent-event-science` | agent: noise calibration + EventSummary + NTP clock sync | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #51 |
+| `specs/0075-event-storage-contract` | event & storage data contract (ADR-003) | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #50 |
+| `specs/0076-agent-event-science` | agent: noise calibration + EventSummary + NTP clock sync | Adjutant (spec) + Cursor (impl) | ✅ merged | PR #51 |
+| `specs/0077-blob-storage` | provider: signal blobs (gzip NDJSON, Cloud Storage) + EventSummary persistence | Adjutant (spec) + Cursor (impl) | 🔍 verifying (CI) | PR #52 |
 
 > ⚠️ **Numbering note:** the `specs/NNNN-*` folders are canonical. The backlog renumbering
 > (WP-03) is in PR #29 (old S-number → NNNN mapping table at the bottom of

@@ -17,7 +17,7 @@ flowchart TB
         web[Web · Next.js<br/>landing · dashboards · admin]:::box
         dp[data-provider<br/>backend-agnostic interface]:::box
         core[shared + physics<br/>contracts + pure science]:::box
-        db[(Data backend<br/>Firebase → Supabase)]:::db
+        db[(Data backend<br/>Firebase RTDB/Auth/Storage → Supabase)]:::db
         ai[AI/ML service<br/>anomaly · Forbush · β]:::box
     end
 
@@ -91,24 +91,26 @@ migration tool** — `exportAll` streams `DataChunk`s out of one provider and `i
 into another — which is how the v5 → v6 and Phase A → Phase B migrations work.
 
 The first concrete implementation is **`FirebaseProvider`** (spec 0007), over the munhub-1 Realtime
-Database and Firebase Auth (spec 0009). A single factory serves two SDK targets behind the same
-interface — the firebase modular **client** SDK (web) and **`firebase-admin`** (agent/tooling/server)
-— and backend SDKs are imported **only** here, never by `web`, `agent`, `api`, or `ai`. The client
-target owns interactive auth (`register`, `signIn`, `signOut`, password reset, session observer)
-and persists browser sessions; the admin target has no interactive session and returns the stable
-`auth/unsupported` provider error for auth methods. It uses incremental realtime listeners (no
-full-node re-download), validates every boundary with the `@munhub/shared` zod schemas, maps backend
-auth failures to stable provider codes, and is tested against the Firebase Emulator Suite (`pnpm
---filter @munhub/data-provider test:emulator`); the default `pnpm test` needs no emulator.
+Database, Firebase Auth (spec 0009), and Firebase Cloud Storage for compressed signal blobs (spec
+0077). A single factory serves two SDK targets behind the same interface — the firebase modular
+**client** SDK (web) and **`firebase-admin`** (agent/tooling/server) — and backend SDKs are imported
+**only** here, never by `web`, `agent`, `api`, or `ai`. The client target owns interactive auth
+(`register`, `signIn`, `signOut`, password reset, session observer) and persists browser sessions;
+the admin target has no interactive session and returns the stable `auth/unsupported` provider error
+for auth methods. It uses incremental realtime listeners (no full-node re-download), validates every
+boundary with the `@munhub/shared` zod schemas, maps backend auth failures to stable provider codes,
+stores compact `EventSummary` records in RTDB, stores above-noise `SignalRecord` batches as
+gzip-compressed NDJSON objects in Cloud Storage, and is tested against the Firebase Emulator Suite
+(`pnpm --filter @munhub/data-provider test:emulator`); the default `pnpm test` needs no emulator.
 
 ## 4. Data flow
 
 ```
 [detector] → agent (read serial → validate → per-minute average + event science
                     → SQLite backup → sync queue)
-           → DataProvider.pushMinuteRecord / pushRealtimeRecord
-           → Firebase Realtime Database (munhub-1)
-           → DataProvider.subscribeRealtime / getMinuteRecords
+           → DataProvider.pushMinuteRecord / putEventSummary / putSignalBlob / pushRealtimeRecord
+           → Firebase Realtime Database + Cloud Storage (munhub-1)
+           → DataProvider.subscribeRealtime / getMinuteRecords / getEventSummaries / getSignalBlob
            → web dashboard (corrections applied via packages/physics, charts via Plotly)
 ```
 
@@ -146,8 +148,9 @@ covered by Vitest without requiring Tauri or Rust in CI:
 The threshold is a reproducible detection threshold for the sub-threshold SiPM dark-count/noise lobe
 described in the scientific foundation, not arbitrary event filtering: each summary records the
 threshold plus total and above-threshold counts, and the calibration history records the active
-threshold version. This milestone computes those records locally only; cloud blob/document retention
-is owned by later provider milestones.
+threshold version. The provider now persists the compact `EventSummary` records and compressed
+above-noise `SignalRecord` blobs; wiring the agent upload queue to those methods remains a thin
+follow-up.
 
 The `apps/agent/src-tauri/` serial bridge is intentionally thin at this stage: it enumerates ports,
 opens a selected port, and emits serial lines to the TypeScript parser path. Full Tauri

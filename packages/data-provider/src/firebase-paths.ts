@@ -9,8 +9,11 @@
  *          ├─ sessions/{sid}
  *          ├─ minutes/{ts}          (zero-padded epoch-ms key)
  *          ├─ realtime/{ts}
+ *          ├─ eventSummaries/{ts}   (zero-padded interval-start key)
  *          └─ latest
  *   /detector_index/{detId}        → stationId  (O(1) lookup)
+ *   Cloud Storage:
+ *     signals/{detId}/{sessionId}/{ts}.ndjson.gz
  *
  * Minute keys are zero-padded to 15 digits so lexical order equals numeric order
  * (epoch-ms in year 9999 ≈ 2.5 × 10^14, 15 digits covers that range).
@@ -51,6 +54,18 @@ export const Paths = {
     `stations/${stationId}/detectors/${detId}/minutes/${padTs(ts)}`,
   realtime: (stationId: string, detId: string) =>
     `stations/${stationId}/detectors/${detId}/realtime`,
+  eventSummaries: (stationId: string, detId: string) =>
+    `stations/${stationId}/detectors/${detId}/eventSummaries`,
+  eventSummary: (stationId: string, detId: string, intervalStartTs: number) =>
+    `stations/${stationId}/detectors/${detId}/eventSummaries/${padTs(intervalStartTs)}`,
   latest: (stationId: string, detId: string) =>
     `stations/${stationId}/detectors/${detId}/latest`,
 } as const;
+
+export function signalBlobObjectPath(ref: {
+  detectorId: string;
+  sessionId: string;
+  intervalStartTs: number;
+}): string {
+  return `signals/${ref.detectorId}/${ref.sessionId}/${padTs(ref.intervalStartTs)}.ndjson.gz`;
+}

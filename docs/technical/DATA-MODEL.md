@@ -113,6 +113,15 @@ The recommended tier is minute summaries on, individual signals on, realtime `lo
 complete raw off. The shared contract rejects a configuration with all retention and realtime axes
 disabled.
 
+The agent uploads event-science outputs through a tier-aware queue before calling the provider:
+
+| Pipeline output | Provider upload rule |
+|---|---|
+| `eventSummaries` | Always queued and flushed through `DataProvider.putEventSummary`, including `local-only` and `none` realtime tiers. |
+| `signalRecords` | Batched into one `SignalBlobRef` per detector/session/interval and flushed through `DataProvider.putSignalBlob` only when `storageTier.individualSignals` is true and `storageTier.realtimeMode` is `cloud-volatile`. |
+| `completeRawReadings` | Converted to schema-valid `SignalRecord[]` blobs per interval and uploaded only when `storageTier.completeRaw.enabled` is true and `storageTier.realtimeMode` is `cloud-volatile`. |
+| `realtimeMode: "local-only"` or `"none"` | No signal blobs are queued for provider upload; local realtime/raw handling stays on the agent. Compact `EventSummary` records still upload. |
+
 `EventSummary` is the compact interval science product produced at the edge, independent of raw
 retention: detector/session ids, interval start/end, signal and threshold/tail/coincidence counts,
 the active noise threshold, optional MPV, and an amplitude histogram. The default summary interval is

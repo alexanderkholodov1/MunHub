@@ -1,6 +1,6 @@
 # 0078 — Wire the agent's event science to the provider (upload + offline queue)
 
-- **Status:** draft
+- **Status:** implemented
 - **Responsible:** Adjutant (spec) → Cursor (impl) → independent review (Gemini — re-probe first; Cursor review-only if down) → Adjutant (verify + macro + PR)
 - **Depends on:** 0076 (the pipeline emits `EventSummary` / `SignalRecord` / complete-raw), 0077 (the provider persists them: `putEventSummary`, `putSignalBlob`), 0013 (`OfflineSyncQueue` + `LocalStore`). Branches from `main`.
 - **Phase:** F2 · **Epic:** EPIC-2 · **Source:** ADR-003 (the agent must actually upload what it computes); 0077 "out of scope: agent UPLOADING via these methods — a thin follow-up".

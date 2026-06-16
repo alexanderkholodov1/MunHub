@@ -140,17 +140,33 @@ covered by Vitest without requiring Tauri or Rust in CI:
   interval `EventSummary` records, and collects above-noise `SignalRecord`s only when the detector's
   `StorageTierConfig.individualSignals` axis is enabled. Complete-raw capture is bounded locally by
   `completeRaw.autoStopMinutes`.
+- `event-science-upload.ts` routes pipeline outputs into the local queue: compact `EventSummary`
+  records always upload, while `SignalRecord` blobs and complete-raw signal-compatible blobs upload
+  only for cloud-enabled tiers. It exposes the agent-side `EventScienceUploader` port plus a thin
+  type-only `DataProvider` adapter for `putEventSummary` and `putSignalBlob`.
 - `local-store.ts` defines the local persistence port plus a tested in-memory implementation. The
-  future SQLite store uses the same interface.
+  future SQLite store uses the same interface, including durable event-summary and signal-blob
+  queues keyed by provider ids.
 - `sync-queue.ts` persists locally before upload, queues while offline, flushes through
-  `DataProvider.pushMinuteRecord`, and is idempotent on `(detectorId, ts)`.
+  `DataProvider.pushMinuteRecord` plus the `EventScienceUploader` port, and is idempotent on
+  `(detectorId, ts)`, `(detectorId, intervalStartTs)`, and `SignalBlobRef`.
 
 The threshold is a reproducible detection threshold for the sub-threshold SiPM dark-count/noise lobe
 described in the scientific foundation, not arbitrary event filtering: each summary records the
 threshold plus total and above-threshold counts, and the calibration history records the active
-threshold version. The provider now persists the compact `EventSummary` records and compressed
-above-noise `SignalRecord` blobs; wiring the agent upload queue to those methods remains a thin
-follow-up.
+threshold version. The agent upload path is now:
+
+```
+AgentEventSciencePipeline output
+  → routePipelineOutput(storage tier matrix)
+  → LocalStore event-summary / signal-blob queues
+  → OfflineSyncQueue fail-stop flush
+  → EventScienceUploader
+  → DataProvider.putEventSummary / putSignalBlob
+```
+
+The agent imports no backend SDK; Firebase/Supabase-specific code remains behind
+`packages/data-provider`.
 
 The `apps/agent/src-tauri/` serial bridge is intentionally thin at this stage: it enumerates ports,
 opens a selected port, and emits serial lines to the TypeScript parser path. Full Tauri

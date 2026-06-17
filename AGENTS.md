@@ -33,6 +33,13 @@ reports. **Supervisor agents** own an area; **worker agents** execute specs in t
 are a worker or supervisor: follow your spec and these rules; cross-cutting or directional
 decisions go through the Adjutant and the maintainer.
 
+**Investigation standard (standing order).** When you investigate, propose, or evaluate a tool,
+provider, or capability — or before concluding something "can't be done" — read the official
+docs / landing page and verify the CURRENT reality FIRST, then act. Do not conclude from shallow
+probing, stale memory, or assumption, and do not build a workaround when the real tool already
+exists. Names and capabilities change (e.g. "Twitter" is now "X"); confirm the present reality
+before relying on it.
+
 ---
 
 ## Required reading order

@@ -1199,9 +1199,10 @@ async function saveMinuteData() {
 /**
  * Save real-time data point to Firebase (expensive, use sparingly)
  */
+let _lastRealtimePrune = 0;
 async function saveRealtimeData(data) {
     if (!recordingProfile) return;
-    
+
     try {
         await firebase.database()
             .ref(`profiles/${recordingProfile}/realtime/${data.timestamp}`)
@@ -1213,6 +1214,16 @@ async function saveRealtimeData(data) {
                 deadtime: data.deadtime,
                 coincident: data.coincident
             });
+
+        // Prune-on-write: bound the realtime node as new points arrive, throttled to once per
+        // cleanup interval. Tying the prune to the incoming data flow (not only a background
+        // timer, which browsers throttle) is what keeps realtime from growing without limit and
+        // overrunning the free-tier database.
+        const now = Date.now();
+        if (now - _lastRealtimePrune >= PERF.CLEANUP_INTERVAL_MS) {
+            _lastRealtimePrune = now;
+            cleanupRealtimeData(recordingProfile).catch(() => {});
+        }
     } catch (error) {
         console.error('Error saving realtime data:', error);
     }
@@ -1567,7 +1578,11 @@ function startRealtimeCleanup() {
         console.log('[Cleanup] Starting periodic realtime cleanup.');
         _runCleanupNow();
         cleanupInterval = setInterval(() => {
-            _runCleanupNow();
+            // Skip if a write-triggered prune already ran within this window — one prune per
+            // interval regardless of which path fires (efficient: ~1 delete command / interval).
+            if (Date.now() - _lastRealtimePrune >= PERF.CLEANUP_INTERVAL_MS) {
+                _runCleanupNow();
+            }
         }, PERF.CLEANUP_INTERVAL_MS);
     }, PERF.REALTIME_RETENTION_MS); // 5 minutes
 }
@@ -1609,6 +1624,7 @@ async function _runCleanupNow() {
     const profileId = recordingProfile || _lastCleanupProfile;
     if (!profileId) return;
     _lastCleanupProfile = profileId;
+    _lastRealtimePrune = Date.now(); // share the throttle with the write-triggered prune
 
     try {
         await cleanupRealtimeData(profileId);

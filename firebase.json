@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "site": "munhub-lab",
     "public": "public",
     "ignore": [
       "firebase.json",

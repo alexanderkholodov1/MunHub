@@ -1,17 +1,33 @@
-# MunHub 5.0 — Cosmic Ray Monitoring Platform
+# MunHub — Cosmic Ray Monitoring Platform (v5, production)
 
 <div align="center">
-  <img src="https://img.shields.io/badge/version-5.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-5.4.2--rc-blue" alt="Version">
+  <img src="https://img.shields.io/badge/status-production-brightgreen" alt="Production">
   <img src="https://img.shields.io/badge/firebase-hosting-orange" alt="Firebase Hosting">
   <img src="https://img.shields.io/badge/license-MIT-green" alt="License">
-  <img src="https://img.shields.io/badge/language-EN%20%7C%20ES-lightgrey" alt="Languages">
 </div>
 
 ---
 
-**MunHub** is a web-based platform for monitoring cosmic ray muon detectors in real time. Researchers, universities, and enthusiasts worldwide can connect their particle detectors, collect data continuously, visualize multiple data streams, and collaborate through a shared cloud database.
+> ## 📍 This branch (`v5-production`) is the LIVE production app
+> - **Live at → [https://munhub-lab.web.app](https://munhub-lab.web.app)** (the old `munra-1.web.app`
+>   and `munhub-1.web.app` now redirect here).
+> - It is the **stable v5 platform** (vanilla JS + Firebase) that colleagues use **today** to connect
+>   the detector and record data, while the ground-up **v6 reconstruction** happens on `main`.
+> - **Data backend:** Firebase project **munhub-1** (Realtime Database + Auth). Accounts and the
+>   full historical dataset were migrated here, cleaned of temporary realtime data.
+> - **Apply v5 fixes here** (this branch), then deploy to `munhub-lab`. Do **not** deploy production
+>   from `main` — that branch is the in-progress v6 and must not overwrite the live site.
+> - Versioning lives in the **commit message** (e.g. `v5.4.2-rc: …`); see the app version in
+>   `public/js/config.js`.
 
-**Live instance:** [https://munra-1.web.app](https://munra-1.web.app)
+**How it works (in one line):** a detector streams data over USB → the browser/agent reads it →
+per-minute averages (and optional short-lived realtime) are stored in Firebase → the dashboards
+render it live. See the sections below for the full detail.
+
+---
+
+**MunHub** is a web-based platform for monitoring cosmic ray muon detectors in real time. Researchers, universities, and enthusiasts worldwide can connect their particle detectors, collect data continuously, visualize multiple data streams, and collaborate through a shared cloud database.
 
 ---
 

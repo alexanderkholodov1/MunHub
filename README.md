@@ -23,6 +23,15 @@ and open, are an observatory that **has never existed in this region before.**
 
 ---
 
+> ### 🚀 Live production vs. this branch
+> - **The platform running in production today is the stable v5 app**, served at
+>   **[munhub-lab.web.app](https://munhub-lab.web.app)** from the **[`v5-production`](https://github.com/alexanderkholodov1/MunHub/tree/v5-production)**
+>   branch. Fixes for the live site are applied there.
+> - **`main` is the in-progress v6 reconstruction** described below. It does **not** auto-deploy —
+>   the production site is never redeployed from `main`. v6 will ship to its own URL when ready.
+
+---
+
 ## 🌌 Why this matters to science
 
 Cosmic rays are messengers from the galaxy and from solar storms. Measuring them well, in the right

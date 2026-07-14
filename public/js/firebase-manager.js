@@ -19,14 +19,19 @@ const FirebaseManager = (() => {
      * @returns {Promise<firebase.database.Database>}
      */
     async function init(url) {
-        const databaseURL =
-            url ||
-            localStorage.getItem('munra_firebase_url') ||
-            DEFAULT_FIREBASE_URL;
-
-        const config = { ...FIREBASE_CONFIG, databaseURL };
-
         try {
+            // localStorage can throw (private browsing, restricted in-app webviews,
+            // storage-partitioned mobile browsers) — that must not skip the catch below,
+            // or the connection status is left stuck at its initial "Connecting…" forever.
+            let storedUrl = null;
+            try {
+                storedUrl = localStorage.getItem('munra_firebase_url');
+            } catch (storageErr) {
+                console.warn('[FirebaseManager] localStorage unavailable:', storageErr);
+            }
+            const databaseURL = url || storedUrl || DEFAULT_FIREBASE_URL;
+            const config = { ...FIREBASE_CONFIG, databaseURL };
+
             // If an app already exists, delete it first (user switched DB)
             if (firebase.apps.length > 0) {
                 await firebase.app().delete();

@@ -29,17 +29,36 @@ const ProfileManager = (() => {
      */
     async function loadProfiles() {
         const db = FirebaseManager.getDb();
-        if (!db) return;
+        if (!db) {
+            // Was silent — left the status badge on its initial "Connecting…" forever.
+            UIManager.setConnectionStatus('error', 'Not connected');
+            return;
+        }
 
         try {
             // Step 1: Get profile keys via REST shallow query
             // Use the active DB URL (supports custom/migrated databases)
             const activeDbUrl = localStorage.getItem('munra_firebase_url') || DEFAULT_FIREBASE_URL;
             const url = `${activeDbUrl}/profiles.json?shallow=true`;
-            const res = await fetch(url);
+            // A stalled mobile-network request must not hang forever with no feedback —
+            // a bare fetch() with no timeout can leave "Connecting…" stuck indefinitely.
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+            let res;
+            try {
+                res = await fetch(url, { signal: controller.signal });
+            } finally {
+                clearTimeout(timeoutId);
+            }
             if (!res.ok) throw new Error(`Shallow query failed: ${res.status}`);
             const keysObj = await res.json();
-            if (!keysObj) { _allProfiles = {}; _populateSelect(); return; }
+            if (!keysObj) {
+                // Connection succeeded, database just has no profiles yet — still "Connected".
+                _allProfiles = {};
+                _populateSelect();
+                UIManager.setConnectionStatus('connected', 'Connected');
+                return;
+            }
 
             const profileKeys = Object.keys(keysObj);
 

@@ -9,15 +9,33 @@ document.addEventListener('DOMContentLoaded', () => {
     window.showToast = UIManager.showToast;
 
     // ── 1. Preferences ─────────────────────────────────────────────────
-    const savedStacked = localStorage.getItem('munra_stacked') === 'true';
-    const savedRange   = localStorage.getItem('munra_range');
+    // localStorage can throw (private browsing, restricted in-app webviews, some
+    // mobile browsers) — guarded so a storage failure can't abort init before
+    // Firebase is even reached, which is what left the status badge stuck on
+    // "Connecting…" indefinitely on affected phones.
+    let savedStacked = false;
+    let savedRange = null;
+    try {
+        savedStacked = localStorage.getItem('munra_stacked') === 'true';
+        savedRange   = localStorage.getItem('munra_range');
+    } catch (err) {
+        console.warn('[AppEntry] localStorage unavailable, using defaults:', err);
+    }
 
     document.getElementById('modeSwitch').checked = savedStacked;
     UIManager.updateModeLabels(savedStacked);
     UIManager.initTheme();
 
     // ── 2. Firebase + Charts ───────────────────────────────────────────
-    FirebaseManager.init().then(() => ProfileManager.loadProfiles());
+    // .catch() is required here: without it, a rejected init() (or a rejected
+    // loadProfiles() the .then() never even runs) is an unhandled rejection —
+    // invisible to the user — and the "Connecting…" badge never updates.
+    FirebaseManager.init()
+        .then(() => ProfileManager.loadProfiles())
+        .catch(err => {
+            console.error('[AppEntry] Firebase connection failed:', err);
+            UIManager.setConnectionStatus('error', 'Connection failed');
+        });
     ChartManager.init();
 
     ChartManager.setStackedMode(savedStacked);
@@ -63,7 +81,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ── 4. Restore slot sources from localStorage ──────────────────────
     for (let s = 0; s < 4; s++) {
-        const saved = localStorage.getItem(`munra_slot${s}_source`);
+        let saved = null;
+        try {
+            saved = localStorage.getItem(`munra_slot${s}_source`);
+        } catch (err) {
+            console.warn('[AppEntry] localStorage unavailable, skipping slot restore:', err);
+            break; // storage is unavailable for the whole session — no point retrying per-slot
+        }
         if (saved) {
             const sel = document.querySelector(`.chart-source-select[data-slot="${s}"]`);
             if (sel) sel.value = saved;

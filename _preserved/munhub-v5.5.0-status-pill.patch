@@ -1,0 +1,353 @@
+diff --git a/public/css/main.css b/public/css/main.css
+index 26b2b21..e2c11c9 100644
+--- a/public/css/main.css
++++ b/public/css/main.css
+@@ -167,7 +167,13 @@ body { display: flex; flex-direction: column; }
+     animation: pulse 2s infinite;
+ }
+ .status-indicator.connected .status-dot { background: var(--success); animation: none; }
++/* Amber, steady: the database connection is fine, the DETECTOR has just gone quiet. It is not a
++   failure of the platform, so it must not wear the platform's failure colour — and it is not
++   normal either, so it must not wear green (the old code showed 59-minute-old data as
++   "connected"). Steady rather than pulsing: pulsing is reserved for "still connecting". */
++.status-indicator.stale     .status-dot { background: var(--warning); animation: none; }
+ .status-indicator.error     .status-dot { background: var(--danger); }
++.status-indicator[title] { cursor: help; }
+ @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+ 
+ /* Time buttons — Desktop inline */
+diff --git a/public/index.html b/public/index.html
+index 8e8cf28..90f64ea 100644
+--- a/public/index.html
++++ b/public/index.html
+@@ -17,7 +17,7 @@
+     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+ 
+-    <link rel="stylesheet" href="css/main.css?v=5.4.4">
++    <link rel="stylesheet" href="css/main.css?v=5.5.0">
+ </head>
+ <body>
+ 
+@@ -595,17 +595,17 @@
+     <div class="toast-container" id="toastContainer"></div>
+ 
+     <!-- ═══════════════ SCRIPTS ═══════════════ -->
+-    <script src="js/config.js?v=5.4.4"></script>
+-    <script src="js/ui-manager.js?v=5.4.4"></script>
+-    <script src="js/firebase-manager.js?v=5.4.4"></script>
+-    <script src="js/data-manager.js?v=5.4.4"></script>
+-    <script src="js/chart-manager.js?v=5.4.4"></script>
+-    <script src="js/profile-manager.js?v=5.4.4"></script>
+-    <script src="js/session-manager.js?v=5.4.4"></script>
+-    <script src="js/upload-manager.js?v=5.4.4"></script>
+-    <script src="js/db-admin.js?v=5.4.4"></script>
+-    <script src="js/auth.js?v=5.4.4"></script>
+-    <script src="js/serial-reader.js?v=5.4.4"></script>
+-    <script src="js/app-entry.js?v=5.4.4"></script>
++    <script src="js/config.js?v=5.5.0"></script>
++    <script src="js/ui-manager.js?v=5.5.0"></script>
++    <script src="js/firebase-manager.js?v=5.5.0"></script>
++    <script src="js/data-manager.js?v=5.5.0"></script>
++    <script src="js/chart-manager.js?v=5.5.0"></script>
++    <script src="js/profile-manager.js?v=5.5.0"></script>
++    <script src="js/session-manager.js?v=5.5.0"></script>
++    <script src="js/upload-manager.js?v=5.5.0"></script>
++    <script src="js/db-admin.js?v=5.5.0"></script>
++    <script src="js/auth.js?v=5.5.0"></script>
++    <script src="js/serial-reader.js?v=5.5.0"></script>
++    <script src="js/app-entry.js?v=5.5.0"></script>
+ </body>
+ </html>
+diff --git a/public/js/config.js b/public/js/config.js
+index 5e7a6c6..05d1b2d 100644
+--- a/public/js/config.js
++++ b/public/js/config.js
+@@ -7,9 +7,9 @@
+  * NO application logic belongs here — only values and references.
+  */
+ 
+-const APP_VERSION = '5.4.2-rc';
++const APP_VERSION = '5.5.0';
+ const APP_NAME    = 'MunHub';
+-const APP_BUILD   = 'Jul 2026';
++const APP_BUILD   = 'Aug 2026';
+ 
+ // ─── Firebase ───────────────────────────────────────────────────────────────
+ // munhub-1 web app config. The web apiKey is PUBLIC (shipped to the browser; protected by
+diff --git a/public/js/data-manager.js b/public/js/data-manager.js
+index 72cadd5..efd2b4c 100644
+--- a/public/js/data-manager.js
++++ b/public/js/data-manager.js
+@@ -30,6 +30,13 @@ const DataManager = (() => {
+     let _sessionRef = null;
+     let _realtimeRef = null;
+     let _latestRef = null;
++    let _connectedRef = null;
++
++    // Status-pill state. `_backendConnected` starts true so the badge reports data age rather
++    // than crying "Offline" during the second before `.info/connected` first resolves.
++    let _backendConnected = true;
++    let _statusTimer = null;
++    const _STATUS_TICK_MS = 1000;
+ 
+     // Debounce rebuild (child_added fires many times on initial load)
+     let _rebuildTimer = null;
+@@ -102,11 +109,18 @@ const DataManager = (() => {
+ 
+         const base = db.ref(`profiles/${profileId}`);
+ 
++        // The status pill is derived from state on a timer, so it must be armed for this db.
++        _watchConnection(db);
++
+         // ── Latest value (for live stats) — tiny, always-on ──
+         _latestRef = base.child('latest');
+         _latestRef.on('value', snap => {
++            // Assign whatever came back, INCLUDING null. The old code only re-rendered the badge
++            // `if (_latestData)`, so a profile with no `latest` node left the pill showing the
++            // green "Connected" that profile-manager had just set: no data at all looked healthier
++            // than data one hour old. Absence is now a state the badge reports, not one it hides.
+             _latestData = snap.val();
+-            if (_latestData) _updateLiveStatus(_latestData);
++            _renderStatus();
+         });
+ 
+         // ── Sessions (minute data) — incremental via child events ──
+@@ -193,16 +207,111 @@ const DataManager = (() => {
+         _notify();
+     }
+ 
+-    /** Update connection status indicator based on latest data age. */
+-    function _updateLiveStatus(latest) {
+-        const ageSec = Date.now() / 1000 - latest.ts;
++    /**
++     * Decide what the status pill should say. Pure — takes the world, returns the badge — so the
++     * rule can be reasoned about (and, when this branch ever gets a test runner, tested) without
++     * a browser or a database.
++     *
++     * The pill answers TWO different questions and used to blur them into one red dot:
++     *
++     *   • Is the browser talking to Firebase?  That is `backendConnected`, and it is the only
++     *     thing that deserves the word "connection". It comes from `.info/connected`, which the
++     *     Realtime Database SDK maintains for exactly this purpose.
++     *   • Has the detector sent anything recently?  That is data age, and a silent detector is
++     *     not a backend failure — the platform is working perfectly and reporting that nothing is
++     *     arriving.
++     *
++     * Conflating them cost a real morning: the dot went red when the recording machine was shut
++     * down, was read as "the backend is down", and sent the operator to the Firebase console
++     * looking for a quota problem that was never there.
++     *
++     * @param {{backendConnected: boolean, latest: {ts: number}|null, nowMs: number}} world
++     * @returns {{status: string, text: string, title: string}}
++     */
++    function computeStatus({ backendConnected, latest, nowMs }) {
++        if (!backendConnected) {
++            return {
++                status: 'error',
++                text: 'Offline',
++                title: 'This browser cannot reach the MunHub database. Check your own internet connection — the detector is unaffected.',
++            };
++        }
++        if (!latest || typeof latest.ts !== 'number') {
++            return {
++                status: 'stale',
++                text: 'No data',
++                title: 'Connected to the database, but this profile has never received a reading. The detector has not uploaded anything yet.',
++            };
++        }
++
++        const ageSec = Math.max(0, nowMs / 1000 - latest.ts);
++        const connectedNote =
++            'The database connection is fine — this is how long ago the DETECTOR last reported.';
++
+         if (ageSec < 120) {
+-            UIManager.setConnectionStatus('connected', 'LIVE');
+-        } else if (ageSec < 3600) {
+-            UIManager.setConnectionStatus('connected', `${Math.floor(ageSec / 60)}m ago`);
+-        } else {
+-            UIManager.setConnectionStatus('error', `${Math.floor(ageSec / 3600)}h ago`);
++            return { status: 'connected', text: 'LIVE', title: `Detector reporting normally. ${connectedNote}` };
++        }
++        if (ageSec < 3600) {
++            return {
++                status: 'stale',
++                text: `${Math.floor(ageSec / 60)}m ago`,
++                title: `Detector silent for ${Math.floor(ageSec / 60)} minutes. ${connectedNote}`,
++            };
++        }
++        const hours = Math.floor(ageSec / 3600);
++        return {
++            status: 'error',
++            text: hours < 48 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`,
++            title: `Detector silent for ${hours} hours. ${connectedNote} Check that the recording computer is on and the uploader is running.`,
++        };
++    }
++
++    /**
++     * Re-render the status pill from current state.
++     *
++     * Called on a timer as well as on data arrival, because the old version only ran inside the
++     * `latest` value callback: with no new data there was no callback, so the badge FROZE at
++     * whatever it last said. A dashboard left open while the detector died kept showing a green
++     * "LIVE" indefinitely, and one that rendered "3h ago" stayed red even after the detector came
++     * back — neither state was ever re-examined against the clock.
++     */
++    function _renderStatus() {
++        const badge = computeStatus({
++            backendConnected: _backendConnected,
++            latest: _latestData,
++            nowMs: Date.now(),
++        });
++        UIManager.setConnectionStatus(badge.status, badge.text, badge.title);
++    }
++
++    /**
++     * Start the once-a-second re-render, and subscribe to the SDK's own connectivity flag.
++     *
++     * `.info/connected` is a virtual path the Realtime Database SDK maintains locally: true while
++     * the client holds a live socket, false while it does not. It is the honest answer to "is the
++     * backend reachable", and reading it costs no bandwidth and no quota.
++     *
++     * Safe to call repeatedly — `firebase-manager.js` deletes and recreates the app when the user
++     * switches databases, which invalidates the old ref, so this re-attaches to the current one.
++     */
++    function _watchConnection(db) {
++        if (_connectedRef) { _connectedRef.off(); _connectedRef = null; }
++        try {
++            _connectedRef = db.ref('.info/connected');
++            _connectedRef.on('value', snap => {
++                _backendConnected = snap.val() === true;
++                _renderStatus();
++            });
++        } catch (err) {
++            // Never let the badge take the dashboard down with it. An unreadable `.info/connected`
++            // means we cannot prove the connection is down, so we keep reporting data age.
++            console.warn('[DataManager] .info/connected unavailable:', err);
++            _backendConnected = true;
++        }
++        if (_statusTimer === null) {
++            _statusTimer = setInterval(_renderStatus, _STATUS_TICK_MS);
+         }
++        _renderStatus();
+     }
+ 
+     // ─── LTTB Downsampling ──────────────────────────────────────────────
+@@ -277,6 +386,8 @@ const DataManager = (() => {
+     // ─── Disconnect ─────────────────────────────────────────────────────
+     function disconnect() {
+         _unsubscribe();
++        if (_connectedRef) { _connectedRef.off(); _connectedRef = null; }
++        if (_statusTimer !== null) { clearInterval(_statusTimer); _statusTimer = null; }
+         _currentProfile = '';
+         _sessionsData = {};
+         _allData = [];
+@@ -317,6 +428,9 @@ const DataManager = (() => {
+         subscribeToProfile,
+         disconnect,
+         downsample,
+-        pushLocalRealtime
++        pushLocalRealtime,
++        // Exported so the pill rule can be exercised from the console (and, when this branch
++        // gains a test runner, asserted) without a browser or a live database.
++        computeStatus
+     });
+ })();
+diff --git a/public/js/ui-manager.js b/public/js/ui-manager.js
+index 018cf13..11a3f14 100644
+--- a/public/js/ui-manager.js
++++ b/public/js/ui-manager.js
+@@ -20,10 +20,27 @@ const UIManager = (() => {
+     }
+ 
+     // ─── Connection Status ──────────────────────────────────────────────
+-    function setConnectionStatus(status, text) {
++    /**
++     * @param {'connected'|'stale'|'error'|''} status  drives the dot colour
++     * @param {string} text                            the short label (hidden on narrow screens)
++     * @param {string} [title]                         the full explanation, on hover and for
++     *   screen readers. On a phone the CSS hides `.status-text` entirely, so the colour is the
++     *   whole message — and a red dot with no words was read as "the backend is down" when it
++     *   actually meant "the detector has not reported for an hour". The title is where the
++     *   difference is spelled out.
++     */
++    function setConnectionStatus(status, text, title) {
+         const el = document.getElementById('connectionStatus');
++        if (!el) return;
+         el.className = 'status-indicator ' + status;
+         el.querySelector('.status-text').textContent = text;
++        if (title) {
++            el.setAttribute('title', title);
++            el.setAttribute('aria-label', `${text}. ${title}`);
++        } else {
++            el.removeAttribute('title');
++            el.setAttribute('aria-label', text);
++        }
+     }
+ 
+     // ─── Theme ──────────────────────────────────────────────────────────
+diff --git a/tools/check-status-rule.mjs b/tools/check-status-rule.mjs
+new file mode 100644
+index 0000000..13ee7af
+--- /dev/null
++++ b/tools/check-status-rule.mjs
+@@ -0,0 +1,59 @@
++// MunHub — status-pill rule check
++//
++// `v5-production` has no build step and no test runner, which is fine for a static site right up
++// until a rule with real branches lives in it. The status pill is such a rule, and it was wrong in
++// three ways at once, so it gets the one check this branch needs:
++//
++//     node tools/check-status-rule.mjs
++//
++// It loads the SHIPPED public/js/data-manager.js in a minimal fake browser and exercises the real
++// `computeStatus` — no reimplementation, so the file under test is the file that deploys. Not
++// served: this lives outside public/, so Firebase Hosting never sees it.
++// Loads the real data-manager.js in a minimal fake browser and exercises computeStatus against
++// the exact scenarios the operator described. No mocks of the rule itself — the shipped file runs.
++import { readFileSync } from "node:fs";
++import vm from "node:vm";
++
++const src = readFileSync(process.argv[2] ?? new URL("../public/js/data-manager.js", import.meta.url).pathname, "utf8");
++const sandbox = {
++  console,
++  setInterval: () => 1,
++  clearInterval: () => {},
++  setTimeout: () => 1,
++  clearTimeout: () => {},
++  Date,
++  Math,
++  Object,
++  PERF: { REALTIME_RETENTION_MS: 480000, REALTIME_LIMIT: 5000 },
++  FirebaseManager: { getDb: () => null },
++  UIManager: { setConnectionStatus: () => {} },
++};
++vm.createContext(sandbox);
++vm.runInContext(`${src}\n;globalThis.__DM = DataManager;`, sandbox);
++const { computeStatus } = sandbox.__DM;
++
++const NOW = 1_800_000_000_000;
++const agoSec = (s) => ({ ts: NOW / 1000 - s });
++const cases = [
++  ["backend unreachable, data fresh", { backendConnected: false, latest: agoSec(5), nowMs: NOW }, "error", "Offline"],
++  ["no latest node at all", { backendConnected: true, latest: null, nowMs: NOW }, "stale", "No data"],
++  ["latest with no ts field", { backendConnected: true, latest: {}, nowMs: NOW }, "stale", "No data"],
++  ["data 5 seconds old", { backendConnected: true, latest: agoSec(5), nowMs: NOW }, "connected", "LIVE"],
++  ["data 119 seconds old", { backendConnected: true, latest: agoSec(119), nowMs: NOW }, "connected", "LIVE"],
++  ["data 5 minutes old", { backendConnected: true, latest: agoSec(300), nowMs: NOW }, "stale", "5m ago"],
++  ["data 59 minutes old (was GREEN before)", { backendConnected: true, latest: agoSec(3540), nowMs: NOW }, "stale", "59m ago"],
++  ["data 3 hours old (the reported symptom)", { backendConnected: true, latest: agoSec(10800), nowMs: NOW }, "error", "3h ago"],
++  ["data 5 days old reads in days", { backendConnected: true, latest: agoSec(432000), nowMs: NOW }, "error", "5d ago"],
++  ["clock skew: ts in the future is not negative", { backendConnected: true, latest: agoSec(-500), nowMs: NOW }, "connected", "LIVE"],
++];
++
++let failed = 0;
++for (const [name, world, status, text] of cases) {
++  const got = computeStatus(world);
++  const ok = got.status === status && got.text === text;
++  if (!ok) failed += 1;
++  console.log(`${ok ? "PASS" : "FAIL"}  ${name.padEnd(42)} -> ${got.status}/"${got.text}"${ok ? "" : `  (expected ${status}/"${text}")`}`);
++  if (ok && !got.title) { console.log("FAIL  ...missing title"); failed += 1; }
++}
++console.log(`\n${cases.length - failed}/${cases.length} passed`);
++process.exit(failed === 0 ? 0 : 1);

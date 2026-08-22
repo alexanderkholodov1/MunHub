@@ -1,0 +1,29 @@
+v5.5.0: the status pill stops calling a silent detector a backend failure
+
+The red dot was read as "the site cannot reach its backend". It never meant that. It meant the
+newest reading in this profile was over an hour old — which is exactly what happens when the
+recording computer is switched off, and it sent a morning to the Firebase console looking for a
+quota problem that was never there.
+
+Three defects, all in how the pill decides what to say:
+
+1. It never distinguished the database connection from detector freshness. Both arrived as one
+   red dot, and on a phone the CSS hides the label, so the colour was the entire message. The
+   SDK already publishes the real answer at `.info/connected`; that now drives "Offline", and
+   data age gets its own wording plus a title that says the connection is fine.
+
+2. It only recomputed inside the `latest` value callback, so with no new data there was no
+   callback and the badge froze. A dashboard left open while the detector died kept showing a
+   green LIVE indefinitely; one that had rendered "3h ago" stayed red even after data resumed.
+   The pill is now derived from state on a one-second tick.
+
+3. It skipped the update entirely when `latest` was absent (`if (_latestData)`), so a profile
+   that had never received a reading kept whatever green the profile loader had just set. No
+   data at all looked healthier than data one hour old. Absence is now a reported state.
+
+Data between two minutes and an hour old was previously shown as "connected" green; it is now
+amber. The platform is working and the detector is quiet — that is neither success nor failure,
+and it was the one state the two-colour pill could not express.
+
+tools/check-status-rule.mjs exercises the shipped file's rule across all ten cases, including the
+reported symptom and a future-dated timestamp. It lives outside public/, so it is not served.
